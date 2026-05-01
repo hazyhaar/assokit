@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"io/fs"
 	"github.com/hazyhaar/assokit/pkg/api"
 )
 
@@ -20,7 +21,7 @@ func main() {
 		DBPath:     "asso.db",
 		Port:       "8080",
 		BaseURL:    "http://localhost:8080",
-		BrandingFS: configFS,
+		BrandingFS: subFS(configFS, "config"),
 	}
 
 	app, err := api.New(opts)
@@ -52,4 +53,8 @@ func main() {
 	case err := <-errChan:
 		log.Fatalf("Erreur serveur: %v", err)
 	}
+}
+func subFS(f fs.FS, dir string) fs.FS {
+	s, _ := fs.Sub(f, dir)
+	return s
 }

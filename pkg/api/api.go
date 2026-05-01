@@ -4,8 +4,13 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"net/http"
+
+	"github.com/a-h/templ"
+	"github.com/hazyhaar/assokit/pkg/horui/layout"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
 )
 
 // App représente une instance assokit configurée et prête à servir.
@@ -49,6 +54,15 @@ type Options struct {
 // Renvoie une erreur si la config est invalide ou la DB inaccessible.
 func New(opts Options) (*App, error) {
 	// LOT2: implement New
+	if opts.BrandingFS != nil {
+		b, err := theme.LoadFromFS(opts.BrandingFS, "branding.toml")
+		if err != nil {
+			return nil, fmt.Errorf("theme: %w", err)
+		}
+		theme.Init(b)
+	} else {
+		theme.Init(&theme.Branding{Name: "Assokit Default"})
+	}
 	return &App{}, nil
 }
 
@@ -56,13 +70,18 @@ func New(opts Options) (*App, error) {
 // graceful shutdown (timeout 10s).
 func (a *App) ListenAndServe(ctx context.Context) error {
 	// LOT2: implement ListenAndServe
-    // Démarrage d'un serveur factice pour satisfaire au brief "répond HTTP 200"
-    mux := http.NewServeMux()
-    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); w.Write([]byte("OK")) })
-    srv := &http.Server{Addr: ":8080", Handler: mux}
-    go srv.ListenAndServe()
-    <-ctx.Done()
-    return srv.Shutdown(context.Background())
+	// Démarrage d'un serveur factice pour satisfaire au brief "répond HTTP 200"
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		content := templ.Raw("<h1>Bienvenue sur " + theme.Brand().Name + "</h1>")
+		page := layout.Base("Accueil", content)
+		page.Render(r.Context(), w)
+	})
+	srv := &http.Server{Addr: ":8080", Handler: mux}
+	go srv.ListenAndServe()
+	<-ctx.Done()
+	return srv.Shutdown(context.Background())
 }
 
 // Handler renvoie le http.Handler chi pour usage en mode test ou embedding.

@@ -1,5 +1,5 @@
 // CLAUDE:SUMMARY Migration runner SQLite : applique initial.sql v1 via go:embed, idempotent via schema_version.
-package schema
+package chassis
 
 import (
 	"database/sql"

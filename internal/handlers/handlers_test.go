@@ -24,7 +24,7 @@ func newTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("open: %v", err)
 	}
 	db.SetMaxOpenConns(1)
-	if err := schema.Run(db); err != nil {
+	if err := chassis.Run(db); err != nil {
 		t.Fatalf("schema: %v", err)
 	}
 	return db

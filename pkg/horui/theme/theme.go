@@ -1,134 +1,174 @@
-// CLAUDE:SUMMARY Theme NPS : palette extraite du HTML L'administrateur + chargement/sauvegarde DB horui_config.
+// Package theme gère le branding runtime de l'instance assokit.
+//
+// Le branding est chargé une fois au boot depuis un branding.toml et stocké
+// dans un singleton atomic.Value. Les helpers T() et Brand() sont thread-safe
+// et lock-free en lecture (hot-path web).
+//
+// Reload runtime supporté : ReloadFromFS() peut être appelé depuis l'admin UI
+// (Sprint 2) pour appliquer un nouveau branding sans redémarrer.
 package theme
 
 import (
-	"database/sql"
 	"fmt"
+	"io/fs"
+	"regexp"
 	"strings"
+	"sync/atomic"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
-// Theme représente la charte graphique du site.
-type Theme struct {
-	PrimaryColor     string // couleur principale (anis)
-	SecondaryColor   string // couleur secondaire (rouge)
-	BackgroundColor  string // fond page
-	SurfaceColor     string // fond cartes / sections
-	TextColor        string // texte principal
-	TextMutedColor   string // texte secondaire
-	BorderColor      string // bordures
-	AccentColor      string // accent (anis clair)
-	FontFamily       string // police corps
-	FontFamilyLabel  string // police labels / nav
-	FontFamilyTitle  string // police titres
-	BorderRadius     string // rayon bordure boutons/cartes
-	LogoURL          string // URL logo (optionnel)
-	SiteName         string // nom du site
-	SiteTagline      string // accroche
+// Branding contient toute la configuration cosmétique et textuelle d'une instance.
+type Branding struct {
+	// Identité
+	Name         string `toml:"name"`
+	Tagline      string `toml:"tagline"`
+	BaseURL      string `toml:"base_url"`
+	ContactEmail string `toml:"contact_email"`
+
+	// Couleurs (CSS hex, ex: "#1a73e8")
+	Colors struct {
+		Primary   string `toml:"primary"`
+		Secondary string `toml:"secondary"`
+		Accent    string `toml:"accent"`
+		BgLight   string `toml:"bg_light"`
+		BgDark    string `toml:"bg_dark"`
+		Text      string `toml:"text"`
+	} `toml:"colors"`
+
+	// Typographie
+	FontFamily string `toml:"font_family"`
+
+	// Assets (chemins relatifs au BrandingFS racine)
+	LogoPath    string `toml:"logo_path"`
+	FaviconPath string `toml:"favicon_path"`
+	OGImagePath string `toml:"og_image_path"`
+
+	// Footer
+	Footer struct {
+		Lines []string `toml:"lines"`
+	} `toml:"footer"`
+
+	// Navigation top (slug → label)
+	Nav []NavItem `toml:"nav"`
+
+	// Textes UI surchargeables (i18n). key → string.
+	Texts map[string]string `toml:"texts"`
+
+	// Locale (code BCP 47, ex: "fr-FR"). Utilisé pour formatages futurs.
+	Locale string `toml:"locale"`
 }
 
-// Defaults retourne la charte extraite du HTML L'administrateur (assokit.org proto).
-// Palette anis + rouge, typographie DM Sans / Bebas Neue / Barlow Condensed.
-func Defaults() Theme {
-	return Theme{
-		PrimaryColor:    "#00897b", // --anis
-		SecondaryColor:  "#d63031", // --red
-		BackgroundColor: "#ffffff", // --white
-		SurfaceColor:    "#f7f6f3", // --off
-		TextColor:       "#1a1714", // --ink
-		TextMutedColor:  "#6b6560", // --muted
-		BorderColor:     "#e2ddd6", // --border
-		AccentColor:     "#e0f2f1", // --anis-light
-		FontFamily:      "'DM Sans', sans-serif",
-		FontFamilyLabel: "'Barlow Condensed', sans-serif",
-		FontFamilyTitle: "'Bebas Neue', sans-serif",
-		BorderRadius:    "2px",
-		SiteName:        "NONPOSSUMUS",
-		SiteTagline:     "Plateforme citoyenne indépendante",
+// NavItem = entrée de menu top.
+type NavItem struct {
+	Slug  string `toml:"slug"`
+	Label string `toml:"label"`
+	Order int    `toml:"order"`
+}
+
+// brand stocke le pointeur courant *Branding. atomic.Value pour lecture lock-free.
+var brand atomic.Value // *Branding
+
+var (
+	hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
+	invalidFontRegex = regexp.MustCompile(`[<>;}]`)
+)
+
+// Init est appelé une fois au boot avec le branding initial.
+// Panique si b est nil.
+func Init(b *Branding) {
+	if b == nil {
+		panic("theme.Init: nil branding")
 	}
+	brand.Store(b)
 }
 
-// CSSVars génère le bloc :root { ... } injectable dans <style>.
-func (t Theme) CSSVars() string {
-	var b strings.Builder
-	b.WriteString(":root {\n")
-	fmt.Fprintf(&b, "  --color-primary: %s;\n", t.PrimaryColor)
-	fmt.Fprintf(&b, "  --color-secondary: %s;\n", t.SecondaryColor)
-	fmt.Fprintf(&b, "  --color-bg: %s;\n", t.BackgroundColor)
-	fmt.Fprintf(&b, "  --color-surface: %s;\n", t.SurfaceColor)
-	fmt.Fprintf(&b, "  --color-text: %s;\n", t.TextColor)
-	fmt.Fprintf(&b, "  --color-muted: %s;\n", t.TextMutedColor)
-	fmt.Fprintf(&b, "  --color-border: %s;\n", t.BorderColor)
-	fmt.Fprintf(&b, "  --color-accent: %s;\n", t.AccentColor)
-	fmt.Fprintf(&b, "  --font-body: %s;\n", t.FontFamily)
-	fmt.Fprintf(&b, "  --font-label: %s;\n", t.FontFamilyLabel)
-	fmt.Fprintf(&b, "  --font-title: %s;\n", t.FontFamilyTitle)
-	fmt.Fprintf(&b, "  --radius: %s;\n", t.BorderRadius)
-	b.WriteString("}\n")
-	return b.String()
+// Brand renvoie le branding courant. Toujours non-nil après Init.
+// Si appelé avant Init, renvoie un Branding zéro avec textes vides.
+func Brand() *Branding {
+	if v := brand.Load(); v != nil {
+		return v.(*Branding)
+	}
+	return &Branding{Texts: map[string]string{}, Locale: "fr"}
 }
 
-var themeKeys = []struct {
-	key   string
-	get   func(*Theme) *string
-}{
-	{"primary_color", func(t *Theme) *string { return &t.PrimaryColor }},
-	{"secondary_color", func(t *Theme) *string { return &t.SecondaryColor }},
-	{"background_color", func(t *Theme) *string { return &t.BackgroundColor }},
-	{"surface_color", func(t *Theme) *string { return &t.SurfaceColor }},
-	{"text_color", func(t *Theme) *string { return &t.TextColor }},
-	{"text_muted_color", func(t *Theme) *string { return &t.TextMutedColor }},
-	{"border_color", func(t *Theme) *string { return &t.BorderColor }},
-	{"accent_color", func(t *Theme) *string { return &t.AccentColor }},
-	{"font_family", func(t *Theme) *string { return &t.FontFamily }},
-	{"font_family_label", func(t *Theme) *string { return &t.FontFamilyLabel }},
-	{"font_family_title", func(t *Theme) *string { return &t.FontFamilyTitle }},
-	{"border_radius", func(t *Theme) *string { return &t.BorderRadius }},
-	{"logo_url", func(t *Theme) *string { return &t.LogoURL }},
-	{"site_name", func(t *Theme) *string { return &t.SiteName }},
-	{"site_tagline", func(t *Theme) *string { return &t.SiteTagline }},
+// T renvoie le texte UI pour la clé donnée, ou fallback si absent ou vide.
+// Thread-safe, lock-free.
+func T(key, fallback string) string {
+	b := Brand()
+	if v, ok := b.Texts[key]; ok && v != "" {
+		return v
+	}
+	return fallback
 }
 
-// Load charge le thème depuis horui_config. Retourne Defaults() si la table est vide.
-func Load(db *sql.DB) (Theme, error) {
-	t := Defaults()
-	rows, err := db.Query(`SELECT key, value FROM horui_config`)
+// LoadFromFS charge un branding.toml depuis fsys.
+func LoadFromFS(fsys fs.FS, path string) (*Branding, error) {
+	data, err := fs.ReadFile(fsys, path)
 	if err != nil {
-		return t, fmt.Errorf("theme.Load query: %w", err)
+		return nil, fmt.Errorf("read file: %w", err)
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var k, v string
-		if err := rows.Scan(&k, &v); err != nil {
-			return t, err
+	var b Branding
+	if err := toml.Unmarshal(data, &b); err != nil {
+		return nil, fmt.Errorf("parse toml: %w", err)
+	}
+
+	if b.Name == "" {
+		return nil, fmt.Errorf("validation error: name cannot be empty")
+	}
+	if b.BaseURL == "" {
+		return nil, fmt.Errorf("validation error: base_url cannot be empty")
+	}
+
+	if b.Texts == nil {
+		b.Texts = make(map[string]string)
+	}
+
+	// Validate colors
+	validateColor := func(c *string, fallback string) {
+		if *c == "" || !hexColorRegex.MatchString(*c) {
+			*c = fallback
 		}
-		for _, entry := range themeKeys {
-			if entry.key == k {
-				*entry.get(&t) = v
-				break
+	}
+	validateColor(&b.Colors.Primary, "#1a73e8")
+	validateColor(&b.Colors.Secondary, "#34a853")
+	validateColor(&b.Colors.Accent, "#ea4335")
+	validateColor(&b.Colors.BgLight, "#ffffff")
+	validateColor(&b.Colors.BgDark, "#202124")
+	validateColor(&b.Colors.Text, "#202124")
+
+	if b.FontFamily == "" || invalidFontRegex.MatchString(b.FontFamily) {
+		b.FontFamily = "Inter, system-ui, sans-serif"
+	}
+
+	// Sort nav items
+	for i := 0; i < len(b.Nav); i++ {
+		for j := i + 1; j < len(b.Nav); j++ {
+			if b.Nav[i].Order > b.Nav[j].Order {
+				b.Nav[i], b.Nav[j] = b.Nav[j], b.Nav[i]
 			}
 		}
 	}
-	return t, rows.Err()
+
+	return &b, nil
 }
 
-// Save upsert les valeurs du thème dans horui_config.
-func Save(db *sql.DB, t Theme) error {
-	tx, err := db.Begin()
+// ReloadFromFS recharge le branding depuis fsys et met à jour le singleton.
+func ReloadFromFS(fsys fs.FS, path string) error {
+	b, err := LoadFromFS(fsys, path)
 	if err != nil {
-		return fmt.Errorf("theme.Save begin: %w", err)
+		return err
 	}
-	defer tx.Rollback() //nolint:errcheck
+	Init(b)
+	return nil
+}
 
-	for _, entry := range themeKeys {
-		_, err := tx.Exec(
-			`INSERT INTO horui_config(key, value) VALUES(?, ?)
-			 ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
-			entry.key, *entry.get(&t),
-		)
-		if err != nil {
-			return fmt.Errorf("theme.Save upsert %s: %w", entry.key, err)
-		}
-	}
-	return tx.Commit()
+// CSSVars génère le bloc <style>:root { ... }</style> pour injection.
+func CSSVars() string {
+	b := Brand()
+	return fmt.Sprintf(`<style>:root{--primary:%s;--secondary:%s;--accent:%s;--bg-light:%s;--bg-dark:%s;--text:%s;--font:%s;}</style>`,
+		b.Colors.Primary, b.Colors.Secondary, b.Colors.Accent,
+		b.Colors.BgLight, b.Colors.BgDark, b.Colors.Text,
+		strings.ReplaceAll(b.FontFamily, `"`, `'`))
 }

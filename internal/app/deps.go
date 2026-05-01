@@ -1,16 +1,13 @@
 package app
 
 import (
-	"database/sql"
 	"context"
+	"database/sql"
 	"io/fs"
 	"log/slog"
 
-	"github.com/hazyhaar/assokit/internal/types"
-	"github.com/hazyhaar/assokit/pkg/horui/theme"
-
-
 	"github.com/hazyhaar/assokit/internal/config"
+	"github.com/hazyhaar/assokit/internal/types"
 )
 
 // Mailer interface stub (sera défini dans pkg/mailer au LOT2)
@@ -20,11 +17,10 @@ type Mailer interface {
 
 // AppDeps regroupe toutes les dépendances transverses nécessaires au démarrage.
 type AppDeps struct {
-	Theme      *theme.Theme
+	DB         *sql.DB
+	Logger     *slog.Logger
+	Config     config.Config
+	Mailer     Mailer
 	BrandingFS fs.FS
 	Profils    []types.Profil
-	DB     *sql.DB
-	Logger *slog.Logger
-	Config config.Config
-	Mailer Mailer
 }

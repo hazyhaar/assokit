@@ -66,7 +66,7 @@ func TestCDPIntegration(t *testing.T) {
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	if err := schema.Run(db); err != nil {
+	if err := chassis.Run(db); err != nil {
 		t.Fatalf("schema run: %v", err)
 	}
 	seedRoles(t, db)

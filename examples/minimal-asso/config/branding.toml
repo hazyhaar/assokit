@@ -1,0 +1,27 @@
+name = "Mon Asso"
+tagline = "Association pour l'intérêt général"
+base_url = "http://localhost:8080"
+contact_email = "contact@example.org"
+locale = "fr-FR"
+
+[colors]
+primary = "#1a73e8"
+secondary = "#34a853"
+accent = "#ea4335"
+
+[footer]
+lines = ["© 2026 Mon Asso", "Association loi 1901"]
+
+[[nav]]
+slug = "/participer"
+label = "Adhérer"
+order = 1
+
+[[nav]]
+slug = "/forum"
+label = "Forum"
+order = 2
+
+[texts]
+"button.donate" = "Faire un don"
+"form.signup.submit" = "Créer mon compte"

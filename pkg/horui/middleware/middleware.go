@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Middleware HTTP NPS : Theme(cache30s), HTMX, Flash(ctx+cookie), Auth(HMAC cookie), RequirePerm, CSRF.
+// CLAUDE:SUMMARY Middleware HTTP NPS : HTMX, Flash(ctx+cookie), Auth(HMAC cookie), RequirePerm, CSRF.
 package middleware
 
 import (
@@ -14,63 +14,20 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/theme"
 )
 
 type ctxKey int
 
 const (
-	ctxKeyTheme ctxKey = iota
-	ctxKeyHTMX
+	ctxKeyHTMX ctxKey = iota
 	ctxKeyFlash
 	ctxKeyUser
 	ctxKeyCSRF
 )
-
-// --- Theme ---
-
-type themeCache struct {
-	mu      sync.Mutex
-	t       theme.Theme
-	loadedAt time.Time
-}
-
-var globalThemeCache themeCache
-
-// Theme charge le theme depuis SQLite (cache 30s) et l'injecte dans ctx.
-func Theme(db *sql.DB) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			globalThemeCache.mu.Lock()
-			if time.Since(globalThemeCache.loadedAt) > 30*time.Second {
-				if t, err := theme.Load(db); err == nil {
-					globalThemeCache.t = t
-					globalThemeCache.loadedAt = time.Now()
-				} else if globalThemeCache.loadedAt.IsZero() {
-					globalThemeCache.t = theme.Defaults()
-					globalThemeCache.loadedAt = time.Now()
-				}
-			}
-			t := globalThemeCache.t
-			globalThemeCache.mu.Unlock()
-			ctx := context.WithValue(r.Context(), ctxKeyTheme, t)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-// ThemeFromContext extrait le theme du contexte.
-func ThemeFromContext(ctx context.Context) theme.Theme {
-	if t, ok := ctx.Value(ctxKeyTheme).(theme.Theme); ok {
-		return t
-	}
-	return theme.Defaults()
-}
 
 // --- HTMX ---
 

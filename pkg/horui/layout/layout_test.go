@@ -9,18 +9,7 @@ import (
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 )
 
-func render(t *testing.T, component interface{ Render(context.Context, *bytes.Buffer) error }) string {
-	t.Helper()
-	var buf bytes.Buffer
-	if err := component.Render(context.Background(), &buf); err != nil {
-		t.Fatalf("render: %v", err)
-	}
-	return buf.String()
-}
-
-func renderWriter(t *testing.T, component interface {
-	Render(context.Context, interface{ Write([]byte) (int, error) }) error
-}) string {
+func render(t *testing.T, component interface{ Render(context.Context, interface{ Write([]byte) (int, error) }) error }) string {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := component.Render(context.Background(), &buf); err != nil {
@@ -74,10 +63,8 @@ func TestErrorPageRenders(t *testing.T) {
 }
 
 func TestHeaderRenders(t *testing.T) {
-	th := theme.Defaults()
-	th.SiteName = "TestSite"
-	nav := []layout.NavItem{{Label: "Accueil", Href: "/"}, {Label: "Forum", Href: "/forum"}}
-	c := layout.Header(th, nav)
+	theme.Init(&theme.Branding{Name: "TestSite", Nav: []theme.NavItem{{Label: "Accueil", Slug: "/"}, {Label: "Forum", Slug: "/forum"}}})
+	c := layout.Header()
 	var buf bytes.Buffer
 	if err := c.Render(context.Background(), &buf); err != nil {
 		t.Fatalf("render Header: %v", err)
@@ -92,14 +79,14 @@ func TestHeaderRenders(t *testing.T) {
 }
 
 func TestFooterRenders(t *testing.T) {
-	th := theme.Defaults()
-	c := layout.Footer(th)
+	theme.Init(&theme.Branding{Name: "TestSite", Footer: struct{Lines []string `toml:"lines"`}{Lines: []string{"footer"}}})
+	c := layout.Footer()
 	var buf bytes.Buffer
 	if err := c.Render(context.Background(), &buf); err != nil {
 		t.Fatalf("render Footer: %v", err)
 	}
 	html := buf.String()
-	if !contains(html, "Assokit") && !contains(html, "footer") {
+	if !contains(html, "TestSite") && !contains(html, "footer") {
 		t.Errorf("Footer should contain footer content, got: %s", html)
 	}
 }

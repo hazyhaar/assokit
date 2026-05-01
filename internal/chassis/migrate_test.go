@@ -1,4 +1,4 @@
-package schema_test
+package chassis_test
 
 import (
 	"database/sql"
@@ -23,7 +23,7 @@ func TestRunAppliesV1(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
 
-	if err := schema.Run(db); err != nil {
+	if err := chassis.Run(db); err != nil {
 		t.Fatalf("Run v1: %v", err)
 	}
 
@@ -47,11 +47,11 @@ func TestRunIdempotent(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
 
-	if err := schema.Run(db); err != nil {
+	if err := chassis.Run(db); err != nil {
 		t.Fatalf("Run 1: %v", err)
 	}
 	// Deuxième appel doit être un no-op sans erreur
-	if err := schema.Run(db); err != nil {
+	if err := chassis.Run(db); err != nil {
 		t.Fatalf("Run 2 (idempotent): %v", err)
 	}
 }
@@ -60,7 +60,7 @@ func TestFTS5TriggersWork(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
 
-	if err := schema.Run(db); err != nil {
+	if err := chassis.Run(db); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 

@@ -10,12 +10,10 @@ import (
 )
 
 func TestBaseRenders(t *testing.T) {
-	th := theme.Defaults()
-	th.SiteName = "AssokitTest"
-	nav := []layout.NavItem{{Label: "Accueil", Href: "/"}}
+	theme.Init(&theme.Branding{Name: "AssokitTest", Nav: []theme.NavItem{{Label: "Accueil", Slug: "/"}}})
 
 	body := layout.ErrorPage(200, "Bienvenue")
-	c := layout.Base(th, "Page test", nav, body)
+	c := layout.Base("Page test", body)
 
 	var buf bytes.Buffer
 	if err := c.Render(context.Background(), &buf); err != nil {
@@ -64,12 +62,12 @@ func TestBreadcrumbSingleCrumb(t *testing.T) {
 }
 
 func TestFooterContainsLinks(t *testing.T) {
-	th := theme.Defaults()
-	c := layout.Footer(th)
+	theme.Init(&theme.Branding{Name: "AssokitTest"})
+	c := layout.Footer()
 	var buf bytes.Buffer
 	c.Render(context.Background(), &buf) //nolint:errcheck
 	html := buf.String()
-	for _, link := range []string{"/charte", "/contact", "/mentions-legales", "GitHub"} {
+	for _, link := range []string{"/charte", "/contact", "/mentions-legales"} {
 		if !contains(html, link) {
 			t.Errorf("Footer missing %q", link)
 		}

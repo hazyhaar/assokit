@@ -7,6 +7,7 @@ require (
 	github.com/chromedp/chromedp v0.15.1
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/google/uuid v1.6.0
+	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/yuin/goldmark v1.8.2
 	golang.org/x/crypto v0.50.0
 	modernc.org/sqlite v1.50.0

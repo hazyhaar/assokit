@@ -12,11 +12,11 @@ import (
 	"github.com/a-h/templ"
 	_ "modernc.org/sqlite"
 
+	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/layout"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
-	"github.com/hazyhaar/assokit/internal/chassis"
 )
 
 func newTestDB(t *testing.T) *sql.DB {
@@ -26,7 +26,7 @@ func newTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("open: %v", err)
 	}
 	db.SetMaxOpenConns(1)
-	if err := schema.Run(db); err != nil {
+	if err := chassis.Run(db); err != nil {
 		t.Fatalf("schema: %v", err)
 	}
 	db.Exec(`INSERT INTO roles(id,label) VALUES('member','Member') ON CONFLICT DO NOTHING`)
@@ -89,16 +89,14 @@ func TestHeaderWithUserLoggedIn(t *testing.T) {
 	middleware.SetSessionCookie(w, u.ID, secret, false)
 	sessionCookies := w.Result().Cookies()
 
-	// Passe via Auth middleware pour injecter l'utilisateur dans ctx
-	th := theme.Defaults()
-	th.SiteName = "TestSite"
-	nav := []layout.NavItem{{Label: "Accueil", Href: "/"}}
+	// Initialise le thème pour le header
+	theme.Init(&theme.Branding{Name: "TestSite", Nav: []theme.NavItem{{Label: "Accueil", Slug: "/"}}})
 
 	var renderedHTML string
 	authMW := middleware.Auth(db, secret)
 	handler := authMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var buf bytes.Buffer
-		if err := layout.Header(th, nav).Render(r.Context(), &buf); err != nil {
+		if err := layout.Header().Render(r.Context(), &buf); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -122,12 +120,11 @@ func TestHeaderWithUserLoggedIn(t *testing.T) {
 }
 
 func TestHeaderWithoutUser(t *testing.T) {
-	th := theme.Defaults()
-	nav := []layout.NavItem{{Label: "Accueil", Href: "/"}}
+	theme.Init(&theme.Branding{Name: "TestSite", Nav: []theme.NavItem{{Label: "Accueil", Slug: "/"}}})
 
 	var buf bytes.Buffer
 	// Sans user dans ctx → branche else
-	if err := layout.Header(th, nav).Render(context.Background(), &buf); err != nil {
+	if err := layout.Header().Render(context.Background(), &buf); err != nil {
 		t.Fatalf("render Header: %v", err)
 	}
 	html := buf.String()
@@ -139,7 +136,7 @@ func TestHeaderWithoutUser(t *testing.T) {
 // TestSidebarRendersNavAndContent vérifie que Sidebar rend les liens de nav
 // et injecte le contenu dans la zone sidebar-content.
 func TestSidebarRendersNavAndContent(t *testing.T) {
-	nav := []layout.NavItem{
+	nav := []layout.SidebarNavItem{
 		{Label: "Tableau de bord", Href: "/dashboard"},
 		{Label: "Paramètres", Href: "/settings"},
 	}
