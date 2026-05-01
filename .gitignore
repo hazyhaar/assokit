@@ -27,3 +27,5 @@ go.work.sum
 # Coverage
 coverage.out
 coverage.html
+/minimal-asso
+examples/*/static/
