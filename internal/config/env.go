@@ -7,9 +7,15 @@ import (
 
 // Config regroupe la configuration technique (non-branding) de l'application.
 type Config struct {
-	Port    string
-	DBPath  string
-	BaseURL string
+	Port                   string
+	DBPath                 string
+	BaseURL                string
+	AdminEmail             string
+	ContactEmail           string
+	CookieSecret           []byte
+	HelloassoDonURL        string
+	HelloassoCotisationURL string
+	BankIBAN               string
 }
 
 // LoadEnv charge la configuration depuis les variables d'environnement.

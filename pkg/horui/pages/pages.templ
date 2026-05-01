@@ -1,0 +1,490 @@
+// CLAUDE:SUMMARY Composants page-spécifiques NPS — vitrine, signup, soutenir, contact, login, search, 404.
+// Chaque templ ici renvoie le **contenu** du <main>, à envelopper dans layout.Base côté handler.
+package pages
+
+import (
+	"strings"
+
+	"github.com/hazyhaar/assokit/pkg/horui/tree"
+)
+
+// SearchResult : viewmodel résultat (résolu slug-side par le handler).
+type SearchResult struct {
+	Title   string
+	Slug    string
+	Snippet string
+}
+
+// ========================================================================
+// HOME — landing page vitrine
+// ========================================================================
+
+templ Home() {
+	<section class="hero">
+		<div class="hero-inner">
+			<div class="section-label">Plateforme citoyenne indépendante</div>
+			<h1 class="hero-title">Protéger ceux qui parlent.<br/>Servir l'intérêt général.</h1>
+			<p class="hero-lead">
+				Assokit est une association loi 1901 qui protège les lanceurs d'alerte
+				et soutient les enquêtes citoyennes d'intérêt public.
+			</p>
+			<div class="hero-actions">
+				<a href="/participer" class="btn btn-primary btn-lg">Adhérer</a>
+				<a href="/charte" class="btn btn-ghost btn-lg">Lire notre charte</a>
+			</div>
+		</div>
+	</section>
+	<section class="section">
+		<div class="section-grid section-grid-3">
+			<div class="feature-card">
+				<div class="feature-icon">🛡</div>
+				<h3>Protéger</h3>
+				<p>Accompagnement juridique, mise en relation avec des avocats partenaires, soutien moral et logistique.</p>
+			</div>
+			<div class="feature-card">
+				<div class="feature-icon">📰</div>
+				<h3>Enquêter</h3>
+				<p>Mise en réseau de journalistes, experts et témoins. Vérification rigoureuse, publication coordonnée.</p>
+			</div>
+			<div class="feature-card">
+				<div class="feature-icon">🤝</div>
+				<h3>Mobiliser</h3>
+				<p>Communauté ouverte d'adhérents, donateurs et bénévoles. Décisions transparentes, gouvernance partagée.</p>
+			</div>
+		</div>
+	</section>
+	<section class="section section-cta">
+		<div class="cta-inner">
+			<h2>Vous avez quelque chose à signaler ?</h2>
+			<p>Si vous êtes témoin de faits qui devraient être rendus publics, nous pouvons vous accompagner.</p>
+			<a href="/adherer/lanceur" class="btn btn-primary">Contacter l'équipe d'alerte</a>
+		</div>
+	</section>
+}
+
+// ========================================================================
+// STATIC PAGE — wrapper pour pages tree-stockées (charte, médias, etc.)
+// ========================================================================
+
+templ StaticPage(title, sectionLabel, bodyHTML string) {
+	<section class="section page-static">
+		<div class="page-header">
+			if sectionLabel != "" {
+				<div class="section-label">{ sectionLabel }</div>
+			}
+			<h1>{ title }</h1>
+		</div>
+		<div class="page-content">
+			@templ.Raw(bodyHTML)
+		</div>
+	</section>
+}
+
+// ========================================================================
+// THEMATIQUE — page thématique avec sous-thèmes éventuels
+// ========================================================================
+
+templ Thematique(node tree.Node, children []tree.Node) {
+	<section class="section page-thematique">
+		<nav class="breadcrumb" aria-label="Fil d'Ariane">
+			<ol>
+				<li><a href="/thematiques">Thématiques</a><span aria-hidden="true"> / </span></li>
+				<li><span aria-current="page">{ node.Title }</span></li>
+			</ol>
+		</nav>
+		<div class="page-header">
+			<h1>{ node.Title }</h1>
+		</div>
+		if node.BodyHTML != "" {
+			<div class="page-content">@templ.Raw(node.BodyHTML)</div>
+		}
+		if len(children) > 0 {
+			<div class="thematique-children">
+				<h2>Sous-thèmes</h2>
+				<ul class="thematique-list">
+					for _, c := range children {
+						<li>
+							<a href={ templ.SafeURL("/thematiques/" + c.Slug) } class="thematique-link">{ c.Title }</a>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+	</section>
+}
+
+// ========================================================================
+// PARTICIPER — choix profil
+// ========================================================================
+
+// ProfileOption décrit une carte profil sur la page /participer.
+type ProfileOption struct {
+	ID       string
+	Icon     string
+	Label    string
+	Subtitle string
+}
+
+templ Participer(profils []ProfileOption) {
+	<section class="section page-participer">
+		<div class="page-header">
+			<div class="section-label">Rejoindre Assokit</div>
+			<h1>Quel est votre profil ?</h1>
+			<p class="page-lead">
+				Choisissez la modalité qui correspond le mieux à votre situation.
+				Tous les profils mènent à une adhésion à l'association.
+			</p>
+		</div>
+		<div class="profile-grid">
+			for _, p := range profils {
+				<a href={ templ.SafeURL("/adherer/" + p.ID) } class="profile-card">
+					<div class="profile-icon">{ p.Icon }</div>
+					<div class="profile-label">{ p.Label }</div>
+					<div class="profile-sub">{ p.Subtitle }</div>
+				</a>
+			}
+		</div>
+	</section>
+}
+
+// ========================================================================
+// SIGNUP FORM — formulaire 8 profils
+// ========================================================================
+
+// SignupExtraField décrit un champ supplémentaire spécifique à un profil.
+type SignupExtraField struct {
+	Name        string
+	Label       string
+	Type        string // text | email | textarea | tel
+	Required    bool
+	Placeholder string
+}
+
+templ SignupForm(profilID, profilLabel string, extras []SignupExtraField) {
+	<section class="section page-signup">
+		<nav class="breadcrumb" aria-label="Fil d'Ariane">
+			<ol>
+				<li><a href="/participer">Participer</a><span aria-hidden="true"> / </span></li>
+				<li><span aria-current="page">{ profilLabel }</span></li>
+			</ol>
+		</nav>
+		<div class="page-header">
+			<div class="section-label">Adhésion</div>
+			<h1>Inscription — { profilLabel }</h1>
+			<p class="page-lead">
+				Renseignez vos coordonnées. Vous recevrez un email de confirmation
+				avec un lien d'activation valable 24h.
+			</p>
+		</div>
+		<form method="POST" action={ templ.SafeURL("/adherer/" + profilID) } class="form-stack">
+			<input type="text" name="website" tabindex="-1" autocomplete="off" class="honeypot" aria-hidden="true"/>
+			<div class="form-row">
+				<div class="form-field">
+					<label for="prenom">Prénom <span class="required">*</span></label>
+					<input id="prenom" type="text" name="prenom" required autocomplete="given-name"/>
+				</div>
+				<div class="form-field">
+					<label for="nom">Nom</label>
+					<input id="nom" type="text" name="nom" autocomplete="family-name"/>
+				</div>
+			</div>
+			<div class="form-field">
+				<label for="email">Email <span class="required">*</span></label>
+				<input id="email" type="email" name="email" required autocomplete="email"/>
+			</div>
+			for _, f := range extras {
+				<div class="form-field">
+					<label for={ f.Name }>
+						{ f.Label }
+						if f.Required {
+							<span class="required">*</span>
+						}
+					</label>
+					if f.Type == "textarea" {
+						<textarea id={ f.Name } name={ f.Name } rows="4"
+							if f.Required {
+								required
+							}
+							if f.Placeholder != "" {
+								placeholder={ f.Placeholder }
+							}
+						></textarea>
+					} else {
+						<input id={ f.Name } name={ f.Name }
+							type={ inputType(f.Type) }
+							if f.Required {
+								required
+							}
+							if f.Placeholder != "" {
+								placeholder={ f.Placeholder }
+							}
+						/>
+					}
+				</div>
+			}
+			<div class="form-field">
+				<label for="message">Message libre</label>
+				<textarea id="message" name="message" rows="3" placeholder="Quelques mots sur votre démarche (optionnel)"></textarea>
+			</div>
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary">Envoyer ma demande</button>
+			</div>
+		</form>
+	</section>
+}
+
+// ========================================================================
+// CONTACT
+// ========================================================================
+
+templ Contact() {
+	<section class="section page-contact">
+		<div class="page-header">
+			<div class="section-label">Nous écrire</div>
+			<h1>Contact</h1>
+			<p class="page-lead">Une question, un projet, une situation à signaler ? Écrivez-nous.</p>
+		</div>
+		<form method="POST" action="/contact" class="form-stack">
+			<input type="text" name="website" tabindex="-1" autocomplete="off" class="honeypot" aria-hidden="true"/>
+			<div class="form-row">
+				<div class="form-field">
+					<label for="contact-nom">Nom <span class="required">*</span></label>
+					<input id="contact-nom" type="text" name="nom" required/>
+				</div>
+				<div class="form-field">
+					<label for="contact-email">Email <span class="required">*</span></label>
+					<input id="contact-email" type="email" name="email" required/>
+				</div>
+			</div>
+			<div class="form-field">
+				<label for="contact-sujet">Sujet</label>
+				<input id="contact-sujet" type="text" name="sujet"/>
+			</div>
+			<div class="form-field">
+				<label for="contact-message">Message <span class="required">*</span></label>
+				<textarea id="contact-message" name="message" rows="8" required></textarea>
+			</div>
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary">Envoyer</button>
+			</div>
+		</form>
+	</section>
+}
+
+// ========================================================================
+// DONATE
+// ========================================================================
+
+templ Donate(donURL, cotisURL, iban string) {
+	<section class="section page-donate">
+		<div class="page-header">
+			<div class="section-label">Nous soutenir</div>
+			<h1>Faire un don</h1>
+			<p class="page-lead">
+				Vos dons financent directement nos missions de protection
+				des lanceurs d'alerte et nos enquêtes d'intérêt général.
+			</p>
+		</div>
+		<div class="donate-block">
+			if donURL != "" {
+				<div class="donate-iframe">
+					<iframe
+						src={ donURL }
+						title="Don HelloAsso"
+						loading="lazy"
+						allowtransparency="true"
+					></iframe>
+				</div>
+			} else {
+				<div class="callout">
+					<p>
+						Le formulaire de don en ligne est en cours de finalisation.
+						Pour donner dès maintenant, écrivez à
+						<a href="mailto:contact@assokit.org">contact@assokit.org</a>.
+					</p>
+					if iban != "" {
+						<p><strong>IBAN :</strong> { iban }</p>
+					}
+				</div>
+			}
+		</div>
+		<div class="donate-cotis">
+			<h2>Adhérer (1 €)</h2>
+			<p>L'adhésion symbolique permet de devenir membre votant de l'association.</p>
+			if cotisURL != "" {
+				<a href={ templ.SafeURL(cotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
+			} else {
+				<a href="/adherer/adherent" class="btn btn-primary">Adhérer →</a>
+			}
+		</div>
+	</section>
+}
+
+// ========================================================================
+// LOGIN / REGISTER
+// ========================================================================
+
+templ Login() {
+	<section class="section page-login">
+		<div class="form-card">
+			<div class="page-header">
+				<h1>Connexion</h1>
+			</div>
+			<form method="POST" action="/login" class="form-stack">
+				<div class="form-field">
+					<label for="login-email">Email</label>
+					<input id="login-email" type="email" name="email" required autocomplete="email"/>
+				</div>
+				<div class="form-field">
+					<label for="login-password">Mot de passe</label>
+					<input id="login-password" type="password" name="password" required autocomplete="current-password"/>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn btn-primary">Se connecter</button>
+				</div>
+			</form>
+			<p class="form-aside">
+				<a href="/forgot">Mot de passe oublié ?</a>
+				·
+				Pas encore de compte ? <a href="/participer">Adhérer</a>.
+			</p>
+		</div>
+	</section>
+}
+
+templ Register() {
+	<section class="section page-register">
+		<div class="form-card">
+			<div class="page-header">
+				<h1>Créer un compte</h1>
+			</div>
+			<p>
+				La création de compte se fait via une adhésion à l'association.
+				Choisissez votre profil pour commencer.
+			</p>
+			<a href="/participer" class="btn btn-primary">Choisir mon profil</a>
+		</div>
+	</section>
+}
+
+// ========================================================================
+// SEARCH
+// ========================================================================
+
+templ Search(query string, hits []SearchResult) {
+	<section class="section page-search">
+		<div class="page-header">
+			<h1>Recherche</h1>
+		</div>
+		<form method="GET" action="/search" class="search-bar" role="search">
+			<input
+				type="search"
+				name="q"
+				value={ query }
+				placeholder="Rechercher dans le site…"
+				aria-label="Recherche"
+				autofocus
+			/>
+			<button type="submit" class="btn btn-primary">Rechercher</button>
+		</form>
+		if query != "" {
+			<div class="search-results">
+				if len(hits) == 0 {
+					<p class="empty-state">Aucun résultat pour <strong>{ query }</strong>.</p>
+				} else {
+					<p class="results-count">{ pluralize(len(hits), "résultat", "résultats") } pour <strong>{ query }</strong></p>
+					<ul class="results-list">
+						for _, h := range hits {
+							<li class="result-item">
+								<a href={ templ.SafeURL("/n/" + h.Slug) } class="result-title">{ h.Title }</a>
+								if h.Snippet != "" {
+									<div class="result-snippet">@templ.Raw(h.Snippet)</div>
+								}
+							</li>
+						}
+					</ul>
+				}
+			</div>
+		}
+	</section>
+}
+
+// ========================================================================
+// MERCI / 404
+// ========================================================================
+
+templ Merci(title, message string) {
+	<section class="section page-merci">
+		<div class="merci-card">
+			<div class="merci-icon">✓</div>
+			<h1>{ title }</h1>
+			<p>{ message }</p>
+			<a href="/" class="btn btn-primary">Retour à l'accueil</a>
+		</div>
+	</section>
+}
+
+templ NotFound() {
+	<section class="section page-404">
+		<div class="error-card">
+			<div class="error-code">404</div>
+			<h1>Page introuvable</h1>
+			<p>La page demandée n'existe pas ou a été déplacée.</p>
+			<a href="/" class="btn btn-primary">Retour à l'accueil</a>
+		</div>
+	</section>
+}
+
+// ========================================================================
+// helpers (visibles à templ : exportés ou minuscules — minuscules ici car
+// templ-internes ; les fonctions appelées depuis les templates DOIVENT être
+// dans le même package).
+// ========================================================================
+
+func inputType(t string) string {
+	switch t {
+	case "email":
+		return "email"
+	case "tel":
+		return "tel"
+	default:
+		return "text"
+	}
+}
+
+func pluralize(n int, sing, plur string) string {
+	if n == 1 {
+		return "1 " + sing
+	}
+	return itoa(n) + " " + plur
+}
+
+func itoa(n int) string {
+	// minimal int→string sans alloc côté templ.
+	if n == 0 {
+		return "0"
+	}
+	neg := false
+	if n < 0 {
+		neg = true
+		n = -n
+	}
+	buf := [20]byte{}
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
+}
+
+// highlightSafe : trim et passe-plat (FTS5 snippet déjà sécurisé côté
+// search.Engine — pas de re-échappement nécessaire).
+func highlightSafe(s string) string {
+	return strings.TrimSpace(s)
+}

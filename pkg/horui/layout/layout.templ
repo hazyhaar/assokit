@@ -1,0 +1,146 @@
+package layout
+
+import (
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
+)
+
+// NavItem représente un lien de navigation.
+type NavItem struct {
+	Label string
+	Href  string
+}
+
+// Crumb représente un élément de fil d'Ariane.
+type Crumb struct {
+	Label string
+	Href  string
+}
+
+templ Base(t theme.Theme, title string, nav []NavItem, content templ.Component) {
+	<!DOCTYPE html>
+	<html lang="fr">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } — { t.SiteName }</title>
+			<meta name="description" content={ t.SiteTagline }/>
+			<meta property="og:title" content={ title }/>
+			<meta property="og:type" content="website"/>
+			<link rel="icon" href="/static/img/favicon.svg"/>
+			@cssVars(t)
+			<link rel="stylesheet" href="/static/css/horui.css"/>
+			<script src="/static/js/htmx.min.js" defer></script>
+		</head>
+		<body hx-boost="true">
+			@Header(t, nav)
+			<main class="main">
+				@FlashBanner()
+				@content
+			</main>
+			@Footer(t)
+		</body>
+	</html>
+}
+
+templ Header(t theme.Theme, nav []NavItem) {
+	<header class="site-header">
+		<div class="header-inner">
+			<a href="/" class="site-logo">
+				if t.LogoURL != "" {
+					<img src={ t.LogoURL } alt={ t.SiteName } class="logo-img"/>
+				} else {
+					<span class="logo-text">{ t.SiteName }</span>
+				}
+			</a>
+			<nav class="primary-nav" aria-label="Navigation principale">
+				<ul>
+					for _, item := range nav {
+						<li><a href={ templ.SafeURL(item.Href) }>{ item.Label }</a></li>
+					}
+				</ul>
+			</nav>
+			<div class="user-menu">
+				if u := middleware.UserFromContext(ctx); u != nil {
+					<span class="user-name">{ u.DisplayName }</span>
+					<a href="/logout" class="btn btn-ghost btn-sm">Déconnexion</a>
+				} else {
+					<a href="/login" class="btn btn-ghost btn-sm">Connexion</a>
+					<a href="/signup" class="btn btn-primary btn-sm">S'inscrire</a>
+				}
+			</div>
+		</div>
+	</header>
+}
+
+templ Footer(t theme.Theme) {
+	<footer class="site-footer">
+		<div class="footer-inner">
+			<p class="footer-asso">Association Assokit</p>
+			<nav class="footer-links" aria-label="Liens légaux">
+				<a href="/charte">Charte</a>
+				<a href="/contact">Contact</a>
+				<a href="/mentions-legales">Mentions légales</a>
+				<a href="https://github.com/hazyhaar/assokit" rel="noopener" target="_blank">GitHub</a>
+			</nav>
+		</div>
+	</footer>
+}
+
+templ FlashBanner() {
+	for _, msg := range middleware.PopFlash(ctx) {
+		<div class={ "flash flash-" + msg.Level } role="alert">
+			{ msg.Message }
+		</div>
+	}
+}
+
+templ Breadcrumb(crumbs []Crumb) {
+	if len(crumbs) > 0 {
+		<nav class="breadcrumb" aria-label="Fil d'Ariane">
+			<ol>
+				for i, c := range crumbs {
+					<li>
+						if i < len(crumbs)-1 {
+							<a href={ templ.SafeURL(c.Href) }>{ c.Label }</a>
+							<span aria-hidden="true"> / </span>
+						} else {
+							<span aria-current="page">{ c.Label }</span>
+						}
+					</li>
+				}
+			</ol>
+		</nav>
+	}
+}
+
+templ ErrorPage(code int, message string) {
+	<div class="error-page">
+		<h1 class="error-code">{ itoa(code) }</h1>
+		<p class="error-message">{ message }</p>
+		<a href="/" class="btn btn-primary">Retour à l'accueil</a>
+	</div>
+}
+
+templ Sidebar(nav []NavItem, content templ.Component) {
+	<div class="sidebar-layout">
+		<aside class="sidebar" aria-label="Navigation secondaire">
+			<nav>
+				<ul class="sidebar-nav">
+					for _, item := range nav {
+						<li>
+							<a href={ templ.SafeURL(item.Href) } class="sidebar-link">{ item.Label }</a>
+						</li>
+					}
+				</ul>
+			</nav>
+		</aside>
+		<div class="sidebar-content">
+			@content
+		</div>
+	</div>
+}
+
+templ cssVars(t theme.Theme) {
+	@templ.Raw("<style type=\"text/css\">" + t.CSSVars() + "</style>")
+}

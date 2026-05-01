@@ -1,0 +1,138 @@
+// CLAUDE:SUMMARY Forum templ — récursion ThreadView (inspirée headui pile/treeview).
+package forum
+
+import (
+	"strconv"
+
+	"github.com/hazyhaar/assokit/pkg/horui/auth"
+)
+
+// MaxRenderDepth borne la récursion de ThreadView pour éviter de rendre
+// l'arbre entier sur des fils très profonds. Au-delà, lien "voir la suite".
+const MaxRenderDepth = 4
+
+// Index : page /forum — liste des sujets racine.
+templ Index(rootChildren []ThreadNode, user *auth.User) {
+	<section class="section forum-index">
+		<div class="page-header">
+			<div class="section-label">Communauté</div>
+			<h1>Forum</h1>
+			<p class="page-lead">Échangez avec les autres membres autour des thématiques de l'association.</p>
+		</div>
+		if len(rootChildren) == 0 {
+			<div class="empty-state">
+				<p>Aucun sujet pour l'instant.</p>
+				if user != nil {
+					<p>Soyez le premier à ouvrir une discussion.</p>
+				}
+			</div>
+		} else {
+			<ul class="forum-topics">
+				for _, n := range rootChildren {
+					<li class="forum-topic">
+						<a href={ templ.SafeURL("/forum/" + n.Slug) } class="topic-title">{ n.Title }</a>
+						if n.SnippetHTML != "" {
+							<div class="topic-snippet">@templ.Raw(n.SnippetHTML)</div>
+						}
+						if n.ChildCount > 0 {
+							<div class="topic-meta">{ strconv.Itoa(n.ChildCount) } { repliesLabel(n.ChildCount) }</div>
+						}
+					</li>
+				}
+			</ul>
+		}
+	</section>
+}
+
+// Thread : page /forum/{slug} — sujet courant + arbre récursif des réponses.
+templ Thread(node ThreadNode, replies []ThreadNode, user *auth.User, canReply bool) {
+	<section class="section forum-thread">
+		<nav class="breadcrumb" aria-label="Fil d'Ariane">
+			<ol>
+				<li><a href="/forum">Forum</a><span aria-hidden="true"> / </span></li>
+				<li><span aria-current="page">{ node.Title }</span></li>
+			</ol>
+		</nav>
+		<article class="thread-root">
+			<h1 class="thread-title">{ node.Title }</h1>
+			<div class="thread-meta">
+				<time>{ node.CreatedAt }</time>
+			</div>
+			if node.BodyHTML != "" {
+				<div class="thread-body">@templ.Raw(node.BodyHTML)</div>
+			}
+		</article>
+		if len(replies) > 0 {
+			<div class="thread-replies-divider">
+				<h2 class="thread-replies-title">{ strconv.Itoa(len(replies)) } { repliesLabel(len(replies)) }</h2>
+			</div>
+			<div class="thread-replies">
+				for _, r := range replies {
+					@ThreadView(r, 0)
+				}
+			</div>
+		} else {
+			<div class="empty-state empty-replies">
+				<p>Pas encore de réponse.</p>
+			</div>
+		}
+		if canReply {
+			@ReplyForm(node.Slug)
+		} else if user == nil {
+			<div class="reply-cta">
+				<p>Pour répondre, <a href="/login">connectez-vous</a> ou <a href="/participer">adhérez</a>.</p>
+			</div>
+		}
+	</section>
+}
+
+// ThreadView : récursif. Réponse compacte + récursion sur enfants avec
+// indentation visuelle via padding-left contrôlé par CSS (.thread-children).
+// Récursion bornée à MaxRenderDepth.
+templ ThreadView(n ThreadNode, depth int) {
+	<article class="reply" data-depth={ strconv.Itoa(depth) }>
+		<header class="reply-head">
+			<span class="reply-author">
+				if n.AuthorName != "" {
+					{ n.AuthorName }
+				} else {
+					<em>Anonyme</em>
+				}
+			</span>
+			<time class="reply-date">{ n.CreatedAt }</time>
+		</header>
+		<h4 class="reply-title">
+			<a href={ templ.SafeURL("/forum/" + n.Slug) }>{ n.Title }</a>
+		</h4>
+		if n.BodyHTML != "" {
+			<div class="reply-body">@templ.Raw(n.BodyHTML)</div>
+		}
+		if depth+1 < MaxRenderDepth {
+			if len(n.Children) > 0 {
+				<div class="thread-children">
+					for _, c := range n.Children {
+						@ThreadView(c, depth+1)
+					}
+				</div>
+			}
+		} else if n.ChildCount > 0 {
+			<a href={ templ.SafeURL("/forum/" + n.Slug) } class="reply-deep-link">Voir la suite du fil ({ strconv.Itoa(n.ChildCount) } { repliesLabel(n.ChildCount) }) →</a>
+		}
+	</article>
+}
+
+// ReplyForm : formulaire de réponse. Action POST /forum/{slug}/reply.
+templ ReplyForm(parentSlug string) {
+	<form class="reply-form" method="POST" action={ templ.SafeURL("/forum/" + parentSlug + "/reply") }>
+		<h3 class="reply-form-title">Répondre</h3>
+		<div class="form-field">
+			<label for="reply-title">Titre</label>
+			<input id="reply-title" type="text" name="title" required maxlength="200"/>
+		</div>
+		<div class="form-field">
+			<label for="reply-body">Message</label>
+			<textarea id="reply-body" name="body" rows="6" required></textarea>
+		</div>
+		<button type="submit" class="btn btn-primary">Publier</button>
+	</form>
+}
