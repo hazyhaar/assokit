@@ -80,7 +80,11 @@ func main() {
 	r.NotFound(renderPage(th, nav, "404", pages.NotFound()))
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	addr := ":8080"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := ":" + port
 	logger.Info("listening", "addr", addr, "site", th.SiteName)
 	srv := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 5 * time.Second}
 	must(srv.ListenAndServe(), "listen")
