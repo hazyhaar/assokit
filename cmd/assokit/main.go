@@ -28,10 +28,15 @@ func main() {
 		dbPath = "assokit.db"
 	}
 
+	brandingDir := os.Getenv("BRANDING_DIR")
+	if brandingDir == "" {
+		brandingDir = "./config"
+	}
+
 	opts := api.Options{
-		DBPath:  dbPath,
-		Port:    port,
-		// BrandingFS: os.DirFS("./config"), // TODO LOT 2
+		DBPath:     dbPath,
+		Port:       port,
+		BrandingFS: os.DirFS(brandingDir),
 	}
 
 	// Initialisation de l'application
