@@ -1,57 +1,31 @@
-# assokit
+# Assokit
 
-Boîte à outils Go pour sites d'associations loi 1901 et sites communautaires sobres.
-Composants `templ` réutilisables, paquet d'authentification, file d'attente d'emails,
-recherche FTS5, gestion d'arbre de contenus.
+Assokit is an open-source Go (MIT) kit for building association and non-profit websites. It is provided as an importable Go module that you can embed in your own single-binary application.
 
-## Périmètre
+## Quick Start
 
-| Paquet | Rôle |
-|---|---|
-| `pkg/horui/layout` | `Base`, `Header`, `Footer`, `FlashBanner`, `Breadcrumb`, `Sidebar`, `ErrorPage` |
-| `pkg/horui/components` | `Button`, `Card`, `Form`, `TextField`/`EmailField`/`PasswordField`/`TextArea`/`Select`, `Modal`, `SearchBar`, `Badge`, `Tabs`, `Table`, `NodeCard` |
-| `pkg/horui/forum` | Index + Thread + ThreadView **récursif** + ReplyForm |
-| `pkg/horui/pages` | Pages clé en main paramétrables : StaticPage, Thematique, Participer, SignupForm, Contact, Donate, Login, Register, Search, Merci, NotFound |
-| `pkg/horui/auth` | `Store` : Register, Authenticate, GetByID — bcrypt + sessions |
-| `pkg/horui/middleware` | Sessions cookie signé, Flash, Theme middleware, Auth |
-| `pkg/horui/perms` | RBAC nœuds × rôles |
-| `pkg/horui/tree` | Hiérarchie nœuds (folder/page/post/form/doc), markdown→HTML via goldmark |
-| `pkg/horui/search` | Wrapper FTS5 SQLite |
-| `pkg/horui/theme` | Charte graphique (palette + fonts + nom du site) |
-| `pkg/mailer` | Outbox + worker SMTPS (port 465) ou Resend HTTP, backoff exponentiel |
-| `schema/` | DDL SQLite (users, roles, nodes, permissions, signups, email_outbox, activation_tokens, FTS5) |
-| `static/css/horui.css` | Feuille de style ~510 lignes (palette + composants) |
+See `examples/minimal-asso/` for a demonstration of how to instantiate the application using `pkg/api`.
 
-## Stack
+## Architecture
 
+Assokit relies on a modern 2026 stack:
 - Go 1.26
-- `github.com/a-h/templ` v0.3+
-- `github.com/go-chi/chi/v5`
-- `modernc.org/sqlite` (pure Go, FTS5 inclus)
-- `github.com/yuin/goldmark`
+- SQLite (modernc.org/sqlite)
+- Chi v5 routing
+- Templ views
 
-## Démarrage rapide
+## Configuration
 
-```go
-import (
-    "github.com/hazyhaar/assokit/pkg/horui/layout"
-    "github.com/hazyhaar/assokit/pkg/horui/pages"
-    "github.com/hazyhaar/assokit/pkg/horui/theme"
-)
+Configuration is passed via the `api.Options` struct. You must provide a `DBPath` and a `fs.FS` containing your `branding.toml` and markdown files.
 
-func handleHome(w http.ResponseWriter, r *http.Request) {
-    th := theme.Defaults()
-    th.SiteName = "Mon Asso"
-    nav := []layout.NavItem{{Label: "Accueil", Href: "/"}}
-    layout.Base(th, "Accueil", nav, pages.StaticPage("Bienvenue", "", "<p>Hello</p>")).Render(r.Context(), w)
-}
-```
+## Connectors
 
-## Versionnement
+*(Placeholder Sprint 2+)*
 
-Versions majeures uniquement quand l'API change. Patches/correctifs dans la branche
-`main`. Tag `vX.Y.Z` à chaque release.
+## Contributing
 
-## Licence
+Pull requests are welcome. Make sure to run `go test ./...` and `go vet ./...` before submitting.
 
-MIT. Voir [LICENSE](LICENSE).
+## License
+
+MIT License. See the LICENSE file for details.

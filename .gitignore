@@ -1,31 +1,5 @@
-# Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-go.work.sum
-
-# Build output
-/bin/
-/build/
-/dist/
-
-# Local DBs
-*.db
+.db
 *.db-shm
 *.db-wal
-
-# Editor / IDE
-.vscode/
-.idea/
-*.swp
-.DS_Store
-
-# Coverage
-coverage.out
-coverage.html
-/minimal-asso
-examples/*/static/
+/bin/
+.env
