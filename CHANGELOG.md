@@ -9,7 +9,7 @@
 - Theme singleton via `pkg/horui/theme` (chargé depuis `branding.toml`)
 - Pages markdown depuis `BrandingFS` (`/pages/*.md`)
 - Mailer SMTP avec AUTH LOGIN + STARTTLS + fallback outbox
-- Multi-profils d'adhésion (/adhérer/lanceur, /adhérer/observateur, etc.)
+  - `/signup` avec profils configurables (lanceur, observateur, etc.) via `profils.toml`
 - Forum hiérarchique (threads/reply) avec permissions
 - Search via `pkg/horui/search` (grep nodes/posts)
 
@@ -33,9 +33,9 @@
 
 ### Fixes
 - `api.ListenAndServe` honore maintenant `opts.Port` (était hardcodé à 8080)
-- Gralceful shutdown sur SIGINT/SIGTERM (timeout 10s)
+- Graceful shutdown sur SIGINT/SIGTERM (timeout 10s)
 
 ### Testing
 - `go test -race ./...` : 0 leak, 0 data race
 - `go test -tags=integration_cdp ./internal/handlers/...` : CDP crawler + full E2E
-- Cross-platform builds : linux/amd64 (6.6MB), linux/arm64 (à tester)
+- Cross-platform builds : linux/amd64 (6.6MB), linux/arm64 (6.1MB) — both built from CGO=0 static, validated via `file` ELF header

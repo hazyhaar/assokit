@@ -99,6 +99,8 @@ func (a *App) Handler() http.Handler {
 
 // Shutdown arrête proprement (utilisé par tests, ou wrapper systemd custom).
 func (a *App) Shutdown(ctx context.Context) error {
-	// LOT2: implement Shutdown
-	return nil
+	if a.srv == nil {
+		return nil
+	}
+	return a.srv.Shutdown(ctx)
 }

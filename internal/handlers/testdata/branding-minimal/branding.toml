@@ -1,0 +1,12 @@
+name = "Test"
+base_url = "http://localhost:8091"
+contact_email = "test@example.test"
+locale = "fr-FR"
+
+[colors]
+primary = "#000000"
+secondary = "#ffffff"
+accent = "#888888"
+bg_light = "#ffffff"
+bg_dark = "#000000"
+text = "#000000"

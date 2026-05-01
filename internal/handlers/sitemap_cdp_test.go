@@ -5,18 +5,18 @@ package handlers_test
 import (
 	"context"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/chromedp/cdproto/runtime"
+	cdprotoruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
 
@@ -36,23 +36,42 @@ func TestSitemapCDPCrawl(t *testing.T) {
 	}
 	t.Logf("chromium : %s", chromePath)
 
-	// 2. DB + config test
-	dbPath := filepath.Join(t.TempDir(), "sitemap-cdp.db")
+	// 2. Repo root
+	repoRoot := findRepoRoot(t)
+	t.Logf("repo root: %s", repoRoot)
 
-	// 3. Lancer le binaire en sous-process
-	cmd := exec.CommandContext(context.Background(), "/data/GITREMOTE/assokit/dist/assokit-linux-amd64")
+	// 3. Build le binaire dans t.TempDir()
+	binPath := filepath.Join(t.TempDir(), "assokit-test")
+	buildCmd := exec.Command("go", "build", "-o", binPath, "github.com/hazyhaar/assokit/cmd/assokit")
+	buildCmd.Dir = repoRoot
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("build assokit: %v\n%s", err, out)
+	}
+	t.Logf("binaire build: %s", binPath)
+
+	// 4. DB + config test
+	dbPath := filepath.Join(t.TempDir(), "sitemap-cdp.db")
+	brandingDir := filepath.Join(repoRoot, "internal/handlers/testdata/branding-minimal")
+
+	// 5. Lancer le binaire en sous-process
+	cmd := exec.CommandContext(context.Background(), binPath)
 	cmd.Env = append(os.Environ(),
 		"PORT=8091",
 		"BASE_URL=http://localhost:8091",
 		"DB_PATH="+dbPath,
-		"BRANDING_DIR=/devhoros/nonpossumus/config",
+		"BRANDING_DIR="+brandingDir,
 		"ADMIN_EMAIL=test@example.test",
 		"COOKIE_SECRET=0123456789abcdef0123456789abcdef",
 	)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start binary: %v", err)
 	}
-	defer cmd.Process.Kill()
+	defer func() {
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+			cmd.Wait()
+		}
+	}()
 
 	// Poll jusqu'à ready (max 5s)
 	ready := false
@@ -69,7 +88,7 @@ func TestSitemapCDPCrawl(t *testing.T) {
 		t.Fatal("server n'a pas démarré dans le temps")
 	}
 
-	// 4. Récupérer sitemap.xml
+	// 6. Récupérer sitemap.xml
 	resp, err := http.Get("http://localhost:8091/sitemap.xml")
 	if err != nil {
 		t.Fatalf("GET sitemap: %v", err)
@@ -86,7 +105,7 @@ func TestSitemapCDPCrawl(t *testing.T) {
 	}
 	t.Logf("sitemap contient %d URLs", len(set.URLs))
 
-	// 5. Chromium headless
+	// 7. Chromium headless
 	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(chromePath),
 		chromedp.Flag("headless", true),
@@ -95,9 +114,6 @@ func TestSitemapCDPCrawl(t *testing.T) {
 		chromedp.Flag("disable-dev-shm-usage", true),
 	)
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocOpts...)
-	if allocCtx == nil {
-		t.Fatalf("chromedp.NewExecAllocator: %v", err)
-	}
 	defer allocCancel()
 	browserCtx, browserCancel := chromedp.NewContext(allocCtx)
 	defer browserCancel()
@@ -113,16 +129,16 @@ func TestSitemapCDPCrawl(t *testing.T) {
 	var mu sync.Mutex
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
 		switch e := ev.(type) {
-		case *runtime.EventExceptionThrown:
+		case *cdprotoruntime.EventExceptionThrown:
 			mu.Lock()
 			defer mu.Unlock()
 			url := ""
-			if e.ExceptionDetails != nil && e.ExceptionDetails.URL() != "" {
-				url = e.ExceptionDetails.URL()
+			if e.ExceptionDetails != nil && e.ExceptionDetails.URL != "" {
+				url = e.ExceptionDetails.URL
 			}
 			msg := ""
-			if e.ExceptionDetails != nil && e.ExceptionDetails.ExceptionDescription != nil {
-				msg = e.ExceptionDetails.ExceptionDescription.Text()
+			if e.ExceptionDetails != nil && e.ExceptionDetails.Exception != nil {
+				msg = e.ExceptionDetails.Exception.Description
 			}
 			if msg != "" {
 				jsErrors = append(jsErrors, jsError{URL: url, Msg: msg})
@@ -130,9 +146,9 @@ func TestSitemapCDPCrawl(t *testing.T) {
 		}
 	})
 
-	// 7. Visiter chaque URL du sitemap
+	// 9. Visiter chaque URL du sitemap
 	for _, u := range set.URLs {
-		targetURL := strings.Replace(u.Loc, "http://localhost:8091", "http://localhost:8091", 1)
+		targetURL := u.Loc
 
 		var title string
 		var bodyText string
@@ -158,12 +174,28 @@ func TestSitemapCDPCrawl(t *testing.T) {
 		}
 	}
 
-	// 8. Reporter les erreurs JS
+	// 10. Reporter les erreurs JS
 	for _, je := range jsErrors {
 		t.Errorf("JS error sur %s: %s", je.URL, je.Msg)
 	}
 
 	t.Logf("sitemap crawl OK — %d URLs visitées sans erreur critique", len(set.URLs))
+}
+
+func findRepoRoot(t *testing.T) string {
+	t.Helper()
+	_, file, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(file)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod introuvable")
+		}
+		dir = parent
+	}
 }
 
 func findChromium(t *testing.T) string {
