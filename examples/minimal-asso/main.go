@@ -90,12 +90,10 @@ func main() {
 	must(srv.ListenAndServe(), "listen")
 }
 
-// homeContent : exemple de page d'accueil custom (pas dans le kit).
+// homeContent : home riche démontrant Hero + Features + SectionCTA paramétrables.
+// Le contenu est défini dans home.templ (templ syntax).
 func homeContent() templ.Component {
-	return pages.StaticPage("Bienvenue", "Démo", `
-		<p>Cette page est rendue par <code>pages.StaticPage</code>.</p>
-		<p>Allez voir <a href="/contact">Contact</a> ou <a href="/login">Connexion</a>.</p>
-	`)
+	return demoHome()
 }
 
 func renderPage(th theme.Theme, nav []layout.NavItem, title string, content templ.Component) http.HandlerFunc {

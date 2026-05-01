@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Composants page-spécifiques NPS — vitrine, signup, soutenir, contact, login, search, 404.
+// CLAUDE:SUMMARY Composants page-spécifiques génériques — vitrine, signup, soutenir, contact, login, search, 404.
 // Chaque templ ici renvoie le **contenu** du <main>, à envelopper dans layout.Base côté handler.
 package pages
 
@@ -13,6 +13,86 @@ type SearchResult struct {
 	Title   string
 	Slug    string
 	Snippet string
+}
+
+// CallToAction : bouton Hero/SectionCTA (label + href + style ghost optionnel).
+type CallToAction struct {
+	Label string
+	Href  string
+	Ghost bool
+}
+
+// Feature : carte présentation Features (icône emoji ou pictogramme + titre + corps).
+type Feature struct {
+	Icon  string
+	Title string
+	Body  string
+}
+
+// ========================================================================
+// HERO — bandeau vitrine paramétrable (titre + accroche + 1 ou 2 CTAs)
+// ========================================================================
+
+templ Hero(sectionLabel, title, lead string, primary, secondary CallToAction) {
+	<section class="hero">
+		<div class="hero-inner">
+			if sectionLabel != "" {
+				<div class="section-label">{ sectionLabel }</div>
+			}
+			<h1 class="hero-title">@templ.Raw(title)</h1>
+			if lead != "" {
+				<p class="hero-lead">{ lead }</p>
+			}
+			if primary.Label != "" || secondary.Label != "" {
+				<div class="hero-actions">
+					if primary.Label != "" {
+						<a href={ templ.SafeURL(primary.Href) } class={ "btn btn-lg " + heroBtnClass(primary.Ghost) }>{ primary.Label }</a>
+					}
+					if secondary.Label != "" {
+						<a href={ templ.SafeURL(secondary.Href) } class={ "btn btn-lg " + heroBtnClass(secondary.Ghost) }>{ secondary.Label }</a>
+					}
+				</div>
+			}
+		</div>
+	</section>
+}
+
+// ========================================================================
+// FEATURES — grille 3 colonnes (responsive 2 puis 1)
+// ========================================================================
+
+templ Features(items []Feature) {
+	<section class="section">
+		<div class="section-grid section-grid-3">
+			for _, f := range items {
+				<div class="feature-card">
+					if f.Icon != "" {
+						<div class="feature-icon">{ f.Icon }</div>
+					}
+					<h3>{ f.Title }</h3>
+					<p>{ f.Body }</p>
+				</div>
+			}
+		</div>
+	</section>
+}
+
+// ========================================================================
+// SECTION CTA — bandeau sombre avec heading + 1 CTA
+// ========================================================================
+
+templ SectionCTA(heading, lead string, cta CallToAction) {
+	<section class="section section-cta">
+		<div class="cta-inner">
+			<h2>{ heading }</h2>
+			if lead != "" {
+				<p>{ lead }</p>
+			}
+			if cta.Label != "" {
+				<a href={ templ.SafeURL(cta.Href) } class="btn btn-primary">{ cta.Label }</a>
+			}
+		</div>
+	</section>
 }
 
 // ========================================================================
@@ -393,6 +473,13 @@ templ NotFound() {
 // templ-internes ; les fonctions appelées depuis les templates DOIVENT être
 // dans le même package).
 // ========================================================================
+
+func heroBtnClass(ghost bool) string {
+	if ghost {
+		return "btn-ghost"
+	}
+	return "btn-primary"
+}
 
 func inputType(t string) string {
 	switch t {
