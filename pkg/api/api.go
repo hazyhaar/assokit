@@ -15,7 +15,8 @@ import (
 
 // App représente une instance assokit configurée et prête à servir.
 type App struct {
-	// privé, opaque
+	opts Options
+	srv  *http.Server
 }
 
 // Options configure une nouvelle App.
@@ -63,7 +64,7 @@ func New(opts Options) (*App, error) {
 	} else {
 		theme.Init(&theme.Branding{Name: "Assokit Default"})
 	}
-	return &App{}, nil
+	return &App{opts: opts}, nil
 }
 
 // ListenAndServe démarre le serveur HTTP. Bloquant. Honore SIGINT/SIGTERM avec
@@ -78,10 +79,16 @@ func (a *App) ListenAndServe(ctx context.Context) error {
 		page := layout.Base("Accueil", content)
 		page.Render(r.Context(), w)
 	})
-	srv := &http.Server{Addr: ":8080", Handler: mux}
-	go srv.ListenAndServe()
+	port := a.opts.Port
+	if port == "" {
+		port = "8080"
+	}
+	a.srv = &http.Server{Addr: ":" + port, Handler: mux}
+	go func() {
+		_ = a.srv.ListenAndServe()
+	}()
 	<-ctx.Done()
-	return srv.Shutdown(context.Background())
+	return a.srv.Shutdown(context.Background())
 }
 
 // Handler renvoie le http.Handler chi pour usage en mode test ou embedding.
