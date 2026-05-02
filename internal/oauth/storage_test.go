@@ -126,6 +126,28 @@ func TestOAuth_AuthCodeFlowFullJourney(t *testing.T) {
 	if exp.Before(time.Now()) {
 		t.Error("token déjà expiré")
 	}
+
+	// Vérifier que le tokenID est utilisable comme Bearer sur endpoint protégé (logique MCP bearer middleware)
+	var bearerUID string
+	err = db.QueryRowContext(ctx,
+		`SELECT user_id FROM oauth_tokens WHERE id=? AND revoked_at IS NULL AND expires_at > ?`,
+		tokenID, time.Now().UTC().Format(time.RFC3339),
+	).Scan(&bearerUID)
+	if err != nil {
+		t.Fatalf("Bearer lookup (MCP endpoint) : token non trouvable en DB: %v", err)
+	}
+	if bearerUID != userID {
+		t.Errorf("Bearer lookup : want userID=%s, got %s", userID, bearerUID)
+	}
+
+	// Vérifier que SetUserinfoFromToken retourne les claims corrects
+	userinfo := new(oidc.UserInfo)
+	if err := store.SetUserinfoFromToken(ctx, userinfo, tokenID, userID, ""); err != nil {
+		t.Fatalf("SetUserinfoFromToken (access token utilisable) : %v", err)
+	}
+	if userinfo.Subject != userID {
+		t.Errorf("userinfo.Subject : want %s, got %s", userID, userinfo.Subject)
+	}
 }
 
 // TestOAuth_RefreshTokenRotationInvalidatesPrevious : rotation invalide le refresh token précédent.
