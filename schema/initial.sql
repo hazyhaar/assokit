@@ -66,7 +66,7 @@ CREATE TABLE signups (
   profile      TEXT NOT NULL,
   fields_json  TEXT NOT NULL DEFAULT '{}',
   message      TEXT NOT NULL DEFAULT '',
-  ip           TEXT NOT NULL DEFAULT '',
+  ip_hash      TEXT NOT NULL DEFAULT '',  -- SHA256(IP + COOKIE_SECRET), pas IP brute (RGPD)
   created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   processed_at TEXT
 ) STRICT;

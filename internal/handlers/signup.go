@@ -4,10 +4,12 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -174,18 +176,28 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 
 // createMember crée user + role member + activation token dans une TX atomique.
 // Retourne le token d'activation ou une erreur.
-func createMember(ctx context.Context, db *sql.DB, email, displayName, profil, fieldsJSON, remoteAddr string, _ []byte) (string, error) {
+func createMember(ctx context.Context, db *sql.DB, email, displayName, profil, fieldsJSON, remoteAddr string, cookieSecret []byte) (string, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("createMember begin: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck — no-op si Commit a réussi, erreur ignorée intentionnellement
 
+	// ip_hash = SHA256(IP + COOKIE_SECRET) — jamais l'IP brute (RGPD)
+	clientIP, _, _ := net.SplitHostPort(remoteAddr)
+	if clientIP == "" {
+		clientIP = remoteAddr
+	}
+	h := sha256.New()
+	h.Write([]byte(clientIP))
+	h.Write(cookieSecret)
+	ipHash := hex.EncodeToString(h.Sum(nil))
+
 	// INSERT signup
 	signupID := uuid.New().String()
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO signups(id, email, display_name, profile, fields_json, ip) VALUES(?,?,?,?,?,?)`,
-		signupID, email, displayName, profil, fieldsJSON, remoteAddr,
+		`INSERT INTO signups(id, email, display_name, profile, fields_json, ip_hash) VALUES(?,?,?,?,?,?)`,
+		signupID, email, displayName, profil, fieldsJSON, ipHash,
 	); err != nil {
 		return "", fmt.Errorf("createMember signup: %w", err)
 	}
