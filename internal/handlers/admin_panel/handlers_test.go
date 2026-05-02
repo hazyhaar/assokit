@@ -1,9 +1,11 @@
 package adminpanel_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -128,6 +130,48 @@ func TestAdminPanel_ProgressBarCountsRequiredOnly(t *testing.T) {
 	// required_filled doit être 1 (seul nom_asso, required, est rempli)
 	if !strings.Contains(body, `"required_filled":1`) {
 		t.Errorf("required_filled attendu 1 dans: %s", body)
+	}
+}
+
+// TestAdminPanel_FileUploadStoresAndServes : POST upload-file avec un PNG → badge + file_path en DB.
+func TestAdminPanel_FileUploadStoresAndServes(t *testing.T) {
+	deps := newAdminDeps(t)
+	uploadDir := t.TempDir()
+	t.Setenv("BRANDING_DIR", uploadDir)
+	r := newRouter(deps)
+
+	// Construire un multipart avec un faux PNG (magic bytes suffisent pour DetectContentType)
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	_ = mw.WriteField("key", "presentation.og_image")
+	fw, err := mw.CreateFormFile("file", "og.png")
+	if err != nil {
+		t.Fatalf("createFormFile: %v", err)
+	}
+	pngMagic := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+	fw.Write(append(pngMagic, make([]byte, 64)...)) //nolint:errcheck
+	mw.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/panel/upload-file", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req = withAdminUser(req)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("upload-file : attendu 200, got %d — %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "enregistré") {
+		t.Errorf("upload-file : badge 'enregistré' attendu dans: %s", w.Body.String())
+	}
+
+	// Vérifier stockage en DB
+	var fp string
+	err = deps.DB.QueryRowContext(context.Background(),
+		`SELECT COALESCE(file_path,'') FROM branding_kv WHERE key='presentation.og_image'`,
+	).Scan(&fp)
+	if err != nil || fp == "" {
+		t.Errorf("upload-file : file_path absent de branding_kv (err=%v, fp=%q)", err, fp)
 	}
 }
 
