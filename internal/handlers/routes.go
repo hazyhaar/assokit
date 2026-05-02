@@ -118,6 +118,9 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	if err == nil {
 		mountOAuthRoutes(r, deps, oauthHandler, oauthStore)
 	}
+
+	// MCP Streamable HTTP — endpoint /mcp + discovery /.well-known/mcp/server
+	mountMCPEndpoint(r, deps, rbacSvc)
 }
 
 // newNullString crée un sql.NullString non-nul.
