@@ -247,6 +247,15 @@ func New(opts Options) (*App, error) {
 	r.Use(appMiddleware.Flash)
 	r.Use(appMiddleware.HTMX)
 	handlers.MountRoutes(r, deps)
+	// Admin connectors (override mission 019de9fa) : routes câblées ici car
+	// reg/life/vault sont en scope local (pas dans AppDeps).
+	var connectorVault *assets.Vault
+	if mk := os.Getenv("NPS_MASTER_KEY"); mk != "" {
+		if v, vErr := assets.NewVault(db, mk); vErr == nil {
+			connectorVault = v
+		}
+	}
+	handlers.MountAdminConnectorsRoutes(r, deps, connectorReg, connectorLife, connectorVault)
 	r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(http.FS(static.FS))))
 
 	return &App{
