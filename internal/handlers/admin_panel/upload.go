@@ -96,10 +96,20 @@ func HandleUploadFile(deps app.AppDeps, brandingDir string) http.HandlerFunc {
 		// Mime check via contenu réel
 		buf := make([]byte, 512)
 		n, _ := file.Read(buf)
+		ctx := r.Context()
+		reqID := middleware.RequestIDFromContext(ctx)
+
 		mime := http.DetectContentType(buf[:n])
 		if len(field.MimeAllow) > 0 && !mimeAllowed(mime, field.MimeAllow) {
 			// Tolérance SVG : DetectContentType retourne text/plain pour SVG
 			if !(slices.Contains(field.MimeAllow, "image/svg+xml") && looksLikeSVG(buf[:n])) {
+				deps.Logger.Warn("admin_panel_upload_mime_mismatch",
+					"req_id", reqID,
+					"key", key,
+					"declared_filename", header.Filename,
+					"detected_mime", mime,
+					"allowed", field.MimeAllow,
+				)
 				w.WriteHeader(http.StatusUnsupportedMediaType)
 				w.Write([]byte(`<span class="field-badge field-badge--error">Type de fichier non autorisé</span>`)) //nolint:errcheck
 				return
@@ -143,14 +153,28 @@ func HandleUploadFile(deps app.AppDeps, brandingDir string) http.HandlerFunc {
 		}
 
 		userID := ""
-		if u := middleware.UserFromContext(r.Context()); u != nil {
+		if u := middleware.UserFromContext(ctx); u != nil {
 			userID = u.ID
 		}
 
-		if err := branding.SetFile(r.Context(), deps.DB, key, destPath, mime, userID, int64(len(content))); err != nil {
+		if err := branding.SetFile(ctx, deps.DB, key, destPath, mime, userID, int64(len(content))); err != nil {
+			deps.Logger.Error("admin_panel_file_save_failed",
+				"req_id", reqID,
+				"user_id", userID,
+				"key", key,
+				"err", err.Error(),
+			)
 			http.Error(w, "erreur sauvegarde", http.StatusInternalServerError)
 			return
 		}
+
+		deps.Logger.Info("admin_panel_file_uploaded",
+			"req_id", reqID,
+			"user_id", userID,
+			"key", key,
+			"mime", mime,
+			"size", int64(len(content)),
+		)
 
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`<span class="field-badge field-badge--saved">✓ Fichier enregistré</span>`)) //nolint:errcheck

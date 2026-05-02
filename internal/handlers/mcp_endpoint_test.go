@@ -48,7 +48,7 @@ func TestMCPEndpoint_BearerInvalidReturns401(t *testing.T) {
 	svc := &rbac.Service{Store: &rbac.Store{DB: deps.DB}, Cache: &rbac.Cache{}}
 
 	r := chi.NewRouter()
-	r.Use(oauthBearerMiddleware(deps.DB, svc))
+	r.Use(oauthBearerMiddleware(deps.DB, svc, deps))
 	r.Get("/mcp/test", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 
 	t.Run("sans_bearer", func(t *testing.T) {
@@ -104,7 +104,7 @@ func TestMCPEndpoint_ValidBearerInjectsContext(t *testing.T) {
 	var capturedScopes []string
 
 	r := chi.NewRouter()
-	r.Use(oauthBearerMiddleware(deps.DB, svc))
+	r.Use(oauthBearerMiddleware(deps.DB, svc, deps))
 	r.Get("/mcp/check", func(w http.ResponseWriter, r *http.Request) {
 		u := middleware.UserFromContext(r.Context())
 		if u != nil {
@@ -152,7 +152,7 @@ func TestMCPEndpoint_ScopeMissingReturnsTypedError(t *testing.T) {
 	httpSrv := server.NewStreamableHTTPServer(mcpSrv)
 
 	r := chi.NewRouter()
-	r.Use(oauthBearerMiddleware(deps.DB, svc))
+	r.Use(oauthBearerMiddleware(deps.DB, svc, deps))
 	r.Mount("/mcp", httpSrv)
 
 	// Requête initialize MCP avec Bearer valide mais scope manquant
@@ -234,7 +234,7 @@ func TestMCPEndpoint_FullJourney_OAuthThenToolCall(t *testing.T) {
 	httpSrv := server.NewStreamableHTTPServer(mcpSrv)
 
 	r := chi.NewRouter()
-	r.Use(oauthBearerMiddleware(deps.DB, svc))
+	r.Use(oauthBearerMiddleware(deps.DB, svc, deps))
 	r.Mount("/mcp", httpSrv)
 
 	// Étape 1 : initialize

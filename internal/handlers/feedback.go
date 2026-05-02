@@ -37,10 +37,14 @@ func handleFeedbackPost(deps app.AppDeps, rl *middleware.RateLimiter) http.Handl
 			return
 		}
 
+		ctx := r.Context()
+		reqID := middleware.RequestIDFromContext(ctx)
+
 		// Honeypot
 		if r.FormValue("website") != "" {
+			deps.Logger.Debug("feedback_honeypot_triggered", "req_id", reqID)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			components.FeedbackSuccess().Render(r.Context(), w) //nolint:errcheck
+			components.FeedbackSuccess().Render(ctx, w) //nolint:errcheck
 			return
 		}
 
@@ -53,11 +57,16 @@ func handleFeedbackPost(deps app.AppDeps, rl *middleware.RateLimiter) http.Handl
 		h.Write([]byte(remoteIP))
 		h.Write(deps.Config.CookieSecret)
 		ipHash := hex.EncodeToString(h.Sum(nil))
+		ipHashShort := ipHash[:16]
 
 		// Rate-limit par ip_hash
 		if !rl.Allow(ipHash) {
+			deps.Logger.Info("feedback_rate_limited",
+				"req_id", reqID,
+				"ip_hash_prefix", ipHashShort,
+			)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			components.FeedbackSuccess().Render(r.Context(), w) //nolint:errcheck
+			components.FeedbackSuccess().Render(ctx, w) //nolint:errcheck
 			return
 		}
 
@@ -81,16 +90,27 @@ func handleFeedbackPost(deps app.AppDeps, rl *middleware.RateLimiter) http.Handl
 		}
 
 		id := uuid.New().String()
-		_, err := deps.DB.ExecContext(r.Context(),
+		_, err := deps.DB.ExecContext(ctx,
 			`INSERT INTO feedbacks(id, page_url, page_title, message, ip_hash, user_agent, locale)
 			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			id, pageURL, pageTitle, message, ipHash, ua, locale,
 		)
 		if err != nil {
-			deps.Logger.Error("feedback insert", "err", err)
+			deps.Logger.Error("feedback_insert_failed",
+				"req_id", reqID,
+				"ip_hash_prefix", ipHashShort,
+				"err", err.Error(),
+			)
 			http.Error(w, "Erreur interne", http.StatusInternalServerError)
 			return
 		}
+
+		deps.Logger.Info("feedback_created",
+			"req_id", reqID,
+			"feedback_id", id,
+			"page_url", pageURL,
+			"ip_hash_prefix", ipHashShort,
+		)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		components.FeedbackSuccess().Render(r.Context(), w) //nolint:errcheck

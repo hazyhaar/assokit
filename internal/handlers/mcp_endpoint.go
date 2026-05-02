@@ -102,20 +102,33 @@ func hashBearerToken(token string) string {
 
 // oauthBearerMiddleware vérifie le Bearer token OAuth, retourne 401 si absent/invalide,
 // injecte userID + scopes + rbac.Service dans le contexte si valide.
-func oauthBearerMiddleware(db *sql.DB, rbacSvc *svcrbac.Service) func(http.Handler) http.Handler {
+func oauthBearerMiddleware(db *sql.DB, rbacSvc *svcrbac.Service, deps app.AppDeps) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			reqID := middleware.RequestIDFromContext(ctx)
 			token := extractBearer(r)
 			if token == "" {
+				deps.Logger.Warn("mcp_bearer_missing", "req_id", reqID)
 				w.Header().Set("WWW-Authenticate", `Bearer realm="assokit-mcp"`)
 				http.Error(w, "Bearer token requis", http.StatusUnauthorized)
 				return
 			}
 
 			ip := realIP(r)
-			info, err := validateBearerToken(r.Context(), db, token)
+			ipHashShort := middleware.HashIP(ip, deps.Config.CookieSecret)
+			info, err := validateBearerToken(ctx, db, token)
 			if err != nil {
+				deps.Logger.Warn("mcp_bearer_invalid",
+					"req_id", reqID,
+					"ip_hash_prefix", ipHashShort,
+					"reason", err.Error(),
+				)
 				if globalBruteForce.RecordFailure(ip) {
+					deps.Logger.Warn("mcp_bearer_brute_force_blocked",
+						"req_id", reqID,
+						"ip_hash_prefix", ipHashShort,
+					)
 					http.Error(w, "trop de tentatives", http.StatusTooManyRequests)
 					return
 				}
@@ -124,7 +137,6 @@ func oauthBearerMiddleware(db *sql.DB, rbacSvc *svcrbac.Service) func(http.Handl
 				return
 			}
 
-			ctx := r.Context()
 			// Injecter pour perms.Has (RBAC service + userID)
 			ctx = perms.ContextWithService(ctx, rbacSvc)
 			ctx = perms.ContextWithUserID(ctx, info.UserID)
@@ -132,6 +144,12 @@ func oauthBearerMiddleware(db *sql.DB, rbacSvc *svcrbac.Service) func(http.Handl
 			ctx = middleware.ContextWithUser(ctx, &auth.User{ID: info.UserID})
 			// Injecter scopes OAuth
 			ctx = context.WithValue(ctx, mcpScopesKey{}, info.Scopes)
+
+			deps.Logger.Info("mcp_bearer_validated",
+				"req_id", reqID,
+				"user_id", info.UserID,
+				"scopes", info.Scopes,
+			)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -179,7 +197,7 @@ func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service) 
 	httpSrv := server.NewStreamableHTTPServer(mcpSrv)
 
 	r.Group(func(r chi.Router) {
-		r.Use(oauthBearerMiddleware(deps.DB, rbacSvc))
+		r.Use(oauthBearerMiddleware(deps.DB, rbacSvc, deps))
 		r.Mount("/mcp", httpSrv)
 	})
 

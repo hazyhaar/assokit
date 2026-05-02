@@ -159,24 +159,50 @@ func randomState() string {
 
 func handleGoogleCallback(deps app.AppDeps, store *intoauth.Storage, rpp rp.RelyingParty) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tokens, err := rp.CodeExchange[*oidc.IDTokenClaims](r.Context(), r.URL.Query().Get("code"), rpp)
+		ctx := r.Context()
+		reqID := middleware.RequestIDFromContext(ctx)
+		tokens, err := rp.CodeExchange[*oidc.IDTokenClaims](ctx, r.URL.Query().Get("code"), rpp)
 		if err != nil {
+			deps.Logger.Warn("oauth_social_callback_failed",
+				"req_id", reqID,
+				"provider", "google",
+				"stage", "code_exchange",
+				"err", err.Error(),
+			)
 			http.Error(w, "échange code Google échoué: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		email := tokens.IDTokenClaims.Email
 		sub := tokens.IDTokenClaims.GetSubject()
+		emailHash := middleware.HashEmail(email)
 
 		var userID string
-		err = deps.DB.QueryRowContext(r.Context(),
+		isNew := false
+		err = deps.DB.QueryRowContext(ctx,
 			`SELECT user_id FROM oauth_external_links WHERE provider = 'google' AND external_id = ?`, sub).Scan(&userID)
 		if err != nil {
-			userID, err = findOrCreateSocialUser(r.Context(), deps, "google", sub, email)
+			isNew = true
+			userID, err = findOrCreateSocialUser(ctx, deps, "google", sub, email)
 			if err != nil {
+				deps.Logger.Warn("oauth_social_callback_failed",
+					"req_id", reqID,
+					"provider", "google",
+					"stage", "find_or_create_user",
+					"email_hash", emailHash,
+					"err", err.Error(),
+				)
 				http.Error(w, "erreur création utilisateur: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
+
+		deps.Logger.Info("oauth_social_callback",
+			"req_id", reqID,
+			"provider", "google",
+			"user_created", isNew,
+			"user_id", userID,
+			"email_hash", emailHash,
+		)
 
 		secure := strings.HasPrefix(deps.Config.BaseURL, "https://")
 		middleware.SetSessionCookie(w, userID, deps.Config.CookieSecret, secure)

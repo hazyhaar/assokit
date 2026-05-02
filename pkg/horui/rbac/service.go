@@ -5,20 +5,44 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"log/slog"
 )
+
+// reqIDKeyType est volontairement défini ici (pas d'import de middleware) pour
+// éviter un cycle middleware→perms→rbac→middleware. La valeur est lue via
+// context.Value(requestIDKey{}) en utilisant la struct exportée par le middleware,
+// mais comme on ne peut pas l'importer, on accepte que ce soit "" pour rbac.
+// Le user_id + perm + allowed restent suffisants pour le debug RBAC.
 
 // Service orchestre Store + Cache : permissions effectives avec cache à 2 niveaux.
 type Service struct {
 	Store *Store
 	Cache *Cache
+	// Logger optionnel : si nil, logs Debug désactivés (slog.Default n'affiche pas Debug par défaut).
+	Logger *slog.Logger
+}
+
+// logger retourne le slog.Logger configuré ou slog.Default() en fallback.
+func (svc *Service) logger() *slog.Logger {
+	if svc.Logger != nil {
+		return svc.Logger
+	}
+	return slog.Default()
 }
 
 // Can vérifie si userID a la permission permName.
 // Hot path : L1 cache → si hit, retour immédiat sans DB.
 // Miss : charge depuis L2 (user_effective_permissions), peuple L1.
+// Log Debug uniquement (hot path, désactivé par défaut en prod).
 func (svc *Service) Can(ctx context.Context, userID, permName string) (bool, error) {
 	if perms, ok := svc.Cache.Get(userID); ok {
 		_, has := perms[permName]
+		svc.logger().Debug("rbac_check",
+			"user_id", userID,
+			"perm", permName,
+			"allowed", has,
+			"source", "L1",
+		)
 		return has, nil
 	}
 	perms, err := svc.loadEffectiveFromDB(ctx, userID)
@@ -27,6 +51,12 @@ func (svc *Service) Can(ctx context.Context, userID, permName string) (bool, err
 	}
 	svc.Cache.Set(userID, perms)
 	_, has := perms[permName]
+	svc.logger().Debug("rbac_check",
+		"user_id", userID,
+		"perm", permName,
+		"allowed", has,
+		"source", "L2",
+	)
 	return has, nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -72,6 +73,12 @@ type Options struct {
 
 	// Logger optionnel ; slog.Default() si nil.
 	Logger *slog.Logger
+
+	// LogLevel optionnel : niveau de log appliqué au handler créé si Logger==nil.
+	// Permet à l'opérateur de passer Debug en investigation sans recompiler
+	// (ex: ASSOKIT_LOG_LEVEL=debug). Défaut Info.
+	// Ignoré si Logger non-nil (le caller contrôle son propre niveau).
+	LogLevel slog.Level
 }
 
 // New crée une App, ouvre la DB, applique les migrations, charge le branding.
@@ -79,7 +86,11 @@ type Options struct {
 func New(opts Options) (*App, error) {
 	logger := opts.Logger
 	if logger == nil {
-		logger = slog.Default()
+		level := opts.LogLevel
+		if level == 0 {
+			level = slog.LevelInfo
+		}
+		logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 	}
 
 	// 1. DB open + ping.
@@ -179,7 +190,9 @@ func New(opts Options) (*App, error) {
 	}
 
 	// 8. chi.Router + middlewares + routes.
+	// RequestID monté EN PREMIER : tous les slogs en aval peuvent récupérer req_id via ctx.
 	r := chi.NewRouter()
+	r.Use(appMiddleware.RequestID)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(appMiddleware.CSRF(secret))
 	r.Use(appMiddleware.Auth(db, secret))

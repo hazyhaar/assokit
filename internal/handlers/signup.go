@@ -22,6 +22,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// safeTokenPrefix retourne les 8 premiers chars du token pour les logs (jamais le token complet).
+func safeTokenPrefix(token string) string {
+	if len(token) < 8 {
+		return token
+	}
+	return token[:8]
+}
+
 // Profils signup valides (extraits du HTML L'administrateur assokit.org).
 var validProfils = map[string]bool{
 	"adherent":   true,
@@ -141,18 +149,42 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 		fieldsJSON := collectFields(r, profil)
 
 		ctx := r.Context()
+		reqID := middleware.RequestIDFromContext(ctx)
+		emailHash := middleware.HashEmail(email)
+
+		deps.Logger.Info("signup_attempt",
+			"req_id", reqID,
+			"profile", profil,
+			"email_hash", emailHash,
+		)
 
 		// TX atomique : signups + users + user_roles + activation_tokens
 		token, err := createMember(ctx, deps.DB, email, displayName, profil, fieldsJSON, r.RemoteAddr, deps.Config.CookieSecret)
 		if err != nil {
+			stage := "create_member"
 			if strings.Contains(err.Error(), "UNIQUE") {
+				stage = "unique_violation"
 				middleware.PushFlash(w, "error", "Cet email est déjà inscrit.")
 			} else {
 				middleware.PushFlash(w, "error", "Erreur lors de l'inscription, réessayez.")
 			}
+			deps.Logger.Error("signup_failed",
+				"req_id", reqID,
+				"profile", profil,
+				"email_hash", emailHash,
+				"stage", stage,
+				"err", err.Error(),
+			)
 			http.Redirect(w, r, "/adherer/"+profil, http.StatusSeeOther)
 			return
 		}
+
+		deps.Logger.Info("signup_created",
+			"req_id", reqID,
+			"profile", profil,
+			"email_hash", emailHash,
+			"token_prefix", safeTokenPrefix(token),
+		)
 
 		// Enqueue emails si mailer disponible
 		if deps.Mailer != nil {
@@ -245,6 +277,7 @@ func handleActivate(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := chi.URLParam(r, "token")
 		ctx := r.Context()
+		reqID := middleware.RequestIDFromContext(ctx)
 
 		var userID string
 		var expiresAt string
@@ -254,16 +287,31 @@ func handleActivate(deps app.AppDeps) http.HandlerFunc {
 		).Scan(&userID, &expiresAt, &usedAt)
 
 		if err != nil || usedAt.Valid {
+			deps.Logger.Warn("signup_activate_invalid_token",
+				"req_id", reqID,
+				"token_prefix", safeTokenPrefix(token),
+				"used", usedAt.Valid,
+			)
 			http.Error(w, "Lien invalide ou déjà utilisé.", http.StatusBadRequest)
 			return
 		}
 		exp, _ := time.Parse("2006-01-02 15:04:05", expiresAt)
 		if time.Now().After(exp) {
+			deps.Logger.Warn("signup_activate_expired",
+				"req_id", reqID,
+				"user_id", userID,
+				"token_prefix", safeTokenPrefix(token),
+			)
 			http.Error(w, "Lien expiré. Contactez contact@assokit.org.", http.StatusGone)
 			return
 		}
 
 		deps.DB.ExecContext(ctx, `UPDATE activation_tokens SET used_at=CURRENT_TIMESTAMP WHERE token=?`, token) //nolint:errcheck — best-effort : l'utilisateur est connecté même si la mise à jour échoue
+
+		deps.Logger.Info("signup_activated",
+			"req_id", reqID,
+			"user_id", userID,
+		)
 
 		middleware.SetSessionCookie(w, userID, deps.Config.CookieSecret, false)
 		http.Redirect(w, r, "/", http.StatusSeeOther)

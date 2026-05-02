@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,10 +72,11 @@ func bootstrapAdmin(db *sql.DB, adminEmail, adminPassword string, logger *slog.L
 	}
 
 	if generated {
-		logger.Warn("ADMIN CRÉÉ — CHANGER LE MOT DE PASSE IMMÉDIATEMENT",
+		logger.Warn("admin_bootstrap_password_generated",
 			"email", adminEmail,
-			"password_initial", adminPassword,
+			"hint", "password généré affiché 1 fois sur stderr — pour persister, redémarrer avec ADMIN_INITIAL_PASSWORD",
 		)
+		fmt.Fprintf(os.Stderr, "[ASSOKIT] Admin password initial (à noter) : %s\n", adminPassword)
 	} else {
 		logger.Info("admin bootstrapped", "email", adminEmail)
 	}

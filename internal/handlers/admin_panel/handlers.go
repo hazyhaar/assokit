@@ -140,7 +140,15 @@ func AdminPanelSaveField(deps app.AppDeps, fields []Field) http.HandlerFunc {
 			return
 		}
 
+		ctx := r.Context()
+		reqID := middleware.RequestIDFromContext(ctx)
+
 		if err := ValidateField(field, value); err != nil {
+			deps.Logger.Warn("admin_panel_field_validation_failed",
+				"req_id", reqID,
+				"key", key,
+				"err", err.Error(),
+			)
 			w.Header().Set("Content-Type", "text/html")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(`<span class="field-badge field-badge--error">` + htmlEscape(err.Error()) + `</span>`)) //nolint:errcheck
@@ -148,14 +156,26 @@ func AdminPanelSaveField(deps app.AppDeps, fields []Field) http.HandlerFunc {
 		}
 
 		userID := ""
-		if u := middleware.UserFromContext(r.Context()); u != nil {
+		if u := middleware.UserFromContext(ctx); u != nil {
 			userID = u.ID
 		}
 
 		if err := branding.Set(deps.DB, key, value, field.Kind, userID); err != nil {
+			deps.Logger.Error("admin_panel_field_save_failed",
+				"req_id", reqID,
+				"user_id", userID,
+				"key", key,
+				"err", err.Error(),
+			)
 			http.Error(w, "erreur sauvegarde", http.StatusInternalServerError)
 			return
 		}
+
+		deps.Logger.Info("admin_panel_field_saved",
+			"req_id", reqID,
+			"user_id", userID,
+			"key", key,
+		)
 
 		pf := adminui.PanelField{
 			Key: field.Key, Section: field.Section, Order: field.Order,
