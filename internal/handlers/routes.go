@@ -134,6 +134,14 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.With(requireAdmin).Get("/admin/feedbacks/{id}", handleAdminFeedbackDetail(deps))
 	r.With(requireAdmin).Post("/admin/feedbacks/{id}/triage", handleAdminFeedbackTriage(deps))
 
+	// Admin donations (M-ASSOKIT-SPRINT3-S4) — UI Boris dons + stats + export CSV.
+	r.With(requireAdmin).Get("/admin/donations", AdminDonationsList(deps))
+	r.With(requireAdmin).Get("/admin/donations/stats.json", AdminDonationsStats(deps))
+	r.With(requireAdmin).Get("/admin/donations/export.csv", AdminDonationsExportCSV(deps))
+	r.With(requireAdmin).Get("/admin/donations/{id}", AdminDonationDetail(deps))
+	r.With(requireAdmin).Post("/admin/donations/{id}/erase-email", AdminDonationSoftEraseEmail(deps))
+	r.With(requireAdmin).Post("/admin/donations/{id}/match-user", AdminDonationManualUserMatch(deps))
+
 	// Admin RBAC — routes protégées par perms.Required via middleware RBAC
 	rbacSvc := &svcrbac.Service{
 		Store: &svcrbac.Store{DB: deps.DB},
