@@ -231,12 +231,12 @@ func TestOAuth_GoogleLoginCallbackCreatesUserOrLinksExisting(t *testing.T) {
 		t.Errorf("même email → même userID: want %s, got %s", userID1, userID2)
 	}
 
-	// Vérifier que le created_at est présent
-	var createdAt string
+	// Vérifier que le linked_at est présent
+	var linkedAt string
 	deps.DB.QueryRowContext(ctx,
-		`SELECT created_at FROM oauth_external_links WHERE provider = 'google' AND external_id = 'google-sub-1'`,
-	).Scan(&createdAt) //nolint:errcheck
-	if createdAt == "" {
-		t.Error("oauth_external_links.created_at vide")
+		`SELECT linked_at FROM oauth_external_links WHERE provider = 'google' AND external_id = 'google-sub-1'`,
+	).Scan(&linkedAt) //nolint:errcheck
+	if linkedAt == "" {
+		t.Error("oauth_external_links.linked_at vide")
 	}
 }

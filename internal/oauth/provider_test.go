@@ -125,3 +125,42 @@ func TestNewProvider_TokenEndpointResponds(t *testing.T) {
 		t.Errorf("token endpoint : erreur serveur inattendue %d", postResp.StatusCode)
 	}
 }
+
+// TestOAuth_SigningKeyStableAcrossProviderInit : même OAUTH_SIGNING_KEY → même clé de signature entre deux inits.
+func TestOAuth_SigningKeyStableAcrossProviderInit(t *testing.T) {
+	db1 := openTestDB(t)
+	db2 := openTestDB(t)
+
+	// Même clé statique pour les deux providers
+	key := testSigningKey
+
+	_, store1, err := oauth.NewProvider(db1, "http://localhost:8080", key, nil)
+	if err != nil {
+		t.Fatalf("NewProvider (1): %v", err)
+	}
+	_, store2, err := oauth.NewProvider(db2, "http://localhost:8080", key, nil)
+	if err != nil {
+		t.Fatalf("NewProvider (2): %v", err)
+	}
+
+	sk1, err := store1.SigningKey(t.Context())
+	if err != nil {
+		t.Fatalf("SigningKey (1): %v", err)
+	}
+	sk2, err := store2.SigningKey(t.Context())
+	if err != nil {
+		t.Fatalf("SigningKey (2): %v", err)
+	}
+
+	if sk1.ID() != sk2.ID() {
+		t.Errorf("key ID instable : %q != %q", sk1.ID(), sk2.ID())
+	}
+	k1, ok1 := sk1.Key().([]byte)
+	k2, ok2 := sk2.Key().([]byte)
+	if !ok1 || !ok2 {
+		t.Fatal("key.Key() n'est pas []byte")
+	}
+	if string(k1) != string(k2) {
+		t.Error("clé de signature instable entre deux inits avec la même OAUTH_SIGNING_KEY")
+	}
+}

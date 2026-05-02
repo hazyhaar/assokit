@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/hazyhaar/assokit/internal/app"
 	intoauth "github.com/hazyhaar/assokit/internal/oauth"
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
@@ -209,8 +210,8 @@ func findOrCreateSocialUser(ctx context.Context, deps app.AppDeps, provider, ext
 
 	if userID != "" {
 		deps.DB.ExecContext(ctx, //nolint:errcheck
-			`INSERT OR IGNORE INTO oauth_external_links(user_id, provider, external_id, email) VALUES(?,?,?,?)`,
-			userID, provider, externalID, email)
+			`INSERT OR IGNORE INTO oauth_external_links(id, user_id, provider, external_id, email) VALUES(?,?,?,?,?)`,
+			uuid.NewString(), userID, provider, externalID, email)
 	}
 
 	return userID, nil

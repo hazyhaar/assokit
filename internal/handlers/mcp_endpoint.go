@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -35,12 +37,13 @@ type tokenInfo struct {
 	Scopes []string
 }
 
-// validateBearerToken vérifie un Bearer token OAuth contre la table oauth_tokens.
+// validateBearerToken vérifie un Bearer token OAuth contre la table oauth_tokens via son SHA256.
 func validateBearerToken(ctx context.Context, db *sql.DB, token string) (*tokenInfo, error) {
+	tokenHash := hashBearerToken(token)
 	var userID, rawScopes, expiresAt string
 	err := db.QueryRowContext(ctx,
-		`SELECT user_id, scopes, expires_at FROM oauth_tokens WHERE id=? AND revoked_at IS NULL`,
-		token,
+		`SELECT user_id, scopes, expires_at FROM oauth_tokens WHERE access_token_hash=? AND revoked_at IS NULL`,
+		tokenHash,
 	).Scan(&userID, &rawScopes, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errInvalidToken
@@ -91,6 +94,11 @@ func (g *bearerBruteForceGuard) RecordFailure(ip string) bool {
 }
 
 var globalBruteForce = newBruteForceGuard()
+
+func hashBearerToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
 
 // oauthBearerMiddleware vérifie le Bearer token OAuth, retourne 401 si absent/invalide,
 // injecte userID + scopes + rbac.Service dans le contexte si valide.

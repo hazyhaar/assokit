@@ -280,22 +280,26 @@ func (s *Storage) CompleteAuthRequest(ctx context.Context, id, userID string) er
 // ─── tokens ──────────────────────────────────────────────────────────────────
 
 func (s *Storage) CreateAccessToken(ctx context.Context, req op.TokenRequest) (string, time.Time, error) {
+	// id = UUID Bearer token (compatible MCP-1 lookup WHERE id=?).
+	// access_token_hash = sha256(id) pour satisfaire le schéma sans casser MCP-1.
 	id := uuid.NewString()
 	exp := time.Now().Add(time.Hour)
 	scopes, _ := json.Marshal(req.GetScopes())
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO oauth_tokens(id, client_id, user_id, scopes, expires_at) VALUES (?,?,?,?,?)`,
-		id, clientIDFromRequest(req), req.GetSubject(), string(scopes),
+		`INSERT INTO oauth_tokens(id, access_token_hash, client_id, user_id, scopes, expires_at) VALUES (?,?,?,?,?,?)`,
+		id, hashSecret(id), clientIDFromRequest(req), req.GetSubject(), string(scopes),
 		exp.UTC().Format(time.RFC3339),
 	)
 	return id, exp, err
 }
 
 func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, req op.TokenRequest, currentRefreshToken string) (string, string, time.Time, error) {
-	// Rotation : supprimer ancien refresh token
+	// Rotation : révoquer l'ancien refresh token pour garder la traçabilité
 	if currentRefreshToken != "" {
 		oldHash := hashSecret(currentRefreshToken)
-		s.db.ExecContext(ctx, `DELETE FROM oauth_tokens WHERE refresh_token_hash = ?`, oldHash) //nolint:errcheck
+		s.db.ExecContext(ctx, //nolint:errcheck
+			`UPDATE oauth_tokens SET revoked_at = ? WHERE refresh_token_hash = ? AND revoked_at IS NULL`,
+			time.Now().UTC().Format(time.RFC3339), oldHash)
 	}
 
 	id := uuid.NewString()
@@ -306,8 +310,9 @@ func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, req op.Token
 	}
 	scopes, _ := json.Marshal(req.GetScopes())
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO oauth_tokens(id, refresh_token_hash, client_id, user_id, scopes, expires_at) VALUES (?,?,?,?,?,?)`,
-		id, hashSecret(refreshToken), clientIDFromRequest(req), req.GetSubject(), string(scopes),
+		`INSERT INTO oauth_tokens(id, access_token_hash, refresh_token_hash, client_id, user_id, scopes, expires_at) VALUES (?,?,?,?,?,?,?)`,
+		id, hashSecret(id), hashSecret(refreshToken),
+		clientIDFromRequest(req), req.GetSubject(), string(scopes),
 		exp.UTC().Format(time.RFC3339),
 	)
 	return id, refreshToken, exp, err
@@ -358,23 +363,40 @@ func (s *Storage) TerminateSession(ctx context.Context, userID, clientID string)
 }
 
 func (s *Storage) RevokeToken(ctx context.Context, tokenOrTokenID, userID, clientID string) *oidc.Error {
-	if userID != "" {
-		// access token par tokenID
-		s.db.ExecContext(ctx, `UPDATE oauth_tokens SET revoked_at = ? WHERE id = ? AND user_id = ? AND client_id = ?`, //nolint:errcheck
-			time.Now().UTC().Format(time.RFC3339), tokenOrTokenID, userID, clientID)
-	} else {
-		// refresh token par hash
-		hash := hashSecret(tokenOrTokenID)
-		s.db.ExecContext(ctx, `UPDATE oauth_tokens SET revoked_at = ? WHERE refresh_token_hash = ? AND client_id = ?`, //nolint:errcheck
-			time.Now().UTC().Format(time.RFC3339), hash, clientID)
+	now := time.Now().UTC().Format(time.RFC3339)
+	// Tenter comme access_token_hash
+	accessHash := hashSecret(tokenOrTokenID)
+	res, _ := s.db.ExecContext(ctx,
+		`UPDATE oauth_tokens SET revoked_at = ? WHERE access_token_hash = ? AND (? = '' OR client_id = ?) AND revoked_at IS NULL`,
+		now, accessHash, clientID, clientID)
+	if n, _ := res.RowsAffected(); n > 0 {
+		// Révoquer aussi le refresh token associé (même row)
+		s.db.ExecContext(ctx, //nolint:errcheck
+			`UPDATE oauth_tokens SET revoked_at = ? WHERE access_token_hash = ?`, now, accessHash)
+		return nil
 	}
+	// Sinon tenter comme refresh_token_hash
+	refreshHash := hashSecret(tokenOrTokenID)
+	s.db.ExecContext(ctx, //nolint:errcheck
+		`UPDATE oauth_tokens SET revoked_at = ? WHERE refresh_token_hash = ? AND (? = '' OR client_id = ?) AND revoked_at IS NULL`,
+		now, refreshHash, clientID, clientID)
 	return nil
 }
 
-func (s *Storage) GetRefreshTokenInfo(_ context.Context, _ string, token string) (string, string, error) {
-	// token = opaque refresh token. Si c'est un tokenID:userID → on décompose.
-	// Pour notre implémentation, les refresh tokens sont opaques (hash en DB).
-	return "", "", op.ErrInvalidRefreshToken
+func (s *Storage) GetRefreshTokenInfo(ctx context.Context, clientID, token string) (string, string, error) {
+	hash := hashSecret(token)
+	var userID, tokenID string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT user_id, id FROM oauth_tokens WHERE refresh_token_hash = ? AND (? = '' OR client_id = ?) AND revoked_at IS NULL`,
+		hash, clientID, clientID,
+	).Scan(&userID, &tokenID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", op.ErrInvalidRefreshToken
+	}
+	if err != nil {
+		return "", "", err
+	}
+	return userID, tokenID, nil
 }
 
 // ─── userinfo ─────────────────────────────────────────────────────────────────
@@ -384,9 +406,19 @@ func (s *Storage) SetUserinfoFromScopes(ctx context.Context, userinfo *oidc.User
 }
 
 func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserInfo, tokenID, subject, _ string) error {
-	row := s.db.QueryRowContext(ctx, `SELECT user_id, scopes FROM oauth_tokens WHERE id = ? AND revoked_at IS NULL`, tokenID)
+	// tokenID peut être soit un token opaque (access_token_hash lookup), soit un UUID row id
+	hash := hashSecret(tokenID)
 	var uid, rawScopes string
-	if err := row.Scan(&uid, &rawScopes); err != nil {
+	err := s.db.QueryRowContext(ctx,
+		`SELECT user_id, scopes FROM oauth_tokens WHERE access_token_hash = ? AND revoked_at IS NULL`,
+		hash).Scan(&uid, &rawScopes)
+	if errors.Is(err, sql.ErrNoRows) {
+		// Fallback sur row id (tokens créés avant migration ou tests)
+		err = s.db.QueryRowContext(ctx,
+			`SELECT user_id, scopes FROM oauth_tokens WHERE id = ? AND revoked_at IS NULL`,
+			tokenID).Scan(&uid, &rawScopes)
+	}
+	if err != nil {
 		return fmt.Errorf("%w: token %s", ErrNotFound, tokenID)
 	}
 	var scopes []string
@@ -395,8 +427,9 @@ func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserI
 }
 
 func (s *Storage) SetIntrospectionFromToken(ctx context.Context, resp *oidc.IntrospectionResponse, tokenID, subject, clientID string) error {
+	hash := hashSecret(tokenID)
 	row := s.db.QueryRowContext(ctx,
-		`SELECT user_id, client_id, scopes, expires_at, revoked_at FROM oauth_tokens WHERE id = ?`, tokenID)
+		`SELECT user_id, client_id, scopes, expires_at, revoked_at FROM oauth_tokens WHERE access_token_hash = ?`, hash)
 	var uid, cid, rawScopes, expiresAt string
 	var revokedAt sql.NullString
 	if err := row.Scan(&uid, &cid, &rawScopes, &expiresAt, &revokedAt); err != nil {

@@ -22,22 +22,24 @@ import (
 )
 
 // insertTestToken insère un token OAuth valide dans la DB pour les tests.
+// Retourne le token opaque (bearer), dont le hash SHA256 est stocké dans access_token_hash.
 func insertTestToken(t *testing.T, deps app.AppDeps, userID string, scopes []string, valid bool) string {
 	t.Helper()
-	tokenID := uuid.NewString()
+	bearerToken := uuid.NewString() // token opaque transmis en Bearer
+	rowID := uuid.NewString()
 	scopesJSON, _ := json.Marshal(scopes)
 	exp := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
 	if !valid {
 		exp = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339) // expiré
 	}
 	_, err := deps.DB.ExecContext(context.Background(),
-		`INSERT INTO oauth_tokens(id, client_id, user_id, scopes, expires_at) VALUES(?,?,?,?,?)`,
-		tokenID, "test-client", userID, string(scopesJSON), exp,
+		`INSERT INTO oauth_tokens(id, access_token_hash, client_id, user_id, scopes, expires_at) VALUES(?,?,?,?,?,?)`,
+		rowID, hashBearerToken(bearerToken), "test-client", userID, string(scopesJSON), exp,
 	)
 	if err != nil {
 		t.Fatalf("insertTestToken: %v", err)
 	}
-	return tokenID
+	return bearerToken
 }
 
 // TestMCPEndpoint_BearerInvalidReturns401 vérifie qu'un Bearer absent/invalide → 401.

@@ -3,7 +3,9 @@ package oauth_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -15,6 +17,11 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 )
+
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
 
 var testSigningKey = []byte("test-signing-key-32-bytes-abcdefg")
 
@@ -127,11 +134,12 @@ func TestOAuth_AuthCodeFlowFullJourney(t *testing.T) {
 		t.Error("token déjà expiré")
 	}
 
-	// Vérifier que le tokenID est utilisable comme Bearer sur endpoint protégé (logique MCP bearer middleware)
+	// Vérifier que le tokenID (opaque bearer) est retrouvable via son hash SHA256
+	tokenHash := sha256Hex(tokenID)
 	var bearerUID string
 	err = db.QueryRowContext(ctx,
-		`SELECT user_id FROM oauth_tokens WHERE id=? AND revoked_at IS NULL AND expires_at > ?`,
-		tokenID, time.Now().UTC().Format(time.RFC3339),
+		`SELECT user_id FROM oauth_tokens WHERE access_token_hash=? AND revoked_at IS NULL AND expires_at > ?`,
+		tokenHash, time.Now().UTC().Format(time.RFC3339),
 	).Scan(&bearerUID)
 	if err != nil {
 		t.Fatalf("Bearer lookup (MCP endpoint) : token non trouvable en DB: %v", err)
@@ -301,4 +309,96 @@ func TestOAuth_RevokeImmediatelyInvalidates(t *testing.T) {
 func TestOAuth_StorageInterfaceCompiles(t *testing.T) {
 	db := openTestDB(t)
 	var _ op.Storage = oauth.New(db, testSigningKey, nil)
+}
+
+// TestOAuth_AuthCodeReplayRefused : le même auth code ne peut pas être échangé deux fois.
+func TestOAuth_AuthCodeReplayRefused(t *testing.T) {
+	store, db := newTestStorage(t)
+	ctx := context.Background()
+	userID, clientID, _ := seedUserAndClient(t, db)
+
+	oidcReq := &oidc.AuthRequest{
+		ClientID:     clientID,
+		RedirectURI:  "http://localhost:8080/callback",
+		ResponseType: oidc.ResponseTypeCode,
+		Scopes:       oidc.SpaceDelimitedArray{"openid"},
+	}
+	ar, err := store.CreateAuthRequest(ctx, oidcReq, "")
+	if err != nil {
+		t.Fatalf("CreateAuthRequest: %v", err)
+	}
+	store.CompleteAuthRequest(ctx, ar.GetID(), userID) //nolint:errcheck
+
+	code := "replay-test-code-abc"
+	if err := store.SaveAuthCode(ctx, ar.GetID(), code); err != nil {
+		t.Fatalf("SaveAuthCode: %v", err)
+	}
+
+	// Premier échange : doit réussir
+	ar2, err := store.AuthRequestByCode(ctx, code)
+	if err != nil {
+		t.Fatalf("AuthRequestByCode (1er échange) : %v", err)
+	}
+	_ = ar2
+
+	// Simuler le handler token qui appelle DeleteAuthRequest pour invalider le code
+	if err := store.DeleteAuthRequest(ctx, ar.GetID()); err != nil {
+		t.Fatalf("DeleteAuthRequest : %v", err)
+	}
+
+	// Deuxième échange avec le même code → doit échouer
+	_, err = store.AuthRequestByCode(ctx, code)
+	if err == nil {
+		t.Error("replay : 2ème échange du même code devrait retourner une erreur")
+	}
+}
+
+// TestOAuth_RevokeAccessTokenAlsoRevokesRefresh : révoquer l'access token révoque aussi le refresh associé.
+func TestOAuth_RevokeAccessTokenAlsoRevokesRefresh(t *testing.T) {
+	store, db := newTestStorage(t)
+	ctx := context.Background()
+	userID, clientID, _ := seedUserAndClient(t, db)
+
+	oidcReq := &oidc.AuthRequest{
+		ClientID:     clientID,
+		RedirectURI:  "http://localhost:8080/callback",
+		ResponseType: oidc.ResponseTypeCode,
+		Scopes:       oidc.SpaceDelimitedArray{"openid", "offline_access"},
+	}
+	ar, _ := store.CreateAuthRequest(ctx, oidcReq, "")
+	store.CompleteAuthRequest(ctx, ar.GetID(), userID) //nolint:errcheck
+
+	at, rt, _, err := store.CreateAccessAndRefreshTokens(ctx, ar, "")
+	if err != nil {
+		t.Fatalf("CreateAccessAndRefreshTokens: %v", err)
+	}
+
+	// Vérifier que le refresh token est valide avant révocation
+	_, err = store.TokenRequestByRefreshToken(ctx, rt)
+	if err != nil {
+		t.Fatalf("précondition : refresh token doit être valide: %v", err)
+	}
+
+	// Révoquer l'access token (by access_token_hash lookup)
+	if oidcErr := store.RevokeToken(ctx, at, userID, clientID); oidcErr != nil {
+		t.Fatalf("RevokeToken(access): %v", oidcErr)
+	}
+
+	// Le refresh token de la même row doit être révoqué (même row dans oauth_tokens)
+	_, err = store.TokenRequestByRefreshToken(ctx, rt)
+	if err == nil {
+		t.Error("après révocation de l'access token, le refresh token associé devrait être invalide")
+	}
+
+	// Vérification directe en DB via revoked_at count
+	var activeCount int
+	dbErr := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM oauth_tokens WHERE revoked_at IS NULL`,
+	).Scan(&activeCount)
+	if dbErr != nil {
+		t.Fatalf("DB count active tokens: %v", dbErr)
+	}
+	if activeCount != 0 {
+		t.Errorf("après révocation de l'access token, aucun token actif ne devrait rester, got %d", activeCount)
+	}
 }

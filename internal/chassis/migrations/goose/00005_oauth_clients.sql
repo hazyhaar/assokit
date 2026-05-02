@@ -25,19 +25,20 @@ CREATE TABLE IF NOT EXISTS oauth_clients (
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS oauth_authcodes (
-    code         TEXT PRIMARY KEY,
-    auth_req_id  TEXT NOT NULL,
-    client_id    TEXT NOT NULL,
-    user_id      TEXT NOT NULL,
-    scopes       TEXT NOT NULL DEFAULT '[]',
-    redirect_uri TEXT NOT NULL,
-    expires_at   TEXT NOT NULL,
-    used_at      TEXT
+    code            TEXT PRIMARY KEY,
+    auth_req_id     TEXT NOT NULL,
+    client_id       TEXT NOT NULL,
+    user_id         TEXT NOT NULL,
+    scopes          TEXT NOT NULL DEFAULT '[]',
+    redirect_uri    TEXT NOT NULL,
+    expires_at      TEXT NOT NULL,
+    used_at         TEXT
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS oauth_tokens (
     id                 TEXT PRIMARY KEY,
-    refresh_token_hash TEXT NOT NULL DEFAULT '',
+    access_token_hash  TEXT UNIQUE,
+    refresh_token_hash TEXT UNIQUE,
     client_id          TEXT NOT NULL,
     user_id            TEXT NOT NULL,
     scopes             TEXT NOT NULL DEFAULT '[]',
@@ -46,19 +47,23 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS oauth_external_links (
+    id          TEXT PRIMARY KEY,
     user_id     TEXT NOT NULL,
     provider    TEXT NOT NULL,
     external_id TEXT NOT NULL,
     email       TEXT NOT NULL DEFAULT '',
-    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (provider, external_id)
+    linked_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (provider, external_id)
 ) STRICT;
 
-CREATE INDEX IF NOT EXISTS idx_oauth_tokens_refresh ON oauth_tokens(refresh_token_hash)
-    WHERE refresh_token_hash != '';
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens_user    ON oauth_tokens(user_id, revoked_at);
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens_access  ON oauth_tokens(access_token_hash)  WHERE access_token_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens_refresh ON oauth_tokens(refresh_token_hash) WHERE refresh_token_hash IS NOT NULL;
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_oauth_tokens_refresh;
+DROP INDEX IF EXISTS idx_oauth_tokens_access;
+DROP INDEX IF EXISTS idx_oauth_tokens_user;
 DROP TABLE IF EXISTS oauth_external_links;
 DROP TABLE IF EXISTS oauth_tokens;
 DROP TABLE IF EXISTS oauth_authcodes;

@@ -4,7 +4,9 @@ package oauth
 import (
 	"crypto/sha256"
 	"database/sql"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/hazyhaar/assokit/pkg/horui/rbac"
 	"github.com/zitadel/oidc/v3/pkg/op"
@@ -14,6 +16,10 @@ import (
 // issuer doit être l'URL publique de l'instance (ex: "https://nps.example.com").
 // signingKey est la clé secrète (COOKIE_SECRET ou OAUTH_SIGNING_KEY).
 func NewProvider(db *sql.DB, issuer string, signingKey []byte, rbacStore *rbac.Store) (http.Handler, *Storage, error) {
+	if os.Getenv("OAUTH_SIGNING_KEY") == "" {
+		slog.Warn("OAUTH_SIGNING_KEY absent — tokens OAuth invalidés au restart, utiliser COOKIE_SECRET comme fallback")
+	}
+
 	store := New(db, signingKey, rbacStore)
 
 	// CryptoKey [32]byte pour l'AES interne du provider (chiffrement token bearer).
