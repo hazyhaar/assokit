@@ -1,0 +1,214 @@
+package admin
+
+import "github.com/hazyhaar/assokit/pkg/horui/branding"
+
+// sectionOrder définit l'ordre d'affichage des sections.
+var sectionOrder = []string{"identite", "presentation", "helloasso", "virement"}
+
+// AdminPanelPage rend la page complète du panel admin branding.
+templ AdminPanelPage(fields map[string][]PanelField, values map[string]string, progress branding.ProgressInfo) {
+	<!DOCTYPE html>
+	<html lang="fr">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>Panel admin — Branding</title>
+			<link rel="stylesheet" href="/static/css/admin_panel.css"/>
+		</head>
+		<body>
+			<header class="admin-panel-header">
+				<h1>Configuration de l'association</h1>
+				<div class="progress-bar-wrap">
+					<div
+						class="progress-bar-fill"
+						style={ "width:" + progressPct(progress.RequiredFilled, progress.RequiredTotal) + "%" }
+					></div>
+				</div>
+				<p class="progress-label">
+					{ intStr(progress.RequiredFilled) }/{ intStr(progress.RequiredTotal) } champs obligatoires remplis
+				</p>
+				<nav class="section-nav">
+					for _, sec := range sectionOrder {
+						<a href={ templ.SafeURL("#section-" + sec) }>{ SectionLabel(sec) }</a>
+					}
+				</nav>
+			</header>
+			<main class="admin-panel-main">
+				for _, sec := range sectionOrder {
+					if sFields, ok := fields[sec]; ok {
+						<section id={ "section-" + sec } class="admin-section-card">
+							<h2>{ SectionLabel(sec) }</h2>
+							for _, f := range sFields {
+								@AdminField(f, values[f.Key])
+							}
+						</section>
+					}
+				}
+			</main>
+			<script src="/static/js/admin_panel_autosave.js"></script>
+		</body>
+	</html>
+}
+
+// AdminField rend un champ individuel avec son label, hint, input et badge état.
+templ AdminField(f PanelField, value string) {
+	<div class={ "admin-field", fieldStateClass(f, value) } id={ "field-" + f.Key }>
+		<label for={ "input-" + f.Key }>
+			{ f.Label }
+			if f.Required {
+				<span class="required-marker">*</span>
+			}
+		</label>
+		if f.Hint != "" {
+			<p class="field-hint">{ f.Hint }</p>
+		}
+		if f.Kind == "longtext" {
+			<textarea
+				id={ "input-" + f.Key }
+				name={ f.Key }
+				data-autosave={ f.Key }
+				placeholder={ f.Placeholder }
+				rows="4"
+			>{ value }</textarea>
+		} else if f.Kind == "color" {
+			<input
+				type="color"
+				id={ "input-" + f.Key }
+				name={ f.Key }
+				data-autosave={ f.Key }
+				value={ colorValue(value) }
+			/>
+		} else if f.Kind == "file" {
+			<div class="file-upload-wrap">
+				if value != "" {
+					<p class="file-current">Fichier actuel : <code>{ value }</code></p>
+					<form method="post" action="/admin/panel/delete-file" class="delete-file-form">
+						<input type="hidden" name="key" value={ f.Key }/>
+						<button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+					</form>
+				}
+				<form
+					method="post"
+					action="/admin/panel/upload-file"
+					enctype="multipart/form-data"
+					hx-post="/admin/panel/upload-file"
+					hx-target={ "#badge-" + f.Key }
+					hx-swap="outerHTML"
+				>
+					<input type="hidden" name="key" value={ f.Key }/>
+					<input type="file" name="file" accept={ mimeAccept(f.MimeAllow) }/>
+					<button type="submit" class="btn btn-sm">Envoyer</button>
+				</form>
+			</div>
+		} else {
+			<input
+				type={ inputType(f.Kind) }
+				id={ "input-" + f.Key }
+				name={ f.Key }
+				data-autosave={ f.Key }
+				value={ value }
+				placeholder={ f.Placeholder }
+			/>
+		}
+		@AdminFieldBadge(f, value, value != "")
+	</div>
+}
+
+// AdminFieldBadge rend le badge d'état d'un champ (fragment HTMX).
+templ AdminFieldBadge(f PanelField, value string, filled bool) {
+	<span id={ "badge-" + f.Key } class={ "field-badge", badgeClass(f, value) }>
+		if filled {
+			Rempli
+		} else if f.Required {
+			Requis
+		} else {
+			Vide
+		}
+	</span>
+}
+
+// fieldStateClass retourne la classe CSS de l'état du champ.
+func fieldStateClass(f PanelField, value string) string {
+	if value != "" {
+		return "field-filled"
+	}
+	if f.Required {
+		return "field-empty-required"
+	}
+	return "field-empty"
+}
+
+// badgeClass retourne la classe CSS du badge.
+func badgeClass(f PanelField, value string) string {
+	if value != "" {
+		return "badge-filled"
+	}
+	if f.Required {
+		return "badge-empty-required"
+	}
+	return "badge-empty"
+}
+
+// inputType retourne le type HTML input selon le kind.
+func inputType(kind string) string {
+	switch kind {
+	case "url":
+		return "url"
+	case "color":
+		return "color"
+	case "int":
+		return "number"
+	default:
+		return "text"
+	}
+}
+
+// colorValue retourne la valeur de couleur ou un défaut.
+func colorValue(v string) string {
+	if v == "" {
+		return "#000000"
+	}
+	return v
+}
+
+// mimeAccept retourne la chaîne accept pour input[type=file].
+func mimeAccept(mimes []string) string {
+	result := ""
+	for i, m := range mimes {
+		if i > 0 {
+			result += ","
+		}
+		result += m
+	}
+	return result
+}
+
+// progressPct calcule le pourcentage de complétion sous forme de string.
+func progressPct(filled, total int) string {
+	if total == 0 {
+		return "0"
+	}
+	pct := (filled * 100) / total
+	return intStr(pct)
+}
+
+// intStr convertit un int en string.
+func intStr(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	b := make([]byte, 0, 10)
+	if n < 0 {
+		b = append(b, '-')
+		n = -n
+	}
+	var digits []byte
+	for n > 0 {
+		digits = append(digits, byte('0'+n%10))
+		n /= 10
+	}
+	for i := len(digits) - 1; i >= 0; i-- {
+		b = append(b, digits[i])
+	}
+	return string(b)
+}

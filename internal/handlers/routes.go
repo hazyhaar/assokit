@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	adminpanel "github.com/hazyhaar/assokit/internal/handlers/admin_panel"
 	intoauth "github.com/hazyhaar/assokit/internal/oauth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/perms"
@@ -121,6 +122,9 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 
 	// MCP Streamable HTTP — endpoint /mcp + discovery /.well-known/mcp/server
 	mountMCPEndpoint(r, deps, rbacSvc)
+
+	// Admin panel branding V0 — 25 champs + auto-save
+	adminpanel.Mount(r, deps)
 }
 
 // newNullString crée un sql.NullString non-nul.
