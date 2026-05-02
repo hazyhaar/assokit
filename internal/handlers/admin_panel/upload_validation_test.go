@@ -159,6 +159,16 @@ func TestAdminPanel_UploadKeyTraversalRejected(t *testing.T) {
 	}
 }
 
+// TestAdminPanel_UploadEmptyFileRejected : 0 byte → rejet 4xx.
+func TestAdminPanel_UploadEmptyFileRejected(t *testing.T) {
+	db := setupUploadTestDB(t)
+	req := uploadRequest(t, "presentation.favicon_ico", "empty.png", []byte{})
+	w := runUpload(t, db, req)
+	if w.Code < 400 || w.Code >= 500 {
+		t.Errorf("upload empty : code=%d, attendu 4xx", w.Code)
+	}
+}
+
 // _ = io et _ = context : keep imports stable même si certaines lignes sont
 // supprimées par goimports.
 var _ = context.Background
