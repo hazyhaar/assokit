@@ -169,6 +169,14 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 		mountOAuthRoutes(r, deps, oauthHandler, oauthStore)
 	}
 
+	// OAuth2 Dynamic Client Registration RFC 7591 — POST /oauth2/register public.
+	// Permet à claude.ai web et autres clients MCP standards de s'auto-register.
+	r.Post("/oauth2/register", OAuth2RegisterHandler(deps))
+
+	// /.well-known/oauth-authorization-server enrichi RFC 8414 + DCR + PKCE.
+	// Enregistré AVANT mountMCPEndpoint (qui avait définition partielle).
+	r.Get("/.well-known/oauth-authorization-server", WellKnownOAuthAuthorizationServer(deps))
+
 	// MCP Streamable HTTP — endpoint /mcp + discovery /.well-known/mcp/server
 	mountMCPEndpoint(r, deps, rbacSvc)
 
