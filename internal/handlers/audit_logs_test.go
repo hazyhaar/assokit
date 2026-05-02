@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/config"
+	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	appMiddleware "github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
@@ -107,6 +108,9 @@ func TestFeedbackRateLimitLogged(t *testing.T) {
 		req := httptest.NewRequest("POST", "/feedback", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.RemoteAddr = "192.0.2.1:12345"
+		// Widget restreint aux usagers identifiés (M-FEEDBACK-WIDGET-CSS-MISSING).
+		req = req.WithContext(appMiddleware.ContextWithUser(req.Context(),
+			&auth.User{ID: "u-rl", Email: "rl@x.com"}))
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		return w.Code

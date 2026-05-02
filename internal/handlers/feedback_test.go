@@ -12,6 +12,7 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/config"
+	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
@@ -30,6 +31,10 @@ func postFeedback(t *testing.T, handler http.Handler, form url.Values, remoteAdd
 	req := httptest.NewRequest(http.MethodPost, "/feedback", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = remoteAddr
+	// Widget feedback restreint aux usagers identifiés (M-FEEDBACK-WIDGET-CSS-MISSING).
+	// Les tests pré-existants sont mis à jour pour fournir un user authentifié.
+	req = req.WithContext(middleware.ContextWithUser(req.Context(),
+		&auth.User{ID: "u-test", Email: "u@test.com"}))
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	return w

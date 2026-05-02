@@ -30,8 +30,15 @@ func handleFeedbackForm(deps app.AppDeps) http.HandlerFunc {
 }
 
 // handleFeedbackPost traite la soumission (POST /feedback).
+// Restreint aux usagers identifiés (M-ASSOKIT-FEEDBACK-WIDGET-CSS-MISSING) :
+// le widget est anonyme dans la table feedbacks (pas de user_id stocké) MAIS
+// l'utilisateur doit être loggué pour avoir le droit d'envoyer (anti-spam).
 func handleFeedbackPost(deps app.AppDeps, rl *middleware.RateLimiter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if u := middleware.UserFromContext(r.Context()); u == nil {
+			http.Redirect(w, r, "/login?return_url=/", http.StatusSeeOther)
+			return
+		}
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "Formulaire invalide", http.StatusBadRequest)
 			return

@@ -37,7 +37,9 @@ templ Base(title string, content templ.Component) {
 			</main>
 			@Footer()
 			if !theme.Brand().Feedback.Disabled {
-				@components.FeedbackWidget(middleware.PageURIFromContext(ctx), title)
+				if u := middleware.UserFromContext(ctx); u != nil {
+					@components.FeedbackWidget(middleware.PageURIFromContext(ctx), title)
+				}
 			}
 		</body>
 	</html>
