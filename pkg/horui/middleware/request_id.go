@@ -33,6 +33,12 @@ func RequestIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+// WithRequestID injecte un req_id explicite dans le contexte. Réservé aux tests
+// et à l'instrumentation interne (ex: jobs background sans HTTP request).
+func WithRequestID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, requestIDKey{}, id)
+}
+
 // HashEmail retourne un hash SHA256 court (16 chars hex) d'un email pour les logs.
 // Permet de tracer un user dans les logs sans exposer le PII.
 func HashEmail(email string) string {
