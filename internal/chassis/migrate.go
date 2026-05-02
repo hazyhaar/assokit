@@ -1,10 +1,13 @@
-// CLAUDE:SUMMARY Migration runner SQLite : applique initial.sql v1 + migrations/v2_feedbacks.sql v2 via go:embed, idempotent via schema_version.
+// CLAUDE:SUMMARY Migration runner SQLite : applique initial.sql v1 + migrations/v2_feedbacks.sql v2 via go:embed, idempotent via schema_version. goose v3+ via schema_version_goose pour 00003+.
 package chassis
 
 import (
 	"database/sql"
 	_ "embed"
+	"embed"
 	"fmt"
+
+	"github.com/pressly/goose/v3"
 )
 
 //go:embed initial.sql
@@ -12,6 +15,9 @@ var initialSQL string
 
 //go:embed migrations/v2_feedbacks.sql
 var v2FeedbacksSQL string
+
+//go:embed migrations/goose
+var gooseMigrationsFS embed.FS
 
 // Run applique toutes les migrations non encore appliquées.
 // Idempotent : vérifie schema_version avant chaque migration.
@@ -31,6 +37,17 @@ func Run(db *sql.DB) error {
 	}
 	if err := applyMigration(db, 2, v2FeedbacksSQL); err != nil {
 		return err
+	}
+
+	// goose v3+ : migrations NNNNNN_name.sql (00003 et au-delà)
+	goose.SetBaseFS(gooseMigrationsFS)
+	goose.SetTableName("schema_version_goose")
+	goose.SetSequential(true)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return fmt.Errorf("schema: goose set dialect: %w", err)
+	}
+	if err := goose.Up(db, "migrations/goose"); err != nil {
+		return fmt.Errorf("schema: goose up: %w", err)
 	}
 	return nil
 }
