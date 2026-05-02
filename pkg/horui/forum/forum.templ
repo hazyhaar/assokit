@@ -11,19 +11,28 @@ import (
 // l'arbre entier sur des fils très profonds. Au-delà, lien "voir la suite".
 const MaxRenderDepth = 4
 
-// Index : page /forum — liste des sujets racine.
+// Index : page /forum — liste des sujets racine + bouton création si user authentifié.
 templ Index(rootChildren []ThreadNode, user *auth.User) {
 	<section class="section forum-index">
 		<div class="page-header">
 			<div class="section-label">Communauté</div>
 			<h1>Forum</h1>
 			<p class="page-lead">Échangez avec les autres membres autour des thématiques de l'association.</p>
+			if user != nil {
+				<div class="page-actions">
+					<a href="/forum/new" class="btn btn-primary">Créer un sujet</a>
+				</div>
+			} else {
+				<div class="page-actions">
+					<a href="/login" class="btn btn-ghost">Connectez-vous pour participer</a>
+				</div>
+			}
 		</div>
 		if len(rootChildren) == 0 {
 			<div class="empty-state">
 				<p>Aucun sujet pour l'instant.</p>
 				if user != nil {
-					<p>Soyez le premier à ouvrir une discussion.</p>
+					<p>Soyez le premier à <a href="/forum/new">ouvrir une discussion</a>.</p>
 				}
 			</div>
 		} else {
@@ -41,6 +50,37 @@ templ Index(rootChildren []ThreadNode, user *auth.User) {
 				}
 			</ul>
 		}
+	</section>
+}
+
+// NewTopic : formulaire de création d'un nouveau sujet racine du forum.
+templ NewTopic(csrfToken string) {
+	<section class="section forum-new-topic">
+		<nav class="breadcrumb" aria-label="Fil d'Ariane">
+			<ol>
+				<li><a href="/forum">Forum</a><span aria-hidden="true"> / </span></li>
+				<li><span aria-current="page">Nouveau sujet</span></li>
+			</ol>
+		</nav>
+		<div class="page-header">
+			<h1>Ouvrir une discussion</h1>
+			<p class="page-lead">Donnez un titre clair et un message d'introduction. Vous pourrez répondre aux contributions ensuite.</p>
+		</div>
+		<form method="POST" action="/forum/new" class="form-stack">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<div class="form-field">
+				<label for="topic-title">Titre <span class="required">*</span></label>
+				<input id="topic-title" type="text" name="title" required maxlength="180"/>
+			</div>
+			<div class="form-field">
+				<label for="topic-body">Message <span class="required">*</span></label>
+				<textarea id="topic-body" name="body" rows="10" required></textarea>
+			</div>
+			<div class="form-actions">
+				<button type="submit" class="btn btn-primary">Publier</button>
+				<a href="/forum" class="btn btn-ghost">Annuler</a>
+			</div>
+		</form>
 	</section>
 }
 

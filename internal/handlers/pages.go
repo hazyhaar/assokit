@@ -11,6 +11,7 @@ import (
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/pages"
 	"github.com/hazyhaar/assokit/pkg/horui/search"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/horui/tree"
 )
 
@@ -153,7 +154,11 @@ var handleLogout = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request)
 })
 
 func handleForgotStub(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Réinitialisation par email à venir. Contactez contact@assokit.org.", http.StatusNotImplemented)
+	contact := theme.Brand().ContactEmail
+	if contact == "" {
+		contact = "support"
+	}
+	http.Error(w, "Réinitialisation par email à venir. Contactez "+contact+".", http.StatusNotImplemented)
 }
 
 func handleMerci(w http.ResponseWriter, r *http.Request) { merciHandlerImpl(w, r) }

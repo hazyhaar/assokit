@@ -5,6 +5,8 @@ package pages
 import (
 	"strings"
 
+	"github.com/hazyhaar/assokit/pkg/horui/auth"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/horui/tree"
 )
 
@@ -275,7 +277,7 @@ templ Contact() {
 // DONATE
 // ========================================================================
 
-templ Donate(donURL, cotisURL, iban string) {
+templ Donate(donURL, cotisURL, iban string, user *auth.User, isMember bool, adhereSlug string) {
 	<section class="section page-donate">
 		<div class="page-header">
 			<div class="section-label">Nous soutenir</div>
@@ -300,7 +302,7 @@ templ Donate(donURL, cotisURL, iban string) {
 					<p>
 						Le formulaire de don en ligne est en cours de finalisation.
 						Pour donner dès maintenant, écrivez à
-						<a href="mailto:contact@assokit.org">contact@assokit.org</a>.
+						<a href={ templ.SafeURL("mailto:" + theme.Brand().ContactEmail) }>{ theme.Brand().ContactEmail }</a>.
 					</p>
 					if iban != "" {
 						<p><strong>IBAN :</strong> { iban }</p>
@@ -308,15 +310,37 @@ templ Donate(donURL, cotisURL, iban string) {
 				</div>
 			}
 		</div>
-		<div class="donate-cotis">
-			<h2>Adhérer (1 €)</h2>
-			<p>L'adhésion symbolique permet de devenir membre votant de l'association.</p>
-			if cotisURL != "" {
-				<a href={ templ.SafeURL(cotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
-			} else {
-				<a href="/adherer/adherent" class="btn btn-primary">Adhérer →</a>
-			}
-		</div>
+		if isMember {
+			<div class="donate-cotis donate-already-member">
+				<h2>Vous êtes adhérent · ent</h2>
+				<p>Merci de soutenir { theme.Brand().Name }. Votre adhésion est active.</p>
+			</div>
+		} else if user == nil {
+			<div class="donate-cotis">
+				<h2>Adhérer (1 €)</h2>
+				<p>L'adhésion symbolique permet de devenir membre votant de l'association.</p>
+				if cotisURL != "" {
+					<a href={ templ.SafeURL(cotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
+				} else if adhereSlug != "" {
+					<a href={ templ.SafeURL("/adherer/" + adhereSlug) } class="btn btn-primary">Adhérer →</a>
+				} else {
+					<a href="/participer" class="btn btn-primary">Voir les options d'adhésion →</a>
+				}
+				<p class="form-aside"><a href="/login">Déjà inscrit · e ? Se connecter</a></p>
+			</div>
+		} else {
+			<div class="donate-cotis">
+				<h2>Adhérer (1 €)</h2>
+				<p>L'adhésion symbolique permet de devenir membre votant de l'association.</p>
+				if cotisURL != "" {
+					<a href={ templ.SafeURL(cotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
+				} else if adhereSlug != "" {
+					<a href={ templ.SafeURL("/adherer/" + adhereSlug) } class="btn btn-primary">Adhérer →</a>
+				} else {
+					<a href="/participer" class="btn btn-primary">Voir les options d'adhésion →</a>
+				}
+			</div>
+		}
 	</section>
 }
 

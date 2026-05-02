@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"io/fs"
 	"net/http"
@@ -77,7 +78,20 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	// Activation magic link
 	r.Get("/activate/{token}", handleActivate(deps))
 	// Forum
+	// Auto-bootstrap nœud racine 'forum' si absent (rule SEED-FORUM-ROOT-AUTO-BOOTSTRAP).
+	if treeStore != nil {
+		if _, err := ensureForumRoot(context.Background(), treeStore); err != nil {
+			// Best-effort : log mais ne bloque pas le boot. Le handler /forum
+			// re-tentera ensureForumRoot lui-même au premier accès.
+			if deps.Logger != nil {
+				deps.Logger.Warn("forum: ensureForumRoot au boot", "err", err)
+			}
+		}
+	}
 	r.Get("/forum", handleForumIndex(deps))
+	// /forum/new AVANT /forum/{slug} pour matcher en priorité (chi route order).
+	r.Get("/forum/new", handleForumNewTopicForm(deps))
+	r.Post("/forum/new", handleForumCreateTopic(deps))
 	r.Get("/forum/{slug}", handleForumNode(deps))
 	r.Post("/forum/{slug}/reply",
 		middleware.RequirePerm(deps.DB, perms.PermWrite, func(r *http.Request) string {
