@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"database/sql"
+	"io/fs"
 	"net/http"
 	"os"
 
@@ -58,8 +59,13 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.Get("/signup", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/participer", http.StatusMovedPermanently) })
 	r.Get("/forgot-password", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/forgot", http.StatusMovedPermanently) })
 	r.Get("/reset-password", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/forgot", http.StatusMovedPermanently) })
-	// Favicon : redirect vers /static/favicon.svg ou 204 si absent.
-	r.Get("/static/assets/favicon.ico", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/static/favicon.svg", http.StatusMovedPermanently) })
+	// Assets branding (logo.svg, og.png, favicon.ico, etc.) servis depuis BrandingFS.
+	// Permet à branding.toml::logo_path = "assets/logo.svg" de résoudre /static/assets/logo.svg.
+	if deps.BrandingFS != nil {
+		if assetsFS, err := fs.Sub(deps.BrandingFS, "assets"); err == nil {
+			r.Handle("/static/assets/*", http.StripPrefix("/static/assets/", http.FileServer(http.FS(assetsFS))))
+		}
+	}
 	r.Get("/contact", handleContactPage(deps))
 	r.Post("/contact", handleContactSubmit(deps))
 
