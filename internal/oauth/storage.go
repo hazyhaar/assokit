@@ -20,12 +20,10 @@ import (
 )
 
 var (
-	_ op.Storage             = (*Storage)(nil)
-	_ op.Client              = (*oauthClient)(nil)
-	_ op.AuthRequest         = (*authRequest)(nil)
+	_ op.Storage            = (*Storage)(nil)
 	_ op.RefreshTokenRequest = (*tokenRow)(nil)
-	_ op.SigningKey           = (*hmacKey)(nil)
-	_ op.Key                  = (*hmacKey)(nil)
+	_ op.SigningKey          = (*hmacKey)(nil)
+	_ op.Key                = (*hmacKey)(nil)
 
 	ErrNotFound     = errors.New("oauth: not found")
 	ErrCodeUsed     = errors.New("oauth: auth code already used")
@@ -86,42 +84,6 @@ func (s *Storage) Health(ctx context.Context) error {
 
 // ─── clients ─────────────────────────────────────────────────────────────────
 
-type oauthClient struct {
-	id           string
-	secretHash   string
-	redirectURIs []string
-	grantTypes   []oidc.GrantType
-	scopes       []string
-}
-
-func (c *oauthClient) GetID() string                      { return c.id }
-func (c *oauthClient) RedirectURIs() []string             { return c.redirectURIs }
-func (c *oauthClient) PostLogoutRedirectURIs() []string   { return nil }
-func (c *oauthClient) ApplicationType() op.ApplicationType { return op.ApplicationTypeWeb }
-func (c *oauthClient) AuthMethod() oidc.AuthMethod        { return oidc.AuthMethodBasic }
-func (c *oauthClient) ResponseTypes() []oidc.ResponseType { return []oidc.ResponseType{oidc.ResponseTypeCode} }
-func (c *oauthClient) GrantTypes() []oidc.GrantType       { return c.grantTypes }
-func (c *oauthClient) LoginURL(id string) string          { return "/oauth2/consent?id=" + id }
-func (c *oauthClient) AccessTokenType() op.AccessTokenType { return op.AccessTokenTypeJWT }
-func (c *oauthClient) IDTokenLifetime() time.Duration     { return time.Hour }
-func (c *oauthClient) DevMode() bool                      { return false }
-func (c *oauthClient) RestrictAdditionalIdTokenScopes() func([]string) []string {
-	return func(s []string) []string { return s }
-}
-func (c *oauthClient) RestrictAdditionalAccessTokenScopes() func([]string) []string {
-	return func(s []string) []string { return s }
-}
-func (c *oauthClient) IsScopeAllowed(scope string) bool {
-	for _, s := range c.scopes {
-		if s == scope {
-			return true
-		}
-	}
-	return scope == oidc.ScopeOpenID || scope == oidc.ScopeOfflineAccess || scope == oidc.ScopeProfile || scope == oidc.ScopeEmail
-}
-func (c *oauthClient) IDTokenUserinfoClaimsAssertion() bool { return false }
-func (c *oauthClient) ClockSkew() time.Duration             { return 0 }
-
 func (s *Storage) GetClientByClientID(ctx context.Context, clientID string) (op.Client, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT client_id, client_secret_hash, redirect_uris, grant_types, scopes FROM oauth_clients WHERE client_id = ?`,
@@ -154,36 +116,6 @@ func (s *Storage) AuthorizeClientIDSecret(ctx context.Context, clientID, clientS
 }
 
 // ─── auth requests ────────────────────────────────────────────────────────────
-
-type authRequest struct {
-	id                  string
-	clientID            string
-	userID              string
-	scopes              []string
-	redirectURI         string
-	nonce               string
-	state               string
-	codeChallenge       *oidc.CodeChallenge
-	responseType        oidc.ResponseType
-	authTime            time.Time
-	done                bool
-}
-
-func (r *authRequest) GetID() string                          { return r.id }
-func (r *authRequest) GetACR() string                         { return "" }
-func (r *authRequest) GetAMR() []string                       { return nil }
-func (r *authRequest) GetAudience() []string                  { return []string{r.clientID} }
-func (r *authRequest) GetAuthTime() time.Time                 { return r.authTime }
-func (r *authRequest) GetClientID() string                    { return r.clientID }
-func (r *authRequest) GetCodeChallenge() *oidc.CodeChallenge  { return r.codeChallenge }
-func (r *authRequest) GetNonce() string                       { return r.nonce }
-func (r *authRequest) GetRedirectURI() string                 { return r.redirectURI }
-func (r *authRequest) GetResponseType() oidc.ResponseType     { return r.responseType }
-func (r *authRequest) GetResponseMode() oidc.ResponseMode     { return "" }
-func (r *authRequest) GetScopes() []string                    { return r.scopes }
-func (r *authRequest) GetState() string                       { return r.state }
-func (r *authRequest) GetSubject() string                     { return r.userID }
-func (r *authRequest) Done() bool                             { return r.done }
 
 func (s *Storage) CreateAuthRequest(ctx context.Context, req *oidc.AuthRequest, userID string) (op.AuthRequest, error) {
 	id := uuid.NewString()
@@ -226,7 +158,7 @@ func (s *Storage) AuthRequestByCode(ctx context.Context, code string) (op.AuthRe
 
 func (s *Storage) authRequestByID(ctx context.Context, id string) (*authRequest, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, client_id, user_id, scopes, redirect_uri, nonce, state, code_challenge, code_challenge_method, response_type, auth_time, user_id != ''
+		`SELECT id, client_id, user_id, scopes, redirect_uri, nonce, state, code_challenge, code_challenge_method, response_type, auth_time, done
 		 FROM oauth_auth_requests WHERE id = ?`, id)
 	var r authRequest
 	var rawScopes, cc, ccMethod, authTimeStr string
@@ -279,7 +211,7 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 // CompleteAuthRequest marque la requête comme complète avec le userID (appelé par le handler consent).
 func (s *Storage) CompleteAuthRequest(ctx context.Context, id, userID string) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE oauth_auth_requests SET user_id = ?, auth_time = ? WHERE id = ?`,
+		`UPDATE oauth_auth_requests SET user_id = ?, auth_time = ?, done = 1 WHERE id = ?`,
 		userID, time.Now().UTC().Format(time.RFC3339), id)
 	return err
 }

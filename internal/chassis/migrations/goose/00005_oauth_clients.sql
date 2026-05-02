@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS oauth_auth_requests (
     code_challenge_method TEXT NOT NULL DEFAULT '',
     response_type         TEXT NOT NULL DEFAULT 'code',
     auth_time             TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    done                  INTEGER NOT NULL DEFAULT 0,
     created_at            TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) STRICT;
 
