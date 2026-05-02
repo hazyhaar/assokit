@@ -20,7 +20,12 @@ import (
 )
 
 var (
-	_ op.Storage = (*Storage)(nil)
+	_ op.Storage             = (*Storage)(nil)
+	_ op.Client              = (*oauthClient)(nil)
+	_ op.AuthRequest         = (*authRequest)(nil)
+	_ op.RefreshTokenRequest = (*tokenRow)(nil)
+	_ op.SigningKey           = (*hmacKey)(nil)
+	_ op.Key                  = (*hmacKey)(nil)
 
 	ErrNotFound     = errors.New("oauth: not found")
 	ErrCodeUsed     = errors.New("oauth: auth code already used")
@@ -56,6 +61,8 @@ type hmacKey struct {
 
 func (k *hmacKey) ID() string                            { return k.id }
 func (k *hmacKey) SignatureAlgorithm() jose.SignatureAlgorithm { return jose.HS256 }
+func (k *hmacKey) Algorithm() jose.SignatureAlgorithm    { return jose.HS256 }
+func (k *hmacKey) Use() string                           { return "sig" }
 func (k *hmacKey) Key() any                              { return k.key }
 
 func (s *Storage) SigningKey(_ context.Context) (op.SigningKey, error) {

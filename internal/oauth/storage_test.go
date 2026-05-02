@@ -402,3 +402,116 @@ func TestOAuth_RevokeAccessTokenAlsoRevokesRefresh(t *testing.T) {
 		t.Errorf("après révocation de l'access token, aucun token actif ne devrait rester, got %d", activeCount)
 	}
 }
+
+// TestOAuth_ConsentDoneGatesTokenExchange : token exchange sans consent → erreur, avec consent → token.
+func TestOAuth_ConsentDoneGatesTokenExchange(t *testing.T) {
+	store, db := newTestStorage(t)
+	ctx := context.Background()
+	userID, clientID, _ := seedUserAndClient(t, db)
+
+	oidcReq := &oidc.AuthRequest{
+		ClientID:     clientID,
+		RedirectURI:  "http://localhost:8080/callback",
+		ResponseType: oidc.ResponseTypeCode,
+		Scopes:       oidc.SpaceDelimitedArray{"openid"},
+	}
+
+	// Créer une auth request sans compléter (done=false car user_id vide)
+	ar, err := store.CreateAuthRequest(ctx, oidcReq, "")
+	if err != nil {
+		t.Fatalf("CreateAuthRequest: %v", err)
+	}
+
+	// Avant consent : Done() doit être false
+	if ar.Done() {
+		t.Error("Done() devrait être false avant consent")
+	}
+
+	// Compléter avec consent
+	if err := store.CompleteAuthRequest(ctx, ar.GetID(), userID); err != nil {
+		t.Fatalf("CompleteAuthRequest: %v", err)
+	}
+
+	// Après consent : Done() doit être true
+	ar2, err := store.AuthRequestByID(ctx, ar.GetID())
+	if err != nil {
+		t.Fatalf("AuthRequestByID post-consent: %v", err)
+	}
+	if !ar2.Done() {
+		t.Error("Done() devrait être true après consent")
+	}
+	if ar2.GetSubject() != userID {
+		t.Errorf("subject: want %s, got %s", userID, ar2.GetSubject())
+	}
+
+	// Vérification que CreateAccessToken fonctionne après consent
+	tokenID, exp, err := store.CreateAccessToken(ctx, ar2)
+	if err != nil {
+		t.Fatalf("CreateAccessToken après consent: %v", err)
+	}
+	if tokenID == "" || exp.Before(time.Now()) {
+		t.Errorf("token invalide: id=%q exp=%v", tokenID, exp)
+	}
+}
+
+// TestOAuth_PKCEMissingRefused : authorize avec code_challenge, AuthRequestByCode retourne challenge présent.
+func TestOAuth_PKCEMissingRefused(t *testing.T) {
+	store, db := newTestStorage(t)
+	ctx := context.Background()
+	userID, clientID, _ := seedUserAndClient(t, db)
+
+	challenge := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	oidcReq := &oidc.AuthRequest{
+		ClientID:            clientID,
+		RedirectURI:         "http://localhost:8080/callback",
+		ResponseType:        oidc.ResponseTypeCode,
+		Scopes:              oidc.SpaceDelimitedArray{"openid"},
+		CodeChallenge:       challenge,
+		CodeChallengeMethod: "S256",
+	}
+
+	ar, _ := store.CreateAuthRequest(ctx, oidcReq, "")
+	store.CompleteAuthRequest(ctx, ar.GetID(), userID) //nolint:errcheck
+
+	// Vérifier que le CodeChallenge est persisté
+	ar2, err := store.AuthRequestByID(ctx, ar.GetID())
+	if err != nil {
+		t.Fatalf("AuthRequestByID: %v", err)
+	}
+	cc := ar2.GetCodeChallenge()
+	if cc == nil {
+		t.Fatal("CodeChallenge devrait être présent après CreateAuthRequest avec PKCE")
+	}
+	if cc.Challenge != challenge {
+		t.Errorf("CodeChallenge.Challenge: want %q, got %q", challenge, cc.Challenge)
+	}
+	if string(cc.Method) != "S256" {
+		t.Errorf("CodeChallenge.Method: want S256, got %q", cc.Method)
+	}
+
+	// Sauvegarder le code et vérifier que AuthRequestByCode conserve le challenge
+	code := "pkce-test-code-42"
+	if err := store.SaveAuthCode(ctx, ar.GetID(), code); err != nil {
+		t.Fatalf("SaveAuthCode: %v", err)
+	}
+
+	ar3, err := store.AuthRequestByCode(ctx, code)
+	if err != nil {
+		t.Fatalf("AuthRequestByCode: %v", err)
+	}
+	cc3 := ar3.GetCodeChallenge()
+	if cc3 == nil || cc3.Challenge != challenge {
+		t.Errorf("AuthRequestByCode devrait conserver le CodeChallenge PKCE: got %v", cc3)
+	}
+
+	// Vérifier que DeleteAuthRequest ne casse pas la validation PKCE
+	// (DeleteAuthRequest doit supprimer oauth_auth_requests, pas oauth_authcodes directement)
+	if err := store.DeleteAuthRequest(ctx, ar.GetID()); err != nil {
+		t.Fatalf("DeleteAuthRequest: %v", err)
+	}
+	// Après DeleteAuthRequest, AuthRequestByCode doit retourner ErrCodeUsed (code marqué used)
+	_, err = store.AuthRequestByCode(ctx, code)
+	if err == nil {
+		t.Error("après DeleteAuthRequest, AuthRequestByCode devrait retourner erreur (code marqué used)")
+	}
+}
