@@ -178,3 +178,52 @@ func TestAuditTrail_Populated(t *testing.T) {
 		t.Errorf("audit trail insuffisant : %d entrées (attendu >= 3)", count)
 	}
 }
+
+// TestStore_GradeDescendants_RecursiveCTE : GradeDescendants retourne la closure descendante.
+func TestStore_GradeDescendants_RecursiveCTE(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+	s := &rbac.Store{DB: db}
+	ctx := context.Background()
+
+	// Setup : A inherits B inherits C
+	gA, _ := s.CreateGrade(ctx, "desc-grade-a")
+	gB, _ := s.CreateGrade(ctx, "desc-grade-b")
+	gC, _ := s.CreateGrade(ctx, "desc-grade-c")
+	s.AddInherit(ctx, gA, gB) //nolint:errcheck
+	s.AddInherit(ctx, gB, gC) //nolint:errcheck
+
+	// Descendants de C = {B, A}
+	desc, err := s.GradeDescendants(ctx, gC)
+	if err != nil {
+		t.Fatalf("GradeDescendants C: %v", err)
+	}
+	m := make(map[string]bool, len(desc))
+	for _, id := range desc {
+		m[id] = true
+	}
+	if !m[gA] {
+		t.Errorf("GradeDescendants(C) doit contenir A")
+	}
+	if !m[gB] {
+		t.Errorf("GradeDescendants(C) doit contenir B")
+	}
+
+	// Descendants de B = {A} seulement
+	descB, err := s.GradeDescendants(ctx, gB)
+	if err != nil {
+		t.Fatalf("GradeDescendants B: %v", err)
+	}
+	if len(descB) != 1 || descB[0] != gA {
+		t.Errorf("GradeDescendants(B) = %v, want [%s]", descB, gA)
+	}
+
+	// Descendants de A = [] (feuille)
+	descA, err := s.GradeDescendants(ctx, gA)
+	if err != nil {
+		t.Fatalf("GradeDescendants A: %v", err)
+	}
+	if len(descA) != 0 {
+		t.Errorf("GradeDescendants(A) doit être vide, got %v", descA)
+	}
+}

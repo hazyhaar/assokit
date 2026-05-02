@@ -244,6 +244,31 @@ func (s *Store) GradeAncestors(ctx context.Context, gradeID string) ([]string, e
 	return out, rows.Err()
 }
 
+// GradeDescendants retourne tous les grades qui héritent de gradeID (transitivement) via CTE récursive.
+func (s *Store) GradeDescendants(ctx context.Context, gradeID string) ([]string, error) {
+	rows, err := s.DB.QueryContext(ctx, `
+		WITH RECURSIVE descendants(id) AS (
+			SELECT child_id FROM grade_inherits WHERE parent_id = ?
+			UNION
+			SELECT gi.child_id FROM grade_inherits gi
+			JOIN descendants d ON gi.parent_id = d.id
+		)
+		SELECT id FROM descendants`, gradeID)
+	if err != nil {
+		return nil, fmt.Errorf("rbac: grade descendants: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 // AssignGrade assigne un grade à un utilisateur.
 func (s *Store) AssignGrade(ctx context.Context, userID, gradeID string) error {
 	_, err := s.DB.ExecContext(ctx,

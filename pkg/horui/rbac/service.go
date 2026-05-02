@@ -189,25 +189,45 @@ func (svc *Service) RemoveInherit(ctx context.Context, childID, parentID string)
 	return svc.recomputeGradeUsers(ctx, childID)
 }
 
-// recomputeGradeUsers recompute tous les users directement assignés au grade.
+// recomputeGradeUsers recompute tous les users assignés au grade et à ses descendants.
+// Closure descendante : si gradeID = B et A inherits B, les users de A sont aussi recomputed.
 func (svc *Service) recomputeGradeUsers(ctx context.Context, gradeID string) error {
-	rows, err := svc.Store.DB.QueryContext(ctx,
-		`SELECT user_id FROM user_grades WHERE grade_id = ?`, gradeID)
+	// Closure descendante : gradeID + tous les grades qui en héritent transitivement.
+	descendants, err := svc.Store.GradeDescendants(ctx, gradeID)
 	if err != nil {
-		return fmt.Errorf("rbac: grade users for recompute: %w", err)
+		return fmt.Errorf("rbac: recompute grade descendants: %w", err)
 	}
-	defer rows.Close()
+	allGrades := make([]string, 0, 1+len(descendants))
+	allGrades = append(allGrades, gradeID)
+	allGrades = append(allGrades, descendants...)
+
+	// Collecte des users uniques sur toute la closure.
+	seen := make(map[string]struct{})
 	var uids []string
-	for rows.Next() {
-		var uid string
-		if err := rows.Scan(&uid); err != nil {
+	for _, gid := range allGrades {
+		rows, err := svc.Store.DB.QueryContext(ctx,
+			`SELECT user_id FROM user_grades WHERE grade_id = ?`, gid)
+		if err != nil {
+			return fmt.Errorf("rbac: grade users for recompute: %w", err)
+		}
+		for rows.Next() {
+			var uid string
+			if err := rows.Scan(&uid); err != nil {
+				rows.Close()
+				return err
+			}
+			if _, ok := seen[uid]; !ok {
+				seen[uid] = struct{}{}
+				uids = append(uids, uid)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
 			return err
 		}
-		uids = append(uids, uid)
+		rows.Close()
 	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
+
 	for _, uid := range uids {
 		if err := svc.Recompute(ctx, uid); err != nil {
 			return err

@@ -242,6 +242,111 @@ func TestService_RemoveGradeRecomputes(t *testing.T) {
 	}
 }
 
+// TestService_GrantPermOnAncestorGradeRecomputesDescendantUsers : HIGH[1] fix.
+// GrantPerm(C, x) → users du grade A (qui inherits B inherits C) voient Can(x)=true.
+func TestService_GrantPermOnAncestorGradeRecomputesDescendantUsers(t *testing.T) {
+	svc, db := newService(t)
+	defer db.Close()
+	ctx := context.Background()
+
+	// Setup : A inherits B inherits C
+	gA, gB, gC, _, _, _ := setupDAG(ctx, t, svc.Store)
+
+	// User U assigned A (pas encore de perm "x")
+	if err := svc.AssignGrade(ctx, "user-desc", gA); err != nil {
+		t.Fatalf("AssignGrade: %v", err)
+	}
+
+	xID, err := svc.Store.EnsurePermission(ctx, "perm.x", "")
+	if err != nil {
+		t.Fatalf("ensure perm x: %v", err)
+	}
+
+	// Avant GrantPerm(C, x) : Can = false
+	ok, err := svc.Can(ctx, "user-desc", "perm.x")
+	if err != nil {
+		t.Fatalf("Can before: %v", err)
+	}
+	if ok {
+		t.Error("Can avant GrantPerm doit être false")
+	}
+
+	// GrantPerm sur grade C (ancêtre de A via B) → doit recomputer user-desc
+	if err := svc.GrantPerm(ctx, gC, xID); err != nil {
+		t.Fatalf("GrantPerm C x: %v", err)
+	}
+
+	ok, err = svc.Can(ctx, "user-desc", "perm.x")
+	if err != nil {
+		t.Fatalf("Can after GrantPerm: %v", err)
+	}
+	if !ok {
+		t.Error("Can après GrantPerm(C, x) doit être true pour user assigné A (A inherits B inherits C)")
+	}
+
+	// RevokePerm(C, x) → Can doit redevenir false
+	if err := svc.RevokePerm(ctx, gC, xID); err != nil {
+		t.Fatalf("RevokePerm C x: %v", err)
+	}
+	ok, err = svc.Can(ctx, "user-desc", "perm.x")
+	if err != nil {
+		t.Fatalf("Can after RevokePerm: %v", err)
+	}
+	if ok {
+		t.Error("Can après RevokePerm(C, x) doit être false")
+	}
+	_ = gB // utilisé implicitement dans setupDAG
+}
+
+// TestService_AddInheritCascadesDescendantRecompute : AddInherit déclenche recompute des users.
+func TestService_AddInheritCascadesDescendantRecompute(t *testing.T) {
+	svc, db := newService(t)
+	defer db.Close()
+	ctx := context.Background()
+
+	gA, err := svc.Store.CreateGrade(ctx, "grade-cascade-a")
+	if err != nil {
+		t.Fatalf("create A: %v", err)
+	}
+	gB, err := svc.Store.CreateGrade(ctx, "grade-cascade-b")
+	if err != nil {
+		t.Fatalf("create B: %v", err)
+	}
+	yID, err := svc.Store.EnsurePermission(ctx, "perm.y", "")
+	if err != nil {
+		t.Fatalf("ensure perm y: %v", err)
+	}
+	// B a perm "y"
+	if err := svc.Store.GrantPerm(ctx, gB, yID); err != nil {
+		t.Fatalf("grant perm.y to B: %v", err)
+	}
+	// User assigned A
+	if err := svc.AssignGrade(ctx, "user-cascade", gA); err != nil {
+		t.Fatalf("AssignGrade A: %v", err)
+	}
+
+	// Avant AddInherit : Can(user-cascade, perm.y) = false
+	ok, err := svc.Can(ctx, "user-cascade", "perm.y")
+	if err != nil {
+		t.Fatalf("Can before: %v", err)
+	}
+	if ok {
+		t.Error("Can avant AddInherit doit être false")
+	}
+
+	// AddInherit(A, B) → A hérite maintenant de B → user-cascade doit avoir perm.y
+	if err := svc.AddInherit(ctx, gA, gB); err != nil {
+		t.Fatalf("AddInherit A→B: %v", err)
+	}
+	ok, err = svc.Can(ctx, "user-cascade", "perm.y")
+	if err != nil {
+		t.Fatalf("Can after AddInherit: %v", err)
+	}
+	if !ok {
+		t.Error("Can après AddInherit(A, B) doit être true pour user assigné A")
+	}
+}
+
 // BenchmarkCan_CacheHit : hot path L1 doit être < 1µs.
 func BenchmarkCan_CacheHit(b *testing.B) {
 	db, err := sql.Open("sqlite", "file::memory:?_pragma=foreign_keys(1)")
