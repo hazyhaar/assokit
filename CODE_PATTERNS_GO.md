@@ -56,27 +56,16 @@ func (s *Store) Get(ctx context.Context, id string) (*Grade, error) {
 ```go
 // DO
 func processGrade(g *Grade) error {
-    if g == nil {
-        return ErrNilGrade
-    }
-    if g.Name == "" {
-        return ErrEmptyName
-    }
-    // happy path à plat
-    return nil
+    if g == nil        { return ErrNilGrade }
+    if g.Name == ""    { return ErrEmptyName }
+    return nil  // happy path à plat
 }
 
 // DON'T
 func processGrade(g *Grade) error {
     if g != nil {
-        if g.Name != "" {
-            // happy path enfoncé
-        } else {
-            return ErrEmptyName
-        }
-    } else {
-        return ErrNilGrade
-    }
+        if g.Name != "" { /* happy path enfoui */ } else { return ErrEmptyName }
+    } else { return ErrNilGrade }
     return nil
 }
 ```
@@ -90,16 +79,14 @@ func processGrade(g *Grade) error {
 ```go
 // DO
 type Permission struct {
-    ID          string    `db:"id"          json:"id"`
-    Name        string    `db:"name"        json:"name"`
-    Description string    `db:"description" json:"description,omitempty"`
-    CreatedAt   time.Time `db:"created_at"  json:"created_at"`
+    ID          string `db:"id"          json:"id"`
+    Name        string `db:"name"        json:"name"`
+    Description string `db:"description" json:"description,omitempty"`
 }
 
 // DON'T
-type Permission struct {
-    ID string; Name string; Desc string `json:"d"`  // ligne unique, tag incohérent
-}
+type Permission struct { ID string; Name string; Desc string `json:"d"` }
+// ligne unique + tag incohérent avec le nom de champ
 ```
 
 ---
@@ -110,25 +97,18 @@ type Permission struct {
 
 ```go
 // DO
-func (s *Store) listRows(ctx context.Context) error {
-    rows, err := s.DB.QueryContext(ctx, `SELECT id FROM grades`)
-    if err != nil {
-        return err
-    }
-    defer rows.Close()
-    for rows.Next() { … }
-    return rows.Err()
-}
+rows, err := s.DB.QueryContext(ctx, `SELECT id FROM grades`)
+if err != nil { return err }
+defer rows.Close()
+for rows.Next() { … }
+return rows.Err()
 
 // DON'T
-func (s *Store) listRows(ctx context.Context) error {
-    rows, err := s.DB.QueryContext(ctx, `SELECT id FROM grades`)
-    if err != nil { return err }
-    // rows.Close() oublié si early return en cours de boucle
-    for rows.Next() { … }
-    rows.Close()
-    return nil
-}
+rows, err := s.DB.QueryContext(ctx, `SELECT id FROM grades`)
+if err != nil { return err }
+for rows.Next() { … }
+rows.Close()  // oubli possible sur early-return intermédiaire
+return nil
 ```
 
 ---
@@ -140,23 +120,18 @@ func (s *Store) listRows(ctx context.Context) error {
 ```go
 // DO
 func TestAtLeast(t *testing.T) {
-    tests := []struct {
-        p, req  Permission
-        want    bool
-    }{
+    for _, tc := range []struct{ p, req Permission; want bool }{
         {PermWrite, PermRead, true},
         {PermRead, PermWrite, false},
-        {PermAdmin, PermAdmin, true},
-    }
-    for _, tc := range tests {
+    } {
         if got := tc.p.AtLeast(tc.req); got != tc.want {
-            t.Errorf("AtLeast(%s,%s) = %v, want %v", tc.p, tc.req, got, tc.want)
+            t.Errorf("AtLeast(%s,%s) = %v", tc.p, tc.req, got)
         }
     }
 }
 
-// DON'T
-func TestAtLeast1(t *testing.T) { /* un cas = un test = explosion du fichier */ }
+// DON'T — un cas = un test = explosion du fichier
+func TestAtLeast1(t *testing.T) {}
 func TestAtLeast2(t *testing.T) {}
 ```
 
@@ -167,18 +142,15 @@ func TestAtLeast2(t *testing.T) {}
 **Règle** : composants stateless, props minimales, aucune logique métier dans `.templ` (helpers Go), `Render(ctx, w)` reçoit le ctx complet.
 
 ```go
-// DO — composant templ
+// DO
 templ GradeRow(g rbac.Grade) {
     <tr id={ "grade-row-" + g.ID }>
         <td>{ g.Name }</td>
         if g.System { <td>système</td> } else { <td>custom</td> }
     </tr>
 }
-
-// DON'T — logique SQL dans le composant
-templ GradeList(db *sql.DB) {
-    // charger les grades depuis db ici → couplage, testabilité zéro
-}
+// DON'T — couplage DB dans le composant, testabilité zéro
+templ GradeList(db *sql.DB) { /* SELECT ici → interdit */ }
 ```
 
 ---
@@ -221,7 +193,7 @@ import (
 
 // DON'T
 import (
-    "github.com/go-chi/chi/v5"; "context"  // pas de groupes, point-virgule
-    r "github.com/hazyhaar/assokit/pkg/horui/rbac"  // alias inutile
+    "github.com/go-chi/chi/v5"; "context"                          // pas de groupes
+    r "github.com/hazyhaar/assokit/pkg/horui/rbac"                 // alias inutile
 )
 ```
