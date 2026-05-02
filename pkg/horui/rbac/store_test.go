@@ -75,7 +75,7 @@ func TestDeleteSystemGradeForbidden(t *testing.T) {
 	// Insérer directement un grade système.
 	var sysID string
 	row := db.QueryRowContext(ctx,
-		`INSERT INTO grades(id, name, system) VALUES('sys-1', 'admin', 1) RETURNING id`)
+		`INSERT INTO grades(id, name, system) VALUES('sys-1', 'superadmin', 1) RETURNING id`)
 	if err := row.Scan(&sysID); err != nil {
 		t.Fatalf("insert system grade: %v", err)
 	}

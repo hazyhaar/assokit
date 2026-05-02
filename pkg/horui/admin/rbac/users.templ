@@ -1,0 +1,63 @@
+// CLAUDE:SUMMARY UI admin RBAC users : liste + gestion grades par user (M-ASSOKIT-RBAC-4).
+package adminrbac
+
+// UserRow représente un user dans la liste admin RBAC.
+type UserRow struct {
+	ID     string
+	Email  string
+	Grades []string // noms des grades
+}
+
+// UserFilter regroupe les filtres actifs de la liste users.
+type UserFilter struct {
+	Search  string
+	GradeID string
+}
+
+templ UserListPage(rows []UserRow, filter UserFilter, allGrades []GradeRow) {
+	<div id="rbac-users">
+		<h2>Users RBAC</h2>
+		<form method="GET" action="/admin/rbac/users" style="margin-bottom:1rem">
+			<input type="text" name="search" value={ filter.Search } placeholder="Email…"/>
+			<select name="grade_id">
+				<option value="">Tous grades</option>
+				for _, g := range allGrades {
+					<option value={ g.ID } if filter.GradeID == g.ID { selected }>{ g.Name }</option>
+				}
+			</select>
+			<button type="submit">Filtrer</button>
+		</form>
+		<table>
+			<thead><tr><th>Email</th><th>Grades</th><th>Actions</th></tr></thead>
+			<tbody>
+				for _, u := range rows {
+					@UserListRow(u, allGrades)
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+templ UserListRow(u UserRow, allGrades []GradeRow) {
+	<tr id={ "user-row-" + u.ID }>
+		<td>{ u.Email }</td>
+		<td>
+			for _, g := range u.Grades {
+				<span class="badge">{ g }</span>
+			}
+		</td>
+		<td>
+			<form hx-post={ "/admin/rbac/users/" + u.ID + "/grades" }
+				hx-target={ "#user-row-" + u.ID }
+				hx-swap="outerHTML"
+				style="display:inline">
+				<select name="grade_id">
+					for _, g := range allGrades {
+						<option value={ g.ID }>{ g.Name }</option>
+					}
+				</select>
+				<button type="submit">+ Grade</button>
+			</form>
+		</td>
+	</tr>
+}

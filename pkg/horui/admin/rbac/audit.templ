@@ -1,0 +1,73 @@
+// CLAUDE:SUMMARY UI admin RBAC audit trail : liste paginée + filtres (M-ASSOKIT-RBAC-4).
+package adminrbac
+
+import "fmt"
+
+// AuditRow représente une entrée rbac_audit.
+type AuditRow struct {
+	ID        string
+	Action    string
+	ActorID   string
+	TargetID  string
+	Detail    string
+	CreatedAt string
+}
+
+// AuditFilter regroupe les filtres actifs de la liste audit.
+type AuditFilter struct {
+	Action  string
+	ActorID string
+}
+
+// AuditPagination porte le contexte de pagination de la liste audit.
+type AuditPagination struct {
+	Page     int
+	Total    int
+	HasPrev  bool
+	HasNext  bool
+	PrevPage int
+	NextPage int
+}
+
+// intStr convertit un int en string (helper local).
+func intStr(n int) string {
+	return fmt.Sprintf("%d", n)
+}
+
+templ AuditListPage(rows []AuditRow, pag AuditPagination, filter AuditFilter) {
+	<div id="rbac-audit">
+		<h2>Audit RBAC</h2>
+		<form method="GET" action="/admin/rbac/audit" style="margin-bottom:1rem">
+			<input type="text" name="action" value={ filter.Action } placeholder="Action (ex: grade_created)"/>
+			<input type="text" name="actor_id" value={ filter.ActorID } placeholder="ActorID"/>
+			<button type="submit">Filtrer</button>
+		</form>
+		<table>
+			<thead>
+				<tr>
+					<th>Date</th><th>Action</th><th>Acteur</th><th>Cible</th><th>Détail</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, a := range rows {
+					<tr>
+						<td>{ a.CreatedAt }</td>
+						<td>{ a.Action }</td>
+						<td>{ a.ActorID }</td>
+						<td>{ a.TargetID }</td>
+						<td>{ a.Detail }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<nav>
+			if pag.HasPrev {
+				<a href={ templ.SafeURL(fmt.Sprintf("/admin/rbac/audit?page=%d", pag.PrevPage)) }>← Préc</a>
+			}
+			<span>Page { intStr(pag.Page) } / { intStr((pag.Total+49)/50) }</span>
+			if pag.HasNext {
+				<a href={ templ.SafeURL(fmt.Sprintf("/admin/rbac/audit?page=%d", pag.NextPage)) }>Suiv →</a>
+			}
+		</nav>
+	</div>
+}

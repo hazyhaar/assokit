@@ -9,6 +9,7 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/perms"
+	svcrbac "github.com/hazyhaar/assokit/pkg/horui/rbac"
 	"github.com/hazyhaar/assokit/pkg/horui/tree"
 )
 
@@ -88,6 +89,17 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.With(requireAdmin).Get("/admin/feedbacks", handleAdminFeedbackList(deps))
 	r.With(requireAdmin).Get("/admin/feedbacks/{id}", handleAdminFeedbackDetail(deps))
 	r.With(requireAdmin).Post("/admin/feedbacks/{id}/triage", handleAdminFeedbackTriage(deps))
+
+	// Admin RBAC — routes protégées par perms.Required via middleware RBAC
+	rbacSvc := &svcrbac.Service{
+		Store: &svcrbac.Store{DB: deps.DB},
+		Cache: &svcrbac.Cache{},
+	}
+	r.Group(func(r chi.Router) {
+		r.Use(requireRBACAdmin(rbacSvc))
+		r.Use(middleware.RBAC(rbacSvc))
+		mountRBACAdminRoutes(r, deps, rbacSvc)
+	})
 
 	_ = permsStore
 }

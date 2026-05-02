@@ -1,0 +1,122 @@
+// CLAUDE:SUMMARY UI admin RBAC grades : liste + formulaire edit (M-ASSOKIT-RBAC-4).
+package adminrbac
+
+// GradeRow représente une ligne de la liste des grades.
+type GradeRow struct {
+	ID         string
+	Name       string
+	Desc       string
+	UsersCount int
+	PermsCount int
+	IsSystem   bool
+}
+
+// GradeDetail représente le formulaire d'édition d'un grade.
+type GradeDetail struct {
+	ID       string
+	Name     string
+	IsSystem bool
+	AllPerms []PermRow
+	HasPerms map[string]bool
+	AllGrades []GradeRow
+	Parents   map[string]bool
+}
+
+// PermRow représente une permission dans le formulaire.
+type PermRow struct {
+	ID   string
+	Name string
+	Desc string
+}
+
+templ GradeListPage(rows []GradeRow) {
+	<div id="rbac-grades">
+		<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+			<h2>Grades RBAC</h2>
+		</div>
+		<table>
+			<thead>
+				<tr><th>Nom</th><th>Desc</th><th>Users</th><th>Perms</th><th>Actions</th></tr>
+			</thead>
+			<tbody id="grade-list">
+				for _, g := range rows {
+					@GradeListRow(g)
+				}
+			</tbody>
+		</table>
+		<form hx-post="/admin/rbac/grades" hx-target="#grade-list" hx-swap="afterbegin" style="margin-top:1rem">
+			<input type="text" name="name" placeholder="Nom du grade" required/>
+			<input type="text" name="desc" placeholder="Description"/>
+			<button type="submit">Créer</button>
+		</form>
+	</div>
+}
+
+templ GradeListRow(g GradeRow) {
+	<tr id={ "grade-row-" + g.ID }>
+		<td>
+			{ g.Name }
+			if g.IsSystem {
+				<span title="grade système"> 🔒</span>
+			}
+		</td>
+		<td>{ g.Desc }</td>
+		<td>{ intStr(g.UsersCount) }</td>
+		<td>{ intStr(g.PermsCount) }</td>
+		<td>
+			<a href={ templ.SafeURL("/admin/rbac/grades/" + g.ID) }>Éditer</a>
+			if !g.IsSystem {
+				<button
+					hx-delete={ "/admin/rbac/grades/" + g.ID }
+					hx-target={ "#grade-row-" + g.ID }
+					hx-swap="outerHTML"
+					hx-confirm={ "Supprimer le grade « " + g.Name + " » ?" }
+				>Supprimer</button>
+			}
+		</td>
+	</tr>
+}
+
+templ GradeEditPage(d GradeDetail) {
+	<div>
+		<h2>Éditer grade : { d.Name }</h2>
+		if d.IsSystem {
+			<p style="color:orange">Grade système — suppression désactivée.</p>
+		}
+		<h3>Permissions</h3>
+		<form hx-post={ "/admin/rbac/grades/" + d.ID + "/perms" } hx-swap="none">
+			<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+				for _, p := range d.AllPerms {
+					<label>
+						<input
+							type="checkbox"
+							name="perm_id"
+							value={ p.ID }
+							if d.HasPerms[p.ID] { checked }
+						/>
+						{ p.Name }
+					</label>
+				}
+			</div>
+			<button type="submit">Enregistrer permissions</button>
+		</form>
+		<h3>Grades parents (héritage)</h3>
+		<form hx-post={ "/admin/rbac/grades/" + d.ID + "/inherit" } hx-swap="none">
+			for _, g := range d.AllGrades {
+				if g.ID != d.ID {
+					<label>
+						<input
+							type="checkbox"
+							name="parent_id"
+							value={ g.ID }
+							if d.Parents[g.ID] { checked }
+						/>
+						{ g.Name }
+					</label>
+				}
+			}
+			<button type="submit">Enregistrer héritage</button>
+		</form>
+		<p><a href="/admin/rbac/grades">← Retour liste</a></p>
+	</div>
+}
