@@ -16,19 +16,19 @@ import (
 // - branding.preview : preview cosmetique sans persistance.
 // - Toute nouvelle action no-op DOIT être ajoutée ici avec justification, sinon le test échoue.
 var readOnlyWhitelist = map[string]string{
-	"feedback.list":     "SELECT-only (consultation triages)",
-	"users.list":        "SELECT-only (admin RBAC overview)",
-	"users.search":      "SELECT-only (autocomplete admin)",
-	"branding.get":      "SELECT-only (singleton read)",
-	"branding.preview":  "preview en mémoire sans persistance",
-	"pages.get":         "SELECT-only (rendering)",
-	"pages.list":        "SELECT-only (admin overview)",
-	"forum.thread.list": "SELECT-only (listing public)",
-	"forum.thread.get":  "SELECT-only (rendering)",
-	"forum.posts.list":  "SELECT-only (rendering thread)",
-	"profile.get":       "SELECT-only (settings page)",
-	"signups.list":      "SELECT-only (admin overview, alias signup.list)",
-	"signup.list":       "SELECT-only (admin overview signups)",
+	"feedback.list":      "SELECT-only (consultation triages)",
+	"users.list":         "SELECT-only (admin RBAC overview)",
+	"users.search":       "SELECT-only (autocomplete admin)",
+	"branding.get":       "SELECT-only (singleton read)",
+	"branding.preview":   "preview en mémoire sans persistance",
+	"pages.get":          "SELECT-only (rendering)",
+	"pages.list":         "SELECT-only (admin overview)",
+	"forum.thread.list":  "SELECT-only (listing public)",
+	"forum.thread.get":   "SELECT-only (rendering)",
+	"forum.posts.list":   "SELECT-only (rendering thread)",
+	"profile.get":        "SELECT-only (settings page)",
+	"signups.list":       "SELECT-only (admin overview, alias signup.list)",
+	"signup.list":        "SELECT-only (admin overview signups)",
 	"mailer.outbox.list": "SELECT-only (admin overview email outbox)",
 }
 
