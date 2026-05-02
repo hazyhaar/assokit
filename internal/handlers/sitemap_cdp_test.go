@@ -61,7 +61,7 @@ func TestSitemapCDPCrawl(t *testing.T) {
 		"DB_PATH="+dbPath,
 		"BRANDING_DIR="+brandingDir,
 		"ADMIN_EMAIL=test@example.test",
-		"COOKIE_SECRET=0123456789abcdef0123456789abcdef",
+		"COOKIE_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 	)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start binary: %v", err)

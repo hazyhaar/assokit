@@ -26,7 +26,8 @@ func handleForumIndex(deps app.AppDeps) http.HandlerFunc {
 		forumNode, err := treeStore.GetBySlug(r.Context(), "forum")
 		if err != nil {
 			deps.Logger.Error("forum index : node racine introuvable", "err", err)
-			http.Error(w, "Forum non disponible", http.StatusInternalServerError)
+			user := middleware.UserFromContext(r.Context())
+			renderPage(w, r, deps, "Forum", forum.Index(nil, user))
 			return
 		}
 		topics, err := forum.BuildIndex(r.Context(), treeStore, forumNode.ID, authorOf)

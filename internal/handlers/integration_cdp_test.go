@@ -36,13 +36,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	_ "modernc.org/sqlite"
 
+	"log/slog"
+
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/chassis"
+	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/internal/mailer"
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
-	"github.com/hazyhaar/assokit/internal/chassis"
-	"log/slog"
 )
 
 const (
@@ -87,11 +89,12 @@ func TestCDPIntegration(t *testing.T) {
 	// 3. App + httptest server (Mailer en mode "désactivé" — APIKey vide → emails restent
 	//    en pending dans email_outbox sans tentative d'envoi externe, ce qui est ce qu'on veut tester).
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	theme.Init(&theme.Branding{Name: "Assokit Test"})
 	deps := app.AppDeps{
 		DB:     db,
-		Theme:  themePtr(theme.Defaults()),
+		Logger: logger,
 		Mailer: &mailer.Mailer{DB: db, From: cdpTestAdminEmail, AdminTo: cdpTestAdminEmail, Logger: logger},
-		Config: app.Config{
+		Config: config.Config{
 			Port:         "0",
 			DBPath:       dbPath,
 			BaseURL:      "http://localhost",
@@ -428,8 +431,6 @@ func findChromium(t *testing.T) string {
 	}
 	return ""
 }
-
-func themePtr(t theme.Theme) *theme.Theme { return &t }
 
 func countRows(t *testing.T, db *sql.DB, table string) int {
 	t.Helper()
