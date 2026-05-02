@@ -112,12 +112,22 @@ func (m *Mailer) sendSMTP(ctx context.Context, msg OutboxMsg) error {
 		return fmt.Errorf("sendSMTP close: %w", err)
 	}
 	if err := c.Quit(); err != nil {
-		// QUIT fail post-data = email parti quand-même, on log mais on marque sent.
-		m.log().Warn("sendSMTP QUIT err (email envoyé quand-même)", "id", msg.ID, "err", err)
+		// QUIT post-data : si erreur 5xx, le serveur a rejeté le message après DATA
+		// (cas OVH 550 sender mismatch parfois renvoyé en QUIT). NE PAS marquer sent.
+		errStr := err.Error()
+		if strings.Contains(errStr, "550") || strings.Contains(errStr, "551") ||
+			strings.Contains(errStr, "552") || strings.Contains(errStr, "553") ||
+			strings.Contains(errStr, "554") {
+			m.applyBackoff(ctx, msg, "smtp quit rejected: "+errStr)
+			return fmt.Errorf("sendSMTP QUIT rejected: %w", err)
+		}
+		m.log().Warn("sendSMTP QUIT err non-5xx (email présumé envoyé)", "id", msg.ID, "err", err)
 	}
 
+	// Clear last_error résiduel d'attempts précédents : status=sent doit refléter
+	// un état propre (rule MEGA-AUDIT-HONESTY : pas de divergence status/last_error).
 	_, dbErr := m.DB.ExecContext(ctx,
-		`UPDATE email_outbox SET status='sent', sent_at=CURRENT_TIMESTAMP WHERE id=?`,
+		`UPDATE email_outbox SET status='sent', sent_at=CURRENT_TIMESTAMP, last_error='' WHERE id=?`,
 		msg.ID,
 	)
 	return dbErr

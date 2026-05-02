@@ -164,7 +164,32 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 			stage := "create_member"
 			if strings.Contains(err.Error(), "UNIQUE") {
 				stage = "unique_violation"
-				middleware.PushFlash(w, "error", "Cet email est déjà inscrit.")
+				// Email déjà inscrit : analyser l'état (compte actif vs en attente d'activation)
+				// pour proposer une UX adaptée plutôt qu'un message dead-end.
+				existingToken, alreadyActivated, lookupErr := lookupExistingSignup(ctx, deps.DB, email)
+				switch {
+				case lookupErr != nil:
+					middleware.PushFlash(w, "error", "Cet email est déjà inscrit. Si vous n'avez pas reçu l'email d'activation, contactez-nous.")
+				case alreadyActivated:
+					middleware.PushFlash(w, "info", "Cet email est déjà inscrit et activé. Vous pouvez vous connecter.")
+					deps.Logger.Info("signup_unique_already_active", "req_id", reqID, "email_hash", emailHash)
+					http.Redirect(w, r, "/login", http.StatusSeeOther)
+					return
+				default:
+					// Compte non activé : ré-enqueue un mail d'activation avec le token existant.
+					if deps.Mailer != nil && existingToken != "" {
+						activationURL := deps.Config.BaseURL + "/activate/" + existingToken
+						deps.Mailer.Enqueue(ctx, email, //nolint:errcheck
+							"NONPOSSUMUS — votre lien d'activation (renvoi)",
+							"Cliquez sur ce lien pour activer votre compte : "+activationURL,
+							"<p>Cliquez <a href=\""+activationURL+"\">ici</a> pour activer votre compte (valable 7 jours).</p>",
+						)
+						deps.Logger.Info("signup_resend_activation", "req_id", reqID, "email_hash", emailHash)
+						middleware.PushFlash(w, "info", "Vous êtes déjà pré-inscrit. Un nouveau mail d'activation vient de vous être envoyé. Vérifiez aussi vos spams.")
+					} else {
+						middleware.PushFlash(w, "error", "Cet email est déjà inscrit mais le compte n'est pas activé. Contactez-nous.")
+					}
+				}
 			} else {
 				middleware.PushFlash(w, "error", "Erreur lors de l'inscription, réessayez.")
 			}
@@ -204,6 +229,27 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 
 		http.Redirect(w, r, "/merci", http.StatusSeeOther)
 	}
+}
+
+// lookupExistingSignup retourne le token d'activation le plus récent pour un email
+// existant et un flag indiquant si le compte est déjà activé. Utilisé quand un POST
+// /adherer/{profil} hit une UNIQUE violation pour offrir une UX adaptée (renvoi mail
+// vs redirection login) plutôt qu'un dead-end "déjà inscrit".
+func lookupExistingSignup(ctx context.Context, db *sql.DB, email string) (token string, activated bool, err error) {
+	row := db.QueryRowContext(ctx, `
+		SELECT t.token, t.used_at
+		FROM activation_tokens t
+		JOIN users u ON u.id = t.user_id
+		WHERE u.email = ?
+		ORDER BY t.expires_at DESC
+		LIMIT 1
+	`, email)
+	var tok string
+	var usedAt sql.NullString
+	if err := row.Scan(&tok, &usedAt); err != nil {
+		return "", false, err
+	}
+	return tok, usedAt.Valid, nil
 }
 
 // createMember crée user + role member + activation token dans une TX atomique.

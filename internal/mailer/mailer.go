@@ -101,7 +101,7 @@ func (m *Mailer) SendNow(ctx context.Context, msg OutboxMsg) error {
 	resp.Body.Close()
 
 	_, dbErr := m.DB.ExecContext(ctx,
-		`UPDATE email_outbox SET status='sent', sent_at=CURRENT_TIMESTAMP WHERE id=?`,
+		`UPDATE email_outbox SET status='sent', sent_at=CURRENT_TIMESTAMP, last_error='' WHERE id=?`,
 		msg.ID,
 	)
 	return dbErr
