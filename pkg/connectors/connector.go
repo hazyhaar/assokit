@@ -37,6 +37,10 @@ type Connector interface {
 	// Ping vérifie l'état (token valide ? endpoint reachable ?).
 	// Doit être idempotent et rapide (<5s).
 	Ping(ctx context.Context) (Health, error)
+	// HandleWebhook traite un événement webhook reçu du provider.
+	// Le worker drainer appelle cette méthode pour chaque event status='pending'.
+	// Erreur → retry avec backoff exponentiel (1, 5, 30 min puis failed final).
+	HandleWebhook(ctx context.Context, eventType string, payload []byte) error
 }
 
 // Erreurs sentinelles exportées.

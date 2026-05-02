@@ -35,6 +35,9 @@ func (c *configurableConnector) ConfigSchema() *jsonschema.Schema               
 func (c *configurableConnector) Start(ctx context.Context, cfg map[string]any) error  { return nil }
 func (c *configurableConnector) Stop(ctx context.Context) error                       { return nil }
 func (c *configurableConnector) Ping(ctx context.Context) (connectors.Health, error)  { return connectors.Health{OK: true}, nil }
+func (c *configurableConnector) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
+	return nil
+}
 
 func newConfigurableConnector(t *testing.T, id, schemaJSON string) *configurableConnector {
 	t.Helper()
@@ -58,6 +61,9 @@ func (f *fakeConnector) ConfigSchema() *jsonschema.Schema                      {
 func (f *fakeConnector) Start(ctx context.Context, cfg map[string]any) error  { return nil }
 func (f *fakeConnector) Stop(ctx context.Context) error                       { return nil }
 func (f *fakeConnector) Ping(ctx context.Context) (connectors.Health, error)  { return connectors.Health{OK: true, Message: "OK"}, nil }
+func (f *fakeConnector) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
+	return nil
+}
 
 func setupAdminConnectorsDB(t *testing.T) *sql.DB {
 	t.Helper()

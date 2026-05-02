@@ -47,6 +47,9 @@ func (t *trackingConnector) Ping(ctx context.Context) (Health, error) {
 	}
 	return t.pingHealth, nil
 }
+func (t *trackingConnector) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
+	return nil
+}
 
 func openLifecycleDB(t *testing.T) *sql.DB {
 	t.Helper()
