@@ -4,9 +4,11 @@ package handlers
 import (
 	"database/sql"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	intoauth "github.com/hazyhaar/assokit/internal/oauth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/perms"
 	svcrbac "github.com/hazyhaar/assokit/pkg/horui/rbac"
@@ -102,6 +104,20 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	})
 
 	_ = permsStore
+
+	// OAuth 2.1 — provider OIDC + consent + social login
+	issuer := deps.Config.BaseURL
+	if issuer == "" {
+		issuer = "http://localhost:8080"
+	}
+	signingKey := deps.Config.CookieSecret
+	if envKey := os.Getenv("OAUTH_SIGNING_KEY"); envKey != "" {
+		signingKey = []byte(envKey)
+	}
+	oauthHandler, oauthStore, err := intoauth.NewProvider(deps.DB, issuer, signingKey, &svcrbac.Store{DB: deps.DB})
+	if err == nil {
+		mountOAuthRoutes(r, deps, oauthHandler, oauthStore)
+	}
 }
 
 // newNullString crée un sql.NullString non-nul.
