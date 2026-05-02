@@ -14,6 +14,7 @@ import (
 
 // MountRoutes câble toutes les routes NPS sur r.
 func MountRoutes(r chi.Router, deps app.AppDeps) {
+	feedbackRL := middleware.NewRateLimiter()
 	// Sitemap initialisation
 	sitemap := NewSitemap(deps.Config.BaseURL)
 	sitemap.AddStatic(SitemapEntry{Loc: "/", Priority: 1.0, ChangeFreq: "weekly"})
@@ -78,6 +79,10 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.Post("/register", handleRegisterSubmit(deps))
 	r.Post("/logout", handleLogout)
 	r.Get("/forgot", handleForgotStub)
+
+	// Feedback widget
+	r.Get("/feedback/form", handleFeedbackForm(deps))
+	r.Post("/feedback", handleFeedbackPost(deps, feedbackRL))
 
 	_ = permsStore
 }

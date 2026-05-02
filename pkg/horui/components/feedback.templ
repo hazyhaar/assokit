@@ -1,0 +1,74 @@
+package components
+
+import (
+	"net/url"
+)
+
+// FeedbackWidget rend le bouton FAB + modal vide. Injecté dans layout.Base.
+templ FeedbackWidget(pageURL, pageTitle string) {
+	<div id="feedback-fab-container">
+		<button
+			class="feedback-fab"
+			hx-get={ "/feedback/form?url=" + url.QueryEscape(pageURL) + "&title=" + url.QueryEscape(pageTitle) }
+			hx-target="#feedback-modal"
+			hx-swap="innerHTML"
+			hx-on:click="document.getElementById('feedback-modal').removeAttribute('hidden')"
+			aria-label="Feedback"
+			type="button"
+		>Feedback</button>
+		<div id="feedback-modal" hidden role="dialog" aria-modal="true" aria-label="Formulaire de feedback"></div>
+	</div>
+}
+
+// FeedbackForm rend le formulaire partial (réponse au GET /feedback/form).
+templ FeedbackForm(pageURL, pageTitle, csrfToken string) {
+	<form
+		action="/feedback"
+		method="post"
+		hx-post="/feedback"
+		hx-target="#feedback-modal"
+		hx-swap="innerHTML"
+	>
+		<input type="hidden" name="_csrf" value={ csrfToken }/>
+		<input type="hidden" name="page_url" value={ pageURL }/>
+		<input type="hidden" name="page_title" value={ pageTitle }/>
+		<input
+			type="text"
+			name="website"
+			tabindex="-1"
+			autocomplete="off"
+			style="display:none"
+			aria-hidden="true"
+		/>
+		<div class="feedback-field">
+			<label for="feedback-message">Dites-nous ce que vous pensez de cette page</label>
+			<textarea
+				id="feedback-message"
+				name="message"
+				required
+				minlength="5"
+				maxlength="2000"
+				placeholder="Dites-nous ce que vous pensez de cette page"
+				rows="4"
+				oninput="document.getElementById('fb-count').textContent=this.value.length+' / 2000'"
+			></textarea>
+			<span id="fb-count" aria-live="polite">0 / 2000</span>
+		</div>
+		<div class="feedback-actions">
+			<button type="submit" class="btn btn-primary">Envoyer</button>
+			<button
+				type="button"
+				onclick="document.getElementById('feedback-modal').setAttribute('hidden','')"
+			>Annuler</button>
+		</div>
+	</form>
+}
+
+// FeedbackSuccess rend la confirmation (réponse POST réussie). Se ferme après 3s.
+templ FeedbackSuccess() {
+	<div role="status" class="feedback-success">
+		Merci, votre avis a été enregistré.
+	</div>
+	<style>.feedback-success{animation:fbFadeOut .5s 3s forwards}@keyframes fbFadeOut{to{opacity:0}}</style>
+	<script>setTimeout(function(){var m=document.getElementById("feedback-modal");if(m){m.setAttribute("hidden","");m.innerHTML="";}},3500);</script>
+}

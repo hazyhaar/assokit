@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/hazyhaar/assokit/pkg/horui/components"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 )
@@ -33,6 +34,9 @@ templ Base(title string, content templ.Component) {
 				@content
 			</main>
 			@Footer()
+			if !theme.Brand().Feedback.Disabled {
+				@components.FeedbackWidget(middleware.PageURIFromContext(ctx), title)
+			}
 		</body>
 	</html>
 }

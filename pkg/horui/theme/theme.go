@@ -57,6 +57,11 @@ type Branding struct {
 
 	// Locale (code BCP 47, ex: "fr-FR"). Utilisé pour formatages futurs.
 	Locale string `toml:"locale"`
+
+	// Feedback widget — désactivable par instance.
+	Feedback struct {
+		Disabled bool `toml:"disabled"`
+	} `toml:"feedback"`
 }
 
 // NavItem = entrée de menu top.
