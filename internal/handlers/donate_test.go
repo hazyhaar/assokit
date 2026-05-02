@@ -14,7 +14,7 @@ import (
 func renderDonate(t *testing.T, donURL, cotisURL, iban string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	if err := pages.Donate(donURL, cotisURL, iban).Render(context.Background(), &buf); err != nil {
+	if err := pages.Donate(donURL, cotisURL, iban, nil, false, "don").Render(context.Background(), &buf); err != nil {
 		t.Fatalf("render Donate: %v", err)
 	}
 	return buf.String()
@@ -50,8 +50,10 @@ func TestDonate_NoConfiguredURL_ShowsFallbackMessage(t *testing.T) {
 	if strings.Contains(html, "<iframe") {
 		t.Errorf("URL vide : pas d'iframe attendue")
 	}
-	if !strings.Contains(html, "contact@assokit.org") {
-		t.Errorf("URL vide : message fallback contact@ attendu")
+	// Fallback contact email lit theme.Brand().ContactEmail (vide en test = mailto:""
+	// avec lien vide). On vérifie juste qu'un mailto: est présent — pas de hardcode.
+	if !strings.Contains(html, "mailto:") {
+		t.Errorf("URL vide : lien mailto: fallback attendu")
 	}
 	if !strings.Contains(html, iban) {
 		t.Errorf("IBAN %q attendu dans fallback HTML", iban)
