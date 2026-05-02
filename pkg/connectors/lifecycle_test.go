@@ -199,3 +199,51 @@ func TestLifecycle_StartUnregisteredConnectorSkipsWithWarn(t *testing.T) {
 		t.Errorf("StartAll devrait skip silencieusement, got err=%v", err)
 	}
 }
+
+// TestLifecycle_BootHandlesStartErrorContinues : si un connector renvoie une
+// erreur dans Start(), Lifecycle log l'erreur mais ne fait pas crasher le boot.
+// Les autres connectors enabled doivent être démarrés normalement.
+// Garantit que le site reste up même si un connector tiers est down (HelloAsso
+// sandbox unreachable, token expiré, etc.).
+func TestLifecycle_BootHandlesStartErrorContinues(t *testing.T) {
+	db := openLifecycleDB(t)
+	db.Exec(`INSERT INTO connectors(id, enabled) VALUES('broken', 1), ('healthy', 1);`) //nolint:errcheck
+
+	broken := &trackingConnector{id: "broken", startErr: errors.New("simulated start failure")}
+	healthy := &trackingConnector{id: "healthy"}
+	reg := NewRegistry()
+	_ = reg.Register(broken)
+	_ = reg.Register(healthy)
+
+	l := &Lifecycle{Registry: reg, DB: db}
+	if err := l.StartAll(context.Background()); err != nil {
+		t.Fatalf("StartAll ne doit PAS retourner err si un connector individuel échoue, got %v", err)
+	}
+	// broken : Start tenté (échec).
+	if broken.starts.Load() != 1 {
+		t.Errorf("broken.starts = %d, want 1 (tentative comptée même sur err)", broken.starts.Load())
+	}
+	// healthy : Start tenté + réussi → présent dans started.
+	if healthy.starts.Load() != 1 {
+		t.Errorf("healthy.starts = %d, want 1", healthy.starts.Load())
+	}
+	// Vérifier que healthy est bien dans started, pas broken.
+	l.mu.RLock()
+	startedIDs := append([]string(nil), l.started...)
+	l.mu.RUnlock()
+	hasHealthy, hasBroken := false, false
+	for _, id := range startedIDs {
+		if id == "healthy" {
+			hasHealthy = true
+		}
+		if id == "broken" {
+			hasBroken = true
+		}
+	}
+	if !hasHealthy {
+		t.Errorf("healthy absent de started %v", startedIDs)
+	}
+	if hasBroken {
+		t.Errorf("broken présent dans started %v alors que Start a renvoyé err", startedIDs)
+	}
+}

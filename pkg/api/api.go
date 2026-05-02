@@ -21,6 +21,9 @@ import (
 	"github.com/hazyhaar/assokit/internal/handlers"
 	"github.com/hazyhaar/assokit/internal/mailer"
 	"github.com/hazyhaar/assokit/internal/types"
+	"github.com/hazyhaar/assokit/pkg/connectors"
+	"github.com/hazyhaar/assokit/pkg/connectors/assets"
+	"github.com/hazyhaar/assokit/pkg/connectors/helloasso"
 	appMiddleware "github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/static"
@@ -30,12 +33,14 @@ import (
 
 // App représente une instance assokit configurée et prête à servir.
 type App struct {
-	opts    Options
-	db      *sql.DB
-	srv     *http.Server
-	handler http.Handler
-	ml      *mailer.Mailer
-	logger  *slog.Logger
+	opts             Options
+	db               *sql.DB
+	srv              *http.Server
+	handler          http.Handler
+	ml               *mailer.Mailer
+	logger           *slog.Logger
+	connectorReg     *connectors.Registry
+	connectorLife    *connectors.Lifecycle
 }
 
 // Options configure une nouvelle App.
@@ -189,6 +194,36 @@ func New(opts Options) (*App, error) {
 		Profils:    defaultProfils(),
 	}
 
+	// 7b. Connectors : init Registry + register HelloAsso si NPS_MASTER_KEY défini.
+	// (Si master key absente, Vault non créé → connectors restent inutilisables ;
+	// admin doit configurer NPS_MASTER_KEY via /etc/nps/nps.env pour activer.)
+	connectorReg := connectors.NewRegistry()
+	var connectorLife *connectors.Lifecycle
+	if mk := os.Getenv("NPS_MASTER_KEY"); mk != "" {
+		vault, vErr := assets.NewVault(db, mk)
+		if vErr != nil {
+			logger.Error("connectors: master key invalide, connectors désactivés", "err", vErr.Error())
+		} else {
+			if err := connectorReg.Register(helloasso.New(vault)); err != nil {
+				logger.Error("connectors: register helloasso", "err", err.Error())
+			}
+			connectorLife = &connectors.Lifecycle{
+				Registry:     connectorReg,
+				DB:           db,
+				Logger:       logger,
+				PingInterval: 5 * time.Minute,
+			}
+			// StartAll non-fatal : un connector down ne casse pas le boot du site.
+			startCtx, startCancel := context.WithTimeout(context.Background(), 30*time.Second)
+			if err := connectorLife.StartAll(startCtx); err != nil {
+				logger.Warn("connectors: StartAll partial", "err", err.Error())
+			}
+			startCancel()
+		}
+	} else {
+		logger.Info("connectors: NPS_MASTER_KEY absent — Vault désactivé, connectors inactifs")
+	}
+
 	// 8. chi.Router + middlewares + routes.
 	// RequestID monté EN PREMIER : tous les slogs en aval peuvent récupérer req_id via ctx.
 	r := chi.NewRouter()
@@ -203,11 +238,13 @@ func New(opts Options) (*App, error) {
 	r.Handle("/static/*", http.StripPrefix("/static", http.FileServer(http.FS(static.FS))))
 
 	return &App{
-		opts:    opts,
-		db:      db,
-		handler: r,
-		ml:      ml,
-		logger:  logger,
+		opts:          opts,
+		db:            db,
+		handler:       r,
+		ml:            ml,
+		logger:        logger,
+		connectorReg:  connectorReg,
+		connectorLife: connectorLife,
 	}, nil
 }
 
@@ -250,8 +287,11 @@ func (a *App) Handler() http.Handler {
 	return a.handler
 }
 
-// Shutdown arrête proprement le serveur HTTP et ferme la DB.
+// Shutdown arrête proprement le serveur HTTP, stoppe les connectors et ferme la DB.
 func (a *App) Shutdown(ctx context.Context) error {
+	if a.connectorLife != nil {
+		a.connectorLife.StopAll(ctx)
+	}
 	if a.srv != nil {
 		if err := a.srv.Shutdown(ctx); err != nil {
 			return err
