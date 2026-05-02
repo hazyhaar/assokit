@@ -3,3 +3,7 @@
 *.db-wal
 /bin/
 .env
+
+# Build artifacts
+/dist/
+assokit.db
