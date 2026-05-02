@@ -3,6 +3,7 @@
 package pages
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
@@ -277,7 +278,36 @@ templ Contact() {
 // DONATE
 // ========================================================================
 
+// MyDonationView : entrée affichée dans bloc "Mes dons" (page Donate authentifiée).
+type MyDonationView struct {
+	Date     string // formaté FR
+	Amount   string // ex "25,50 €"
+	FormType string // "Donation"|"Membership"
+	Status   string // "paid"|"refunded"|"pending"
+}
+
+// DonateProps regroupe les props de la page /donate pour éviter une signature longue.
+type DonateProps struct {
+	DonURL      string
+	CotisURL    string
+	IBAN        string
+	User        *auth.User
+	IsMember    bool
+	IsAdmin     bool
+	AdhereSlug  string
+	Paliers     []int // ex [10, 30, 50, 100], 0 = libre
+	MyDonations []MyDonationView
+}
+
 templ Donate(donURL, cotisURL, iban string, user *auth.User, isMember bool, adhereSlug string) {
+	@DonateRich(DonateProps{
+		DonURL: donURL, CotisURL: cotisURL, IBAN: iban,
+		User: user, IsMember: isMember, AdhereSlug: adhereSlug,
+	})
+}
+
+// DonateRich : version étendue avec popup CSP-compatible + Mes dons + admin.
+templ DonateRich(p DonateProps) {
 	<section class="section page-donate">
 		<div class="page-header">
 			<div class="section-label">Nous soutenir</div>
@@ -287,42 +317,82 @@ templ Donate(donURL, cotisURL, iban string, user *auth.User, isMember bool, adhe
 				des lanceurs d'alerte et nos enquêtes d'intérêt général.
 			</p>
 		</div>
-		<div class="donate-block">
-			if donURL != "" {
-				<div class="donate-iframe">
-					<iframe
-						src={ donURL }
-						title="Don HelloAsso"
-						loading="lazy"
-						allowtransparency="true"
-					></iframe>
+		<div class="donate-block" id="donate-block" data-helloasso-url={ p.DonURL }>
+			if p.DonURL != "" {
+				<div class="donate-paliers">
+					if len(p.Paliers) > 0 {
+						for _, pal := range p.Paliers {
+							<a
+								href={ templ.SafeURL(p.DonURL) }
+								target="_blank"
+								rel="noopener noreferrer"
+								class="btn btn-primary donate-palier"
+								data-amount={ strconv.Itoa(pal) }
+							>{ strconv.Itoa(pal) } €</a>
+						}
+					}
+					<a
+						href={ templ.SafeURL(p.DonURL) }
+						target="_blank"
+						rel="noopener noreferrer"
+						class="btn btn-ghost donate-palier"
+						data-amount="0"
+					>Montant libre</a>
 				</div>
+				<p class="donate-popup-note"><small>Le don s'ouvre dans une fenêtre HelloAsso sécurisée.</small></p>
 			} else {
 				<div class="callout">
 					<p>
-						Le formulaire de don en ligne est en cours de finalisation.
+						Soutien en cours de configuration.
 						Pour donner dès maintenant, écrivez à
 						<a href={ templ.SafeURL("mailto:" + theme.Brand().ContactEmail) }>{ theme.Brand().ContactEmail }</a>.
 					</p>
-					if iban != "" {
-						<p><strong>IBAN :</strong> { iban }</p>
+					if p.IBAN != "" {
+						<p><strong>IBAN :</strong> { p.IBAN }</p>
 					}
 				</div>
 			}
 		</div>
-		if isMember {
+		if p.User != nil && len(p.MyDonations) > 0 {
+			<div class="my-donations">
+				<h2>Mes dons</h2>
+				<ul class="my-donations-list">
+					for _, d := range p.MyDonations {
+						<li class="my-donation-row">
+							<span class="my-donation-date">{ d.Date }</span>
+							<span class="my-donation-amount">{ d.Amount }</span>
+							<span class="my-donation-type">{ d.FormType }</span>
+							<span class={ "my-donation-status status-" + d.Status }>{ d.Status }</span>
+						</li>
+					}
+				</ul>
+			</div>
+		} else if p.User != nil {
+			<div class="my-donations my-donations-empty">
+				<h2>Mes dons</h2>
+				<p>Aucun don encore. Merci de votre soutien à venir !</p>
+			</div>
+		}
+		if p.IsAdmin {
+			<div class="donate-admin-tools">
+				<h2>Outils admin</h2>
+				<a href="/admin/connectors/helloasso/configure" class="btn btn-secondary">Configurer HelloAsso</a>
+				<a href="/admin/donations" class="btn btn-secondary">Voir toutes les donations</a>
+			</div>
+		}
+		if p.IsMember {
 			<div class="donate-cotis donate-already-member">
 				<h2>Vous êtes adhérent · ent</h2>
 				<p>Merci de soutenir { theme.Brand().Name }. Votre adhésion est active.</p>
 			</div>
-		} else if user == nil {
+		} else if p.User == nil {
 			<div class="donate-cotis">
 				<h2>Adhérer (1 €)</h2>
 				<p>L'adhésion symbolique permet de devenir membre votant de l'association.</p>
-				if cotisURL != "" {
-					<a href={ templ.SafeURL(cotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
-				} else if adhereSlug != "" {
-					<a href={ templ.SafeURL("/adherer/" + adhereSlug) } class="btn btn-primary">Adhérer →</a>
+				if p.CotisURL != "" {
+					<a href={ templ.SafeURL(p.CotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
+				} else if p.AdhereSlug != "" {
+					<a href={ templ.SafeURL("/adherer/" + p.AdhereSlug) } class="btn btn-primary">Adhérer →</a>
 				} else {
 					<a href="/participer" class="btn btn-primary">Voir les options d'adhésion →</a>
 				}
@@ -332,10 +402,10 @@ templ Donate(donURL, cotisURL, iban string, user *auth.User, isMember bool, adhe
 			<div class="donate-cotis">
 				<h2>Adhérer (1 €)</h2>
 				<p>L'adhésion symbolique permet de devenir membre votant de l'association.</p>
-				if cotisURL != "" {
-					<a href={ templ.SafeURL(cotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
-				} else if adhereSlug != "" {
-					<a href={ templ.SafeURL("/adherer/" + adhereSlug) } class="btn btn-primary">Adhérer →</a>
+				if p.CotisURL != "" {
+					<a href={ templ.SafeURL(p.CotisURL) } class="btn btn-primary">Adhérer (1 €) →</a>
+				} else if p.AdhereSlug != "" {
+					<a href={ templ.SafeURL("/adherer/" + p.AdhereSlug) } class="btn btn-primary">Adhérer →</a>
 				} else {
 					<a href="/participer" class="btn btn-primary">Voir les options d'adhésion →</a>
 				}

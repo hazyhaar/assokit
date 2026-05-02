@@ -59,11 +59,40 @@ func HashIP(ip string, secret []byte) string {
 // X-Frame-Options DENY : refuse iframe (clickjacking).
 // X-Content-Type-Options nosniff : refuse MIME sniffing (XSS).
 // Referrer-Policy : limite l'exfiltration cross-origin.
+// Strict-Transport-Security : force HTTPS (1 an + subdomains + preload-eligible).
+//   Posé seulement si la requête arrive en HTTPS (sinon Chrome jette le header).
+// Content-Security-Policy : limite les sources autorisées (anti-XSS).
+//   - default-src 'self' : par défaut tout depuis le même origin.
+//   - img-src 'self' data: https: : autorise data-URI + images externes (HelloAsso, OG).
+//   - frame-src 'self' https://*.helloasso.com : iframe HelloAsso don/cotisation.
+//   - script-src 'self' 'unsafe-inline' : inline pour CSS vars + htmx attrs (NPS pas de SPA).
+//   - style-src 'self' 'unsafe-inline' : CSS vars dans <style> + attributs style.
+//   - connect-src 'self' : XHR htmx vers même origin uniquement.
+//   - object-src 'none', base-uri 'self', form-action 'self' : durcissement standard.
+//   - upgrade-insecure-requests : promote HTTP→HTTPS si subresource.
 func SecurityHeaders(next http.Handler) http.Handler {
+	const csp = "default-src 'self'; " +
+		"img-src 'self' data: https:; " +
+		"frame-src 'self' https://*.helloasso.com https://www.helloasso.com; " +
+		"script-src 'self' 'unsafe-inline'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"font-src 'self' data:; " +
+		"connect-src 'self'; " +
+		"object-src 'none'; " +
+		"base-uri 'self'; " +
+		"form-action 'self' https://*.helloasso.com; " +
+		"frame-ancestors 'none'; " +
+		"upgrade-insecure-requests"
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Content-Security-Policy", csp)
+		// HSTS uniquement en HTTPS (Chrome ignore + warns sur HTTP).
+		// 1 an, includeSubDomains. preload omis volontairement (engagement long terme).
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
