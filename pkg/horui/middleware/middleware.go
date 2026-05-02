@@ -207,7 +207,14 @@ const csrfCookieName = "nps_csrf"
 const csrfHeaderName = "X-CSRF-Token"
 const csrfFieldName = "_csrf"
 
-// CSRF middleware double-submit cookie pattern.
+// csrfExemptPrefixes : paths où le CSRF check est désactivé.
+// /webhooks/* : POST depuis serveurs tiers (HelloAsso, Stripe, etc.) sans cookie CSRF.
+//               Sécurité = HMAC signature provider-specific (verify dans handler).
+var csrfExemptPrefixes = []string{
+	"/webhooks/",
+}
+
+// CSRF middleware double-submit cookie pattern. Exempte /webhooks/* (HMAC-protected).
 func CSRF(secret []byte) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -217,6 +224,13 @@ func CSRF(secret []byte) func(http.Handler) http.Handler {
 
 			method := strings.ToUpper(r.Method)
 			if method == "POST" || method == "PUT" || method == "DELETE" || method == "PATCH" {
+				// Exempt /webhooks/* du CSRF check (HelloAsso/Stripe POST sans cookie).
+				for _, prefix := range csrfExemptPrefixes {
+					if strings.HasPrefix(r.URL.Path, prefix) {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
 				formToken := r.FormValue(csrfFieldName)
 				if formToken == "" {
 					formToken = r.Header.Get(csrfHeaderName)

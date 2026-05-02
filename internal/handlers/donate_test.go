@@ -162,6 +162,37 @@ func TestDonatePage_NonAdminHidesConfigureLink(t *testing.T) {
 	}
 }
 
+// TestDonate_ConnectorNotConfigured_FallsBackToV1Lien :
+// Pattern actuel : si HELLOASSO_DON_URL env vide → message fallback contact + IBAN.
+// Si URL fournie → bouton lien sortant target=_blank (mode v1 graceful).
+// Pas de dépendance à la table `connectors` pour cette branche UX (M-FALLBACK).
+func TestDonate_ConnectorNotConfigured_FallsBackToV1Lien(t *testing.T) {
+	html := renderDonateRich(t, pages.DonateProps{DonURL: "", IBAN: "FR76..."})
+	if !strings.Contains(html, "Soutien en cours de configuration") {
+		t.Error("V1 fallback : message attendu sans URL")
+	}
+	// Avec URL : mode lien sortant.
+	html = renderDonateRich(t, pages.DonateProps{
+		DonURL:  "https://www.helloasso.com/asso/test/dons",
+		Paliers: []int{10, 30},
+	})
+	if !strings.Contains(html, `target="_blank"`) || !strings.Contains(html, "noopener") {
+		t.Error("V1 fallback : lien target=_blank rel=noopener attendu")
+	}
+}
+
+// TestDonate_NoBrandingNorConnector_RendersGracefulPlaceholder :
+// Aucune URL ni IBAN → message "en cours de configuration", pas d'erreur 500.
+func TestDonate_NoBrandingNorConnector_RendersGracefulPlaceholder(t *testing.T) {
+	html := renderDonateRich(t, pages.DonateProps{})
+	if !strings.Contains(html, "Soutien en cours de configuration") {
+		t.Errorf("placeholder graceful absent")
+	}
+	if strings.Contains(html, "donate-palier") {
+		t.Error("aucun bouton palier attendu sans URL configurée")
+	}
+}
+
 // TestDonatePage_AnonymousShowsButtonsNoMyDonations : visiteur anonyme → paliers, pas de Mes dons.
 func TestDonatePage_AnonymousShowsButtonsNoMyDonations(t *testing.T) {
 	html := renderDonateRich(t, pages.DonateProps{
