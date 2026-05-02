@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Droits granulaires node×rôle avec héritage CTE récursive remontant parent_id.
+// CLAUDE:SUMMARY Droits granulaires node×rôle avec héritage CTE récursive remontant parent_id. Helpers RBAC context+middleware (M-ASSOKIT-RBAC-3).
 package perms
 
 import (
@@ -6,6 +6,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
+
+	"github.com/a-h/templ"
+	"github.com/hazyhaar/assokit/pkg/horui/rbac"
 )
 
 // Permission représente un niveau d'accès.
@@ -132,6 +136,73 @@ func (s *Store) UserCan(ctx context.Context, userRoles []string, nodeID string, 
 		}
 	}
 	return best.AtLeast(required), nil
+}
+
+// --- Helpers RBAC contexte ---
+
+type ctxKeyRBAC int
+type ctxKeyUID int
+
+const (
+	ctxKeyRBACService ctxKeyRBAC = iota
+	ctxKeyUserID      ctxKeyUID  = iota
+)
+
+// ContextWithService injecte un *rbac.Service dans le contexte.
+func ContextWithService(ctx context.Context, svc *rbac.Service) context.Context {
+	return context.WithValue(ctx, ctxKeyRBACService, svc)
+}
+
+// ServiceFromContext extrait le *rbac.Service du contexte (nil si absent).
+func ServiceFromContext(ctx context.Context) *rbac.Service {
+	svc, _ := ctx.Value(ctxKeyRBACService).(*rbac.Service)
+	return svc
+}
+
+// ContextWithUserID injecte un userID string dans le contexte.
+func ContextWithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, ctxKeyUserID, userID)
+}
+
+// UserID retourne l'userID injecté dans le contexte (vide si absent).
+func UserID(ctx context.Context) string {
+	uid, _ := ctx.Value(ctxKeyUserID).(string)
+	return uid
+}
+
+// Has retourne true si l'user courant (extrait du ctx) a la permission perm.
+// Retourne false si service ou userID absent (closed-world : anonyme = interdit).
+func Has(ctx context.Context, perm string) bool {
+	svc := ServiceFromContext(ctx)
+	uid := UserID(ctx)
+	if svc == nil || uid == "" {
+		return false
+	}
+	ok, _ := svc.Can(ctx, uid, perm)
+	return ok
+}
+
+// Required est un middleware chi qui retourne 403 si l'user n'a pas la permission perm.
+// À combiner avec le middleware RBAC (injection service+userID) en amont.
+func Required(perm string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !Has(r.Context(), perm) {
+				http.Error(w, "Permission requise: "+perm, http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// IfHas retourne content si l'user courant a la permission perm, sinon un composant vide.
+// Utilisation : @perms.IfHas(ctx, "users.role_assign") { <button>...</button> }
+func IfHas(ctx context.Context, perm string, content templ.Component) templ.Component {
+	if !Has(ctx, perm) {
+		return templ.NopComponent
+	}
+	return content
 }
 
 // NodesUserCanRead retourne les IDs des nœuds où l'user (ses rôles) a au moins PermRead.
