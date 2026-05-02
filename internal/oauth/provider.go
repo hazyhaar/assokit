@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/hazyhaar/assokit/pkg/horui/rbac"
 	"github.com/zitadel/oidc/v3/pkg/op"
@@ -37,8 +38,9 @@ func NewProvider(db *sql.DB, issuer string, signingKey []byte, rbacStore *rbac.S
 		},
 	}
 
-	opts := []op.Option{
-		op.WithAllowInsecure(), // HTTP autorisé en dev/staging (TLS géré par reverse proxy)
+	opts := []op.Option{}
+	if os.Getenv("OAUTH_ALLOW_INSECURE") == "true" || strings.HasPrefix(issuer, "http://") {
+		opts = append(opts, op.WithAllowInsecure())
 	}
 
 	provider, err := op.NewOpenIDProvider(issuer, cfg, store, opts...)
