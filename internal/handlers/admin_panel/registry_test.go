@@ -4,11 +4,33 @@ import (
 	"testing"
 )
 
-// TestRegistry_V0FieldsCount vérifie que V0Fields retourne exactement 25 champs.
+// TestRegistry_V0FieldsCount vérifie 25 V0 + 14 V0.1 = 39 champs.
 func TestRegistry_V0FieldsCount(t *testing.T) {
 	fields := V0Fields()
-	if len(fields) != 25 {
-		t.Errorf("V0Fields : attendu 25 champs, got %d", len(fields))
+	if len(fields) != 40 {
+		t.Errorf("V0Fields : attendu 40 champs (25 V0 + 15 V0.1 : 5 legal + 1 charte + 9 quisommesnous), got %d", len(fields))
+	}
+}
+
+// TestRegistry_V01FieldsPresent : V0.1 a ajouté 5 legal + 1 charte + 8 quisommesnous.
+func TestRegistry_V01FieldsPresent(t *testing.T) {
+	bySection := FieldsBySection(V0Fields())
+	cases := map[string]int{
+		"legal":         5,
+		"charte":        1,
+		"quisommesnous": 9, // 8 + photo_equipe = 9
+	}
+	for section, want := range cases {
+		got := len(bySection[section])
+		if got != want {
+			t.Errorf("section %q : %d champs, attendu %d", section, got, want)
+		}
+	}
+	// V0 sections preserved
+	for _, sec := range []string{"identite", "presentation", "helloasso", "virement"} {
+		if len(bySection[sec]) == 0 {
+			t.Errorf("section V0 %q absente après extension V0.1", sec)
+		}
 	}
 }
 

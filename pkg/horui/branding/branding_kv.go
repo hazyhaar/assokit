@@ -25,6 +25,15 @@ type ProgressInfo struct {
 
 var cache sync.Map // map[key]string
 
+// InvalidateAll vide entièrement le cache singleton (testé via tests gardiens
+// + utilisé par opérateur pour reload après bulk INSERT direct hors handler).
+func InvalidateAll() {
+	cache.Range(func(k, _ any) bool {
+		cache.Delete(k)
+		return true
+	})
+}
+
 // Get lit la valeur d'une clé depuis le cache ou la DB. Retourne "" si absente.
 func Get(db *sql.DB, key string) string {
 	if v, ok := cache.Load(key); ok {

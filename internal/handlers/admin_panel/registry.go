@@ -58,6 +58,27 @@ func V0Fields() []Field {
 		{Key: "virement.titulaire_compte", Section: "virement", Order: 3, Label: "Nom du titulaire du compte", Hint: "Tel qu'écrit sur le RIB", Kind: "text", Required: true},
 		{Key: "virement.banque_nom", Section: "virement", Order: 4, Label: "Nom et ville de la banque", Hint: "Ex 'Crédit Lyonnais — Strasbourg Centre'", Kind: "text", Required: true},
 		{Key: "virement.rib_pdf", Section: "virement", Order: 5, Label: "RIB en PDF (optionnel)", Kind: "file", MimeAllow: []string{"application/pdf"}, MaxBytes: 1_000_000},
+
+		// LEGAL (V0.1)
+		{Key: "legal.statuts_pdf", Section: "legal", Order: 1, Label: "Statuts de l'association (PDF)", Hint: "Le document signé en AG constitutive. Sera téléchargeable depuis /mentions-legales.", Kind: "file", Required: true, MimeAllow: []string{"application/pdf"}, MaxBytes: 5_000_000},
+		{Key: "legal.reglement_interieur_pdf", Section: "legal", Order: 2, Label: "Règlement intérieur (PDF, optionnel)", Hint: "Si vous en avez un.", Kind: "file", MimeAllow: []string{"application/pdf"}, MaxBytes: 5_000_000},
+		{Key: "legal.mentions_editeur", Section: "legal", Order: 3, Label: "Mentions légales — éditeur", Hint: "Texte affiché en bas de /mentions-legales : raison sociale, président, adresse, contact", Kind: "longtext", Required: true},
+		{Key: "legal.mentions_hebergeur", Section: "legal", Order: 4, Label: "Mentions légales — hébergeur", Hint: "Nom + adresse de l'hébergeur du site, ex 'OVHcloud — 2 rue Kellermann, 59100 Roubaix'", Kind: "text", Required: true},
+		{Key: "legal.contact_dpo", Section: "legal", Order: 5, Label: "Email DPO ou contact RGPD", Hint: "Si vous avez un délégué à la protection des données. Sinon, mettez votre email contact général.", Kind: "text"},
+
+		// CHARTE (V0.1)
+		{Key: "charte.body", Section: "charte", Order: 1, Label: "Charte / valeurs (markdown)", Hint: "Texte qui sera affiché publiquement sur /charte. Vous pouvez utiliser des **gras**, *italique*, listes, titres `# Titre`.", Kind: "longtext", Required: true},
+
+		// QUI-SOMMES-NOUS (V0.1)
+		{Key: "quisommesnous.histoire", Section: "quisommesnous", Order: 1, Label: "Histoire de l'association", Hint: "Comment et pourquoi l'asso a été créée. 1 paragraphe lisible.", Kind: "longtext", Required: true},
+		{Key: "quisommesnous.mission_1", Section: "quisommesnous", Order: 2, Label: "Mission principale 1", Hint: "1 ligne, ex 'Soutenir les lanceurs d'alerte'", Kind: "text", Required: true},
+		{Key: "quisommesnous.mission_2", Section: "quisommesnous", Order: 3, Label: "Mission principale 2 (optionnel)", Kind: "text"},
+		{Key: "quisommesnous.mission_3", Section: "quisommesnous", Order: 4, Label: "Mission principale 3 (optionnel)", Kind: "text"},
+		{Key: "quisommesnous.president_bio", Section: "quisommesnous", Order: 5, Label: "Bio du président (optionnel)", Hint: "Court paragraphe affiché sur /a-propos", Kind: "longtext"},
+		{Key: "quisommesnous.bureau_vice_president", Section: "quisommesnous", Order: 6, Label: "Vice-président (nom)", Kind: "text"},
+		{Key: "quisommesnous.bureau_tresorier", Section: "quisommesnous", Order: 7, Label: "Trésorier (nom)", Kind: "text"},
+		{Key: "quisommesnous.bureau_secretaire", Section: "quisommesnous", Order: 8, Label: "Secrétaire (nom)", Kind: "text"},
+		{Key: "quisommesnous.photo_equipe", Section: "quisommesnous", Order: 9, Label: "Photo équipe (optionnel)", Hint: "JPG ou PNG, ratio 16:9 idéal", Kind: "file", MimeAllow: []string{"image/jpeg", "image/png"}, MaxBytes: 3_000_000},
 	}
 }
 
