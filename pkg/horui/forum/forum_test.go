@@ -69,7 +69,7 @@ func TestForum_SnippetEdgeCases(t *testing.T) {
 func TestForum_StripTagsMalformedHTML(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"<p>hello</p>", "hello"},
-		{"<p>hello", "hello"},                          // tag ouvert non fermé : tout reste après '>' présumé
+		{"<p>hello", "hello"}, // tag ouvert non fermé : tout reste après '>' présumé
 		{"<a href=\"x\">link<b>bold</b></a>", "linkbold"},
 		{"<<doublé>>texte", "texte"},
 		{"sans tags", "sans tags"},
@@ -132,6 +132,46 @@ func TestForum_BuildThread_MaxLoadDepthRespected(t *testing.T) {
 	// Mais ChildCount doit refléter qu'il y a bien des enfants en DB
 	if tn.Children[0].Children[0].ChildCount == 0 {
 		t.Error("level 3 ChildCount=0 alors qu'il existe des enfants en DB")
+	}
+}
+
+// TestForum_BuildThread_SoftDeletedExcluded : node soft-deleted exclus du thread.
+func TestForum_BuildThread_SoftDeletedExcluded(t *testing.T) {
+	db := openForumTestDB(t)
+	store := &tree.Store{DB: db}
+	ctx := context.Background()
+
+	rootID, err := store.Create(ctx, tree.Node{Slug: "soft-root", Type: "folder", Title: "soft-root"})
+	if err != nil {
+		t.Fatalf("create root: %v", err)
+	}
+	c1, err := store.Create(ctx, tree.Node{Slug: "child-keep", Type: "post", Title: "keep",
+		ParentID: sql.NullString{String: rootID, Valid: true}})
+	if err != nil {
+		t.Fatalf("create c1: %v", err)
+	}
+	c2, err := store.Create(ctx, tree.Node{Slug: "child-deleted", Type: "post", Title: "deleted",
+		ParentID: sql.NullString{String: rootID, Valid: true}})
+	if err != nil {
+		t.Fatalf("create c2: %v", err)
+	}
+	if err := store.SoftDelete(ctx, c2); err != nil {
+		t.Fatalf("SoftDelete: %v", err)
+	}
+
+	rootNode, err := store.GetBySlug(ctx, "soft-root")
+	if err != nil {
+		t.Fatalf("get root: %v", err)
+	}
+	tn, err := BuildThread(ctx, store, *rootNode, nil, 5)
+	if err != nil {
+		t.Fatalf("BuildThread: %v", err)
+	}
+	if len(tn.Children) != 1 {
+		t.Errorf("attendu 1 enfant non supprimé, got %d", len(tn.Children))
+	}
+	if len(tn.Children) > 0 && tn.Children[0].ID != c1 {
+		t.Errorf("enfant restant doit être c1=%s, got %s", c1, tn.Children[0].ID)
 	}
 }
 
