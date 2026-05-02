@@ -44,6 +44,7 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.Get("/thematiques", handlePage(deps, "thematiques", treeStore))
 	r.Get("/thematiques/{slug}", handleThematique(deps, treeStore))
 	r.Get("/medias", handlePage(deps, "medias", treeStore))
+	r.Get("/mentions-legales", handlePage(deps, "mentions-legales", treeStore))
 	merciHandlerImpl = makeMerciHandler(deps)
 	notFoundHandlerImpl = makeNotFoundHandler(deps)
 	r.Get("/merci", handleMerci)

@@ -3,13 +3,13 @@ package mailer
 
 import (
 	"context"
-	"strings"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"net"
 	"net/smtp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,6 +19,7 @@ func base64StdEncoding(s string) string { return base64.StdEncoding.EncodeToStri
 //   - 465 (default) : TLS implicit (SMTPS) — bloqué par OVH outbound sur Kimsufi
 //   - 587           : plain TCP + STARTTLS (submission) — ouvert OVH outbound
 //   - 25            : plain TCP + STARTTLS si supporté (SMTP standard)
+//
 // Met à jour email_outbox status='sent' en cas de succès, applique backoff sinon.
 func (m *Mailer) sendSMTP(ctx context.Context, msg OutboxMsg) error {
 	port := m.SMTPPort
@@ -126,24 +127,24 @@ func (m *Mailer) sendSMTP(ctx context.Context, msg OutboxMsg) error {
 func buildRFC822(from string, msg OutboxMsg) string {
 	boundary := "boundary-" + msg.ID
 	var b []byte
-	b = append(b, ("From: "+from+"\r\n")...)
-	b = append(b, ("To: "+msg.ToAddr+"\r\n")...)
-	b = append(b, ("Subject: "+encodeHeader(msg.Subject)+"\r\n")...)
+	b = append(b, ("From: " + from + "\r\n")...)
+	b = append(b, ("To: " + msg.ToAddr + "\r\n")...)
+	b = append(b, ("Subject: " + encodeHeader(msg.Subject) + "\r\n")...)
 	b = append(b, "MIME-Version: 1.0\r\n"...)
-	b = append(b, ("Content-Type: multipart/alternative; boundary=\""+boundary+"\"\r\n\r\n")...)
+	b = append(b, ("Content-Type: multipart/alternative; boundary=\"" + boundary + "\"\r\n\r\n")...)
 	if msg.BodyText != "" {
-		b = append(b, ("--"+boundary+"\r\n")...)
+		b = append(b, ("--" + boundary + "\r\n")...)
 		b = append(b, "Content-Type: text/plain; charset=UTF-8\r\n\r\n"...)
 		b = append(b, msg.BodyText...)
 		b = append(b, "\r\n"...)
 	}
 	if msg.BodyHTML != "" {
-		b = append(b, ("--"+boundary+"\r\n")...)
+		b = append(b, ("--" + boundary + "\r\n")...)
 		b = append(b, "Content-Type: text/html; charset=UTF-8\r\n\r\n"...)
 		b = append(b, msg.BodyHTML...)
 		b = append(b, "\r\n"...)
 	}
-	b = append(b, ("--"+boundary+"--\r\n")...)
+	b = append(b, ("--" + boundary + "--\r\n")...)
 	return string(b)
 }
 

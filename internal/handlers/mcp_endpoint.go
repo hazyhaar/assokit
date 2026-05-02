@@ -204,11 +204,28 @@ func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service) 
 	// Discovery metadata
 	r.Get("/.well-known/mcp/server", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"name":             "assokit-mcp",
-			"version":          "1.0.0",
-			"oauth_metadata":   "/.well-known/oauth-authorization-server",
-			"tools_count":      len(reg.All()),
+		json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck
+			"name":           "assokit-mcp",
+			"version":        "1.0.0",
+			"oauth_metadata": "/.well-known/oauth-authorization-server",
+			"tools_count":    len(reg.All()),
+		})
+	})
+
+	// RFC 8414 — OAuth 2.0 Authorization Server Metadata
+	r.Get("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		base := strings.TrimRight(deps.Config.BaseURL, "/")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck
+			"issuer":                                base,
+			"authorization_endpoint":                base + "/oauth/authorize",
+			"token_endpoint":                        base + "/oauth/token",
+			"registration_endpoint":                 base + "/oauth/register",
+			"scopes_supported":                      []string{"openid", "profile", "mcp"},
+			"response_types_supported":              []string{"code"},
+			"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
+			"code_challenge_methods_supported":      []string{"S256"},
+			"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post"},
 		})
 	})
 }

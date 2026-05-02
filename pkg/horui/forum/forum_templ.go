@@ -7,12 +7,11 @@ package forum
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
-
 import (
 	"strconv"
 
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
 )
 
@@ -162,7 +161,7 @@ func Index(rootChildren []ThreadNode, user *auth.User) templ.Component {
 }
 
 // Thread : page /forum/{slug} — sujet courant + arbre récursif des réponses.
-func Thread(node ThreadNode, replies []ThreadNode, user *auth.User, canReply bool) templ.Component {
+func Thread(node ThreadNode, replies []ThreadNode, user *auth.User, canReply bool, csrfToken string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -292,7 +291,7 @@ func Thread(node ThreadNode, replies []ThreadNode, user *auth.User, canReply boo
 			}
 		}
 		if canReply {
-			templ_7745c5c3_Err = ReplyForm(node.Slug).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ReplyForm(node.Slug, csrfToken).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -495,7 +494,7 @@ func ThreadView(n ThreadNode, depth int) templ.Component {
 }
 
 // ReplyForm : formulaire de réponse. Action POST /forum/{slug}/reply.
-func ReplyForm(parentSlug string) templ.Component {
+func ReplyForm(parentSlug string, csrfToken string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -529,7 +528,20 @@ func ReplyForm(parentSlug string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\"><h3 class=\"reply-form-title\">Répondre</h3><div class=\"form-field\"><label for=\"reply-title\">Titre</label> <input id=\"reply-title\" type=\"text\" name=\"title\" required maxlength=\"200\"></div><div class=\"form-field\"><label for=\"reply-body\">Message</label> <textarea id=\"reply-body\" name=\"body\" rows=\"6\" required></textarea></div><button type=\"submit\" class=\"btn btn-primary\">Publier</button></form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\"><input type=\"hidden\" name=\"_csrf\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var23 string
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(csrfToken)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/horui/forum/forum.templ`, Line: 127, Col: 53}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\"><h3 class=\"reply-form-title\">Répondre</h3><div class=\"form-field\"><label for=\"reply-title\">Titre</label> <input id=\"reply-title\" type=\"text\" name=\"title\" required maxlength=\"200\"></div><div class=\"form-field\"><label for=\"reply-body\">Message</label> <textarea id=\"reply-body\" name=\"body\" rows=\"6\" required></textarea></div><button type=\"submit\" class=\"btn btn-primary\">Publier</button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

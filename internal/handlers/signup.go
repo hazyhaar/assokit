@@ -355,4 +355,3 @@ func collectFields(r *http.Request, profil string) string {
 	b, _ := json.Marshal(fields)
 	return string(b)
 }
-

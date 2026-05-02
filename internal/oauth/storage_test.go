@@ -213,9 +213,9 @@ func TestOAuth_ScopesIntersectWithRBACPermissions(t *testing.T) {
 	svc := &rbac.Service{Store: rbacStore, Cache: &rbac.Cache{}}
 	gID, _ := svc.Store.CreateGrade(ctx, "test-grade-scopes")
 	pID, _ := svc.Store.EnsurePermission(ctx, "feedback.triage", "")
-	svc.GrantPerm(ctx, gID, pID)        //nolint:errcheck
-	svc.AssignGrade(ctx, userID, gID)   //nolint:errcheck
-	svc.Recompute(ctx, userID)          //nolint:errcheck
+	svc.GrantPerm(ctx, gID, pID)      //nolint:errcheck
+	svc.AssignGrade(ctx, userID, gID) //nolint:errcheck
+	svc.Recompute(ctx, userID)        //nolint:errcheck
 
 	// Créer token avec scopes qui incluent des perms demandées
 	oidcReq := &oidc.AuthRequest{

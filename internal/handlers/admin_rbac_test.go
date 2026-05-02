@@ -44,8 +44,8 @@ func withRBACPerms(r *http.Request, svc *rbac.Service, userID string, permNames 
 			pID, _ := svc.Store.EnsurePermission(ctx, pn, "")
 			svc.GrantPerm(ctx, gID, pID) //nolint:errcheck
 		}
-		svc.AssignGrade(ctx, userID, gID)         //nolint:errcheck
-		svc.Recompute(ctx, userID)                 //nolint:errcheck
+		svc.AssignGrade(ctx, userID, gID) //nolint:errcheck
+		svc.Recompute(ctx, userID)        //nolint:errcheck
 	}
 	return r.WithContext(ctx)
 }
@@ -140,8 +140,8 @@ func TestAdminRBAC_AuditPageShowsRecentMutations(t *testing.T) {
 	ctx := context.Background()
 
 	// Créer des mutations pour peupler l'audit
-	svc.Store.CreateGrade(ctx, "grade-audit-test")           //nolint:errcheck
-	svc.Store.EnsurePermission(ctx, "audit.test", "")        //nolint:errcheck
+	svc.Store.CreateGrade(ctx, "grade-audit-test")    //nolint:errcheck
+	svc.Store.EnsurePermission(ctx, "audit.test", "") //nolint:errcheck
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/rbac/audit", nil)
 	req = adminRBACRequest(req, svc, "user-audit-1", "rbac.audit.read")

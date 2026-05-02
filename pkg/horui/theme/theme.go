@@ -75,7 +75,7 @@ type NavItem struct {
 var brand atomic.Value // *Branding
 
 var (
-	hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
+	hexColorRegex    = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
 	invalidFontRegex = regexp.MustCompile(`[<>;}]`)
 )
 

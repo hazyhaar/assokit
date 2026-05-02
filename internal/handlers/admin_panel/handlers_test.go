@@ -100,8 +100,8 @@ func TestAdminPanel_ProgressBarCountsRequiredOnly(t *testing.T) {
 
 	// Insérer 1 champ required (nom_asso) et 1 optional (sigle)
 	for _, kv := range []struct{ k, v string }{
-		{"identite.nom_asso", "Asso X"},  // required
-		{"identite.sigle", "AX"},         // optional
+		{"identite.nom_asso", "Asso X"}, // required
+		{"identite.sigle", "AX"},        // optional
 	} {
 		form := url.Values{}
 		form.Set("key", kv.k)

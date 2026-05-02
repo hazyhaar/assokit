@@ -94,9 +94,9 @@ func TestMCPEndpoint_ValidBearerInjectsContext(t *testing.T) {
 	ctx := context.Background()
 	gID, _ := svc.Store.CreateGrade(ctx, "mcp-user-grade")
 	pID, _ := svc.Store.EnsurePermission(ctx, "mcp.test.perm", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)              //nolint:errcheck
 	svc.Store.AssignGrade(ctx, "user-mcp-ctx", gID) //nolint:errcheck
-	svc.Recompute(ctx, "user-mcp-ctx") //nolint:errcheck
+	svc.Recompute(ctx, "user-mcp-ctx")              //nolint:errcheck
 
 	tokenID := insertTestToken(t, deps, "user-mcp-ctx", []string{"mcp.test.perm"}, true)
 
@@ -178,9 +178,9 @@ func TestMCPEndpoint_PermRevokedAfterTokenIssuedDeniesCall(t *testing.T) {
 	// Créer grade+perm+user
 	gID, _ := svc.Store.CreateGrade(ctx, "revoke-grade")
 	pID, _ := svc.Store.EnsurePermission(ctx, "mcp.revoke.test", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)             //nolint:errcheck
 	svc.Store.AssignGrade(ctx, "user-revoke", gID) //nolint:errcheck
-	svc.Recompute(ctx, "user-revoke") //nolint:errcheck
+	svc.Recompute(ctx, "user-revoke")              //nolint:errcheck
 
 	if !perms.Has(perms.ContextWithUserID(perms.ContextWithService(ctx, svc), "user-revoke"), "mcp.revoke.test") {
 		t.Fatal("précondition : user doit avoir la perm")
@@ -188,7 +188,7 @@ func TestMCPEndpoint_PermRevokedAfterTokenIssuedDeniesCall(t *testing.T) {
 
 	// Révoquer la perm
 	svc.Store.RevokePerm(ctx, gID, pID) //nolint:errcheck
-	svc.Recompute(ctx, "user-revoke") //nolint:errcheck
+	svc.Recompute(ctx, "user-revoke")   //nolint:errcheck
 
 	if perms.Has(perms.ContextWithUserID(perms.ContextWithService(ctx, svc), "user-revoke"), "mcp.revoke.test") {
 		t.Fatal("postcondition : user ne doit plus avoir la perm")
@@ -214,9 +214,9 @@ func TestMCPEndpoint_FullJourney_OAuthThenToolCall(t *testing.T) {
 	// Préparer user avec perm
 	gID, _ := svc.Store.CreateGrade(ctx, "journey-grade")
 	pID, _ := svc.Store.EnsurePermission(ctx, "journey.ping", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)              //nolint:errcheck
 	svc.Store.AssignGrade(ctx, "user-journey", gID) //nolint:errcheck
-	svc.Recompute(ctx, "user-journey") //nolint:errcheck
+	svc.Recompute(ctx, "user-journey")              //nolint:errcheck
 
 	tokenID := insertTestToken(t, deps, "user-journey", []string{"journey.ping"}, true)
 

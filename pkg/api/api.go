@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/bootstrap"
@@ -23,7 +24,6 @@ import (
 	appMiddleware "github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/static"
-	"github.com/go-chi/chi/v5"
 
 	_ "modernc.org/sqlite"
 )
@@ -193,6 +193,7 @@ func New(opts Options) (*App, error) {
 	// RequestID monté EN PREMIER : tous les slogs en aval peuvent récupérer req_id via ctx.
 	r := chi.NewRouter()
 	r.Use(appMiddleware.RequestID)
+	r.Use(appMiddleware.SecurityHeaders)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(appMiddleware.CSRF(secret))
 	r.Use(appMiddleware.Auth(db, secret))

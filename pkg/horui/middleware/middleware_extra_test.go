@@ -69,4 +69,3 @@ func TestCSRFHeaderToken(t *testing.T) {
 		t.Errorf("POST avec header CSRF: want 200 got %d", w2.Code)
 	}
 }
-

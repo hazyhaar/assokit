@@ -6,7 +6,10 @@ import (
 )
 
 func TestIntToStr(t *testing.T) {
-	cases := []struct{ n int; want string }{
+	cases := []struct {
+		n    int
+		want string
+	}{
 		{0, "0"}, {1, "1"}, {42, "42"}, {100, "100"}, {-5, "-5"},
 	}
 	for _, c := range cases {

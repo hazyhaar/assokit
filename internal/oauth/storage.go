@@ -20,10 +20,10 @@ import (
 )
 
 var (
-	_ op.Storage            = (*Storage)(nil)
+	_ op.Storage             = (*Storage)(nil)
 	_ op.RefreshTokenRequest = (*tokenRow)(nil)
 	_ op.SigningKey          = (*hmacKey)(nil)
-	_ op.Key                = (*hmacKey)(nil)
+	_ op.Key                 = (*hmacKey)(nil)
 
 	ErrNotFound     = errors.New("oauth: not found")
 	ErrCodeUsed     = errors.New("oauth: auth code already used")
@@ -57,11 +57,11 @@ type hmacKey struct {
 	key []byte
 }
 
-func (k *hmacKey) ID() string                            { return k.id }
+func (k *hmacKey) ID() string                                  { return k.id }
 func (k *hmacKey) SignatureAlgorithm() jose.SignatureAlgorithm { return jose.HS256 }
-func (k *hmacKey) Algorithm() jose.SignatureAlgorithm    { return jose.HS256 }
-func (k *hmacKey) Use() string                           { return "sig" }
-func (k *hmacKey) Key() any                              { return k.key }
+func (k *hmacKey) Algorithm() jose.SignatureAlgorithm          { return jose.HS256 }
+func (k *hmacKey) Use() string                                 { return "sig" }
+func (k *hmacKey) Key() any                                    { return k.key }
 
 func (s *Storage) SigningKey(_ context.Context) (op.SigningKey, error) {
 	return s.signingKey, nil
@@ -96,9 +96,9 @@ func (s *Storage) GetClientByClientID(ctx context.Context, clientID string) (op.
 		}
 		return nil, err
 	}
-	json.Unmarshal([]byte(rawRedirects), &c.redirectURIs)   //nolint:errcheck
-	json.Unmarshal([]byte(rawGrants), &c.grantTypes)        //nolint:errcheck
-	json.Unmarshal([]byte(rawScopes), &c.scopes)            //nolint:errcheck
+	json.Unmarshal([]byte(rawRedirects), &c.redirectURIs) //nolint:errcheck
+	json.Unmarshal([]byte(rawGrants), &c.grantTypes)      //nolint:errcheck
+	json.Unmarshal([]byte(rawScopes), &c.scopes)          //nolint:errcheck
 	return &c, nil
 }
 
@@ -281,13 +281,13 @@ type tokenRow struct {
 	scopes    []string
 }
 
-func (t *tokenRow) GetAMR() []string                  { return nil }
-func (t *tokenRow) GetAudience() []string              { return []string{t.clientID} }
-func (t *tokenRow) GetAuthTime() time.Time             { return time.Time{} }
-func (t *tokenRow) GetClientID() string                { return t.clientID }
-func (t *tokenRow) GetScopes() []string                { t.parseScopes(); return t.scopes }
-func (t *tokenRow) GetSubject() string                 { return t.userID }
-func (t *tokenRow) SetCurrentScopes(s []string)        { t.scopes = s }
+func (t *tokenRow) GetAMR() []string            { return nil }
+func (t *tokenRow) GetAudience() []string       { return []string{t.clientID} }
+func (t *tokenRow) GetAuthTime() time.Time      { return time.Time{} }
+func (t *tokenRow) GetClientID() string         { return t.clientID }
+func (t *tokenRow) GetScopes() []string         { t.parseScopes(); return t.scopes }
+func (t *tokenRow) GetSubject() string          { return t.userID }
+func (t *tokenRow) SetCurrentScopes(s []string) { t.scopes = s }
 func (t *tokenRow) parseScopes() {
 	if t.scopes == nil {
 		json.Unmarshal([]byte(t.rawScopes), &t.scopes) //nolint:errcheck

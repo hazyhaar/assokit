@@ -48,7 +48,9 @@ func TestRegistry_AddDuplicateRefused(t *testing.T) {
 	a := actions.Action{
 		ID:           "test.action",
 		RequiredPerm: "test.action",
-		Run:          func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) { return actions.Result{Status: "ok"}, nil },
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
 	}
 	if err := reg.Add(a); err != nil {
 		t.Fatalf("premier Add: %v", err)
@@ -81,9 +83,9 @@ func TestMountHTTP_ActionFiresWithPerm_Returns200(t *testing.T) {
 	ctx := context.Background()
 	gID, _ := svc.Store.CreateGrade(ctx, "tester")
 	pID, _ := svc.Store.EnsurePermission(ctx, "test.ping", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)             //nolint:errcheck
 	svc.Store.AssignGrade(ctx, "user-test-1", gID) //nolint:errcheck
-	svc.Recompute(ctx, "user-test-1") //nolint:errcheck
+	svc.Recompute(ctx, "user-test-1")              //nolint:errcheck
 
 	req := httptest.NewRequest(http.MethodPost, "/admin/actions/test.ping", strings.NewReader(""))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -118,7 +120,9 @@ func TestMountHTTP_ActionWithoutPermReturns403(t *testing.T) {
 	reg.Add(actions.Action{ //nolint:errcheck
 		ID:           "test.protected",
 		RequiredPerm: "test.protected",
-		Run:          func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) { return actions.Result{Status: "ok"}, nil },
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
 	})
 
 	r := chi.NewRouter()
@@ -150,15 +154,17 @@ func TestMountHTTP_GenericFormRendersFromSchema(t *testing.T) {
 			"type":"object","required":["msg"],
 			"properties":{"msg":{"type":"string"}}
 		}`),
-		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) { return actions.Result{Status: "ok"}, nil },
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
 	})
 
 	ctx := context.Background()
 	gID, _ := svc.Store.CreateGrade(ctx, "form-tester")
 	pID, _ := svc.Store.EnsurePermission(ctx, "test.form", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)             //nolint:errcheck
 	svc.Store.AssignGrade(ctx, "user-form-1", gID) //nolint:errcheck
-	svc.Recompute(ctx, "user-form-1") //nolint:errcheck
+	svc.Recompute(ctx, "user-form-1")              //nolint:errcheck
 
 	r := chi.NewRouter()
 	r.Use(middleware.RBAC(svc))
@@ -191,12 +197,16 @@ func TestMountMCP_ToolListContainsAllActions(t *testing.T) {
 	reg.Add(actions.Action{ //nolint:errcheck
 		ID:           "mcp.tool.a",
 		RequiredPerm: "mcp.tool.a",
-		Run:          func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) { return actions.Result{Status: "ok"}, nil },
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
 	})
 	reg.Add(actions.Action{ //nolint:errcheck
 		ID:           "mcp.tool.b",
 		RequiredPerm: "mcp.tool.b",
-		Run:          func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) { return actions.Result{Status: "ok"}, nil },
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
 	})
 
 	mcpSrv := server.NewMCPServer("assokit-test", "0.1.0")
@@ -219,7 +229,9 @@ func TestMountMCP_CallToolHonorsPerm(t *testing.T) {
 	reg.Add(actions.Action{ //nolint:errcheck
 		ID:           "mcp.guarded",
 		RequiredPerm: "mcp.guarded",
-		Run:          func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) { return actions.Result{Status: "ok", Message: "secret"}, nil },
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok", Message: "secret"}, nil
+		},
 	})
 
 	mcpSrv := server.NewMCPServer("assokit-test", "0.1.0")
@@ -245,16 +257,18 @@ func TestMCP_InvocationRowOnEachCall(t *testing.T) {
 	reg.Add(actions.Action{ //nolint:errcheck
 		ID:           "audit.test.action",
 		RequiredPerm: "audit.test.action",
-		Run:          func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) { return actions.Result{Status: "ok"}, nil },
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
 	})
 
 	// Accorder la perm
 	ctx := context.Background()
 	gID, _ := svc.Store.CreateGrade(ctx, "audit-grade")
 	pID, _ := svc.Store.EnsurePermission(ctx, "audit.test.action", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)                //nolint:errcheck
 	svc.Store.AssignGrade(ctx, "user-audit-mcp", gID) //nolint:errcheck
-	svc.Recompute(ctx, "user-audit-mcp") //nolint:errcheck
+	svc.Recompute(ctx, "user-audit-mcp")              //nolint:errcheck
 
 	// Appeler via HTTP (proxy pour tester l'insert audit)
 	r := chi.NewRouter()

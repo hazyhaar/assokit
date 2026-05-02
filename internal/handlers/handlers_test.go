@@ -11,10 +11,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/tree"
-	"github.com/hazyhaar/assokit/internal/chassis"
 )
 
 func newTestDB(t *testing.T) *sql.DB {

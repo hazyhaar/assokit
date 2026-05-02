@@ -157,9 +157,11 @@ func handleForgotStub(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMerci(w http.ResponseWriter, r *http.Request) { merciHandlerImpl(w, r) }
+
 var merciHandlerImpl = func(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Merci handler non initialisé", http.StatusInternalServerError)
 }
+
 func makeMerciHandler(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		title := "Merci"
@@ -169,9 +171,11 @@ func makeMerciHandler(deps app.AppDeps) http.HandlerFunc {
 }
 
 func handleNotFound(w http.ResponseWriter, r *http.Request) { notFoundHandlerImpl(w, r) }
+
 var notFoundHandlerImpl = func(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404", http.StatusNotFound)
 }
+
 func makeNotFoundHandler(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

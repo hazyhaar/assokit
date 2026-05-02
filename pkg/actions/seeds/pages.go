@@ -108,7 +108,9 @@ func initPages(reg *actions.Registry) {
 			"properties":{"slug":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ Slug string `json:"slug"` }
+			var p struct {
+				Slug string `json:"slug"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}

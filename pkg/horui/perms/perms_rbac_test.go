@@ -60,7 +60,7 @@ func TestPerms_Required403WithoutPerm_NextWithPerm(t *testing.T) {
 
 	gID, _ := svc.Store.CreateGrade(ctx, "test-grade-req")
 	pID, _ := svc.Store.EnsurePermission(ctx, "feedback.triage", "")
-	svc.Store.GrantPerm(ctx, gID, pID)   //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)    //nolint:errcheck
 	svc.AssignGrade(ctx, "user-req", gID) //nolint:errcheck
 
 	okHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -159,7 +159,7 @@ func TestPerms_IfHasRendersContentOnlyWhenAllowed(t *testing.T) {
 
 	gID, _ := svc.Store.CreateGrade(ctx, "grade-ifhas")
 	pID, _ := svc.Store.EnsurePermission(ctx, "ifhas.perm", "")
-	svc.Store.GrantPerm(ctx, gID, pID)       //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)      //nolint:errcheck
 	svc.AssignGrade(ctx, "user-ifhas", gID) //nolint:errcheck
 
 	allowedCtx := ctxWithPerms(ctx, svc, "user-ifhas", "ifhas.perm")

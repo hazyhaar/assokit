@@ -12,8 +12,8 @@ import (
 	"log/slog"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/internal/oauth"
 	"github.com/hazyhaar/assokit/internal/config"
+	"github.com/hazyhaar/assokit/internal/oauth"
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/rbac"

@@ -8,8 +8,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/internal/chassis"
+	"github.com/hazyhaar/assokit/pkg/horui/auth"
 )
 
 func newTestDB(t *testing.T) *sql.DB {

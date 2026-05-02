@@ -9,7 +9,9 @@ import (
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 )
 
-func render(t *testing.T, component interface{ Render(context.Context, interface{ Write([]byte) (int, error) }) error }) string {
+func render(t *testing.T, component interface {
+	Render(context.Context, interface{ Write([]byte) (int, error) }) error
+}) string {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := component.Render(context.Background(), &buf); err != nil {
@@ -79,7 +81,9 @@ func TestHeaderRenders(t *testing.T) {
 }
 
 func TestFooterRenders(t *testing.T) {
-	theme.Init(&theme.Branding{Name: "TestSite", Footer: struct{Lines []string `toml:"lines"`}{Lines: []string{"footer"}}})
+	theme.Init(&theme.Branding{Name: "TestSite", Footer: struct {
+		Lines []string `toml:"lines"`
+	}{Lines: []string{"footer"}}})
 	c := layout.Footer()
 	var buf bytes.Buffer
 	if err := c.Render(context.Background(), &buf); err != nil {

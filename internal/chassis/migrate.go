@@ -3,8 +3,8 @@ package chassis
 
 import (
 	"database/sql"
-	_ "embed"
 	"embed"
+	_ "embed"
 	"fmt"
 
 	"github.com/pressly/goose/v3"

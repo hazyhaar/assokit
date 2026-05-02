@@ -49,7 +49,9 @@ func initRBAC(reg *actions.Registry) {
 			"properties":{"id":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ ID string `json:"id"` }
+			var p struct {
+				ID string `json:"id"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}

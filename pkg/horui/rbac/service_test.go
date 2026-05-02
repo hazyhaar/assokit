@@ -190,7 +190,7 @@ func TestCan_HotPath_NoDBQueryAfterCacheHit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ensure perm: %v", err)
 	}
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)    //nolint:errcheck
 	svc.AssignGrade(ctx, "user-hot", gID) //nolint:errcheck
 
 	// Premier Can() → charge L2 et peuple L1
@@ -222,7 +222,7 @@ func TestService_RemoveGradeRecomputes(t *testing.T) {
 
 	gID, _ := svc.Store.CreateGrade(ctx, "grade-remove")
 	pID, _ := svc.Store.EnsurePermission(ctx, "removable.perm", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)    //nolint:errcheck
 	svc.AssignGrade(ctx, "user-rem", gID) //nolint:errcheck
 
 	ok, _ := svc.Can(ctx, "user-rem", "removable.perm")
@@ -364,7 +364,7 @@ func BenchmarkCan_CacheHit(b *testing.B) {
 
 	gID, _ := svc.Store.CreateGrade(ctx, "bench-grade")
 	pID, _ := svc.Store.EnsurePermission(ctx, "bench.perm", "")
-	svc.Store.GrantPerm(ctx, gID, pID) //nolint:errcheck
+	svc.Store.GrantPerm(ctx, gID, pID)      //nolint:errcheck
 	svc.AssignGrade(ctx, "bench-user", gID) //nolint:errcheck
 
 	// Warm cache

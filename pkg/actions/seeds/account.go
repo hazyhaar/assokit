@@ -21,7 +21,9 @@ func initAccount(reg *actions.Registry) {
 			}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ Confirm string `json:"confirm"` }
+			var p struct {
+				Confirm string `json:"confirm"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}

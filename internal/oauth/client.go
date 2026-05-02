@@ -18,17 +18,19 @@ type oauthClient struct {
 	scopes       []string
 }
 
-func (c *oauthClient) GetID() string                      { return c.id }
-func (c *oauthClient) RedirectURIs() []string             { return c.redirectURIs }
-func (c *oauthClient) PostLogoutRedirectURIs() []string   { return nil }
+func (c *oauthClient) GetID() string                       { return c.id }
+func (c *oauthClient) RedirectURIs() []string              { return c.redirectURIs }
+func (c *oauthClient) PostLogoutRedirectURIs() []string    { return nil }
 func (c *oauthClient) ApplicationType() op.ApplicationType { return op.ApplicationTypeWeb }
-func (c *oauthClient) AuthMethod() oidc.AuthMethod        { return oidc.AuthMethodBasic }
-func (c *oauthClient) ResponseTypes() []oidc.ResponseType { return []oidc.ResponseType{oidc.ResponseTypeCode} }
-func (c *oauthClient) GrantTypes() []oidc.GrantType       { return c.grantTypes }
-func (c *oauthClient) LoginURL(id string) string          { return "/oauth2/consent?id=" + id }
+func (c *oauthClient) AuthMethod() oidc.AuthMethod         { return oidc.AuthMethodBasic }
+func (c *oauthClient) ResponseTypes() []oidc.ResponseType {
+	return []oidc.ResponseType{oidc.ResponseTypeCode}
+}
+func (c *oauthClient) GrantTypes() []oidc.GrantType        { return c.grantTypes }
+func (c *oauthClient) LoginURL(id string) string           { return "/oauth2/consent?id=" + id }
 func (c *oauthClient) AccessTokenType() op.AccessTokenType { return op.AccessTokenTypeBearer }
-func (c *oauthClient) IDTokenLifetime() time.Duration     { return time.Hour }
-func (c *oauthClient) DevMode() bool                      { return false }
+func (c *oauthClient) IDTokenLifetime() time.Duration      { return time.Hour }
+func (c *oauthClient) DevMode() bool                       { return false }
 func (c *oauthClient) RestrictAdditionalIdTokenScopes() func([]string) []string {
 	return func(s []string) []string { return s }
 }

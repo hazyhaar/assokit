@@ -6,6 +6,7 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 func initProfile(reg *actions.Registry) {
@@ -55,10 +56,24 @@ func initProfile(reg *actions.Registry) {
 				"avatar_url":{"type":"string","format":"uri","minLength":1}
 			}
 		}`),
-		Run: func(_ context.Context, _ app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ AvatarURL string `json:"avatar_url"` }
+		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
+			var p struct {
+				AvatarURL string `json:"avatar_url"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
+			}
+			u := middleware.UserFromContext(ctx)
+			if u == nil {
+				return actions.Result{Status: "error", Message: "utilisateur non authentifié"}, nil
+			}
+			if _, err := deps.DB.ExecContext(ctx, `
+				INSERT INTO user_avatars(user_id, avatar_url) VALUES(?,?)
+				ON CONFLICT(user_id) DO UPDATE SET
+				  avatar_url = excluded.avatar_url,
+				  uploaded_at = CURRENT_TIMESTAMP
+			`, u.ID, p.AvatarURL); err != nil {
+				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
 			return actions.Result{Status: "ok", Message: "Avatar mis à jour.", Data: map[string]string{"avatar_url": p.AvatarURL}}, nil
 		},

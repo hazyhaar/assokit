@@ -54,3 +54,16 @@ func HashIP(ip string, secret []byte) string {
 	h.Write(secret)
 	return hex.EncodeToString(h.Sum(nil)[:8])
 }
+
+// SecurityHeaders middleware : pose les en-têtes OWASP de base sur toutes les réponses.
+// X-Frame-Options DENY : refuse iframe (clickjacking).
+// X-Content-Type-Options nosniff : refuse MIME sniffing (XSS).
+// Referrer-Policy : limite l'exfiltration cross-origin.
+func SecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		next.ServeHTTP(w, r)
+	})
+}

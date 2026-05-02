@@ -10,11 +10,11 @@ import (
 
 // Action est l'unité atomique d'opération — source de vérité unique pour HTTP admin + MCP tool + OpenAPI.
 type Action struct {
-	ID           string            // ex. "forum.post.create"
-	Title        string            // libellé UI
-	Description  string            // pour LLM + tooltip admin
+	ID           string             // ex. "forum.post.create"
+	Title        string             // libellé UI
+	Description  string             // pour LLM + tooltip admin
 	ParamsSchema *jsonschema.Schema // validation des paramètres
-	RequiredPerm string            // permission RBAC atomique
+	RequiredPerm string             // permission RBAC atomique
 	Run          func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (Result, error)
 }
 

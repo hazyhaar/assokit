@@ -65,7 +65,8 @@ func handleForumNode(deps app.AppDeps) http.HandlerFunc {
 		}
 		user := middleware.UserFromContext(r.Context())
 		canReply := user != nil && node.Depth < ForumMaxDepth-1
-		renderPage(w, r, deps, node.Title, forum.Thread(root, replies, user, canReply))
+		csrfToken := middleware.CSRFToken(r.Context())
+		renderPage(w, r, deps, node.Title, forum.Thread(root, replies, user, canReply, csrfToken))
 	}
 }
 

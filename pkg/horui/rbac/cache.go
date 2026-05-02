@@ -23,7 +23,7 @@ type cacheEntry struct {
 // MaxSize borne le nombre d'entrées L1 (0 = defaultCacheMaxUsers) pour éviter les memory leaks.
 type Cache struct {
 	ver     atomic.Uint64
-	entries sync.Map    // string (userID) → *cacheEntry
+	entries sync.Map     // string (userID) → *cacheEntry
 	size    atomic.Int64 // count approximatif d'entrées actives
 	MaxSize int64        // 0 = defaultCacheMaxUsers
 }

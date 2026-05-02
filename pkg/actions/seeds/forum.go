@@ -3,9 +3,13 @@ package seeds
 import (
 	"context"
 	"encoding/json"
+	"strconv"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 func initForum(reg *actions.Registry) {
@@ -116,7 +120,9 @@ func initForum(reg *actions.Registry) {
 			"properties":{"id":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ ID string `json:"id"` }
+			var p struct {
+				ID string `json:"id"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
@@ -169,7 +175,9 @@ func initForum(reg *actions.Registry) {
 			"properties":{"id":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ ID string `json:"id"` }
+			var p struct {
+				ID string `json:"id"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
@@ -191,7 +199,9 @@ func initForum(reg *actions.Registry) {
 			"properties":{"id":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ ID string `json:"id"` }
+			var p struct {
+				ID string `json:"id"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
@@ -241,7 +251,9 @@ func initForum(reg *actions.Registry) {
 			"properties":{"id":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ ID string `json:"id"` }
+			var p struct {
+				ID string `json:"id"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
@@ -293,7 +305,7 @@ func initForum(reg *actions.Registry) {
 				"reason":{"type":"string","minLength":1}
 			}
 		}`),
-		Run: func(_ context.Context, _ app.AppDeps, params json.RawMessage) (actions.Result, error) {
+		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
 			var p struct {
 				UserID string `json:"user_id"`
 				Reason string `json:"reason"`
@@ -301,7 +313,17 @@ func initForum(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			return actions.Result{Status: "ok", Message: "Avertissement envoyé à " + p.UserID + ". Raison : " + p.Reason}, nil
+			issuedBy := ""
+			if u := middleware.UserFromContext(ctx); u != nil {
+				issuedBy = u.ID
+			}
+			id := uuid.New().String()
+			if _, err := deps.DB.ExecContext(ctx,
+				`INSERT INTO forum_warnings(id, user_id, reason, issued_by) VALUES(?,?,?,?)`,
+				id, p.UserID, p.Reason, issuedBy); err != nil {
+				return actions.Result{Status: "error", Message: err.Error()}, err
+			}
+			return actions.Result{Status: "ok", Message: "Avertissement envoyé à " + p.UserID + ". Raison : " + p.Reason, Data: map[string]string{"warning_id": id}}, nil
 		},
 	})
 
@@ -318,7 +340,7 @@ func initForum(reg *actions.Registry) {
 				"reason":{"type":"string","minLength":1}
 			}
 		}`),
-		Run: func(_ context.Context, _ app.AppDeps, params json.RawMessage) (actions.Result, error) {
+		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
 			var p struct {
 				UserID string `json:"user_id"`
 				Hours  int    `json:"hours"`
@@ -327,7 +349,23 @@ func initForum(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			return actions.Result{Status: "ok", Message: "Utilisateur timeout 24h. Raison : " + p.Reason}, nil
+			issuedBy := ""
+			if u := middleware.UserFromContext(ctx); u != nil {
+				issuedBy = u.ID
+			}
+			expiresAt := time.Now().UTC().Add(time.Duration(p.Hours) * time.Hour).Format(time.RFC3339)
+			if _, err := deps.DB.ExecContext(ctx, `
+				INSERT INTO forum_timeouts(user_id, reason, expires_at, issued_by)
+				VALUES(?,?,?,?)
+				ON CONFLICT(user_id) DO UPDATE SET
+				  reason = excluded.reason,
+				  expires_at = excluded.expires_at,
+				  issued_by = excluded.issued_by,
+				  issued_at = CURRENT_TIMESTAMP
+			`, p.UserID, p.Reason, expiresAt, issuedBy); err != nil {
+				return actions.Result{Status: "error", Message: err.Error()}, err
+			}
+			return actions.Result{Status: "ok", Message: "Utilisateur timeout " + strconv.Itoa(p.Hours) + "h. Raison : " + p.Reason, Data: map[string]string{"expires_at": expiresAt}}, nil
 		},
 	})
 }

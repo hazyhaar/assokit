@@ -159,7 +159,9 @@ func initUsers(reg *actions.Registry) {
 			"properties":{"uid":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ UID string `json:"uid"` }
+			var p struct {
+				UID string `json:"uid"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
@@ -181,7 +183,9 @@ func initUsers(reg *actions.Registry) {
 			"properties":{"uid":{"type":"string","minLength":1}}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
-			var p struct{ UID string `json:"uid"` }
+			var p struct {
+				UID string `json:"uid"`
+			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}

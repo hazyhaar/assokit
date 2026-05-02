@@ -9,11 +9,12 @@ import (
 	"strings"
 	"testing"
 
+	"log/slog"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"log/slog"
 )
 
 func newAdminDeps(t *testing.T) app.AppDeps {

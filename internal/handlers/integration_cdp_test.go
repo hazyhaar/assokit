@@ -4,19 +4,20 @@
 // soumet les formulaires, et vérifie l'impact DB après chaque action.
 //
 // Lancement :
-//   cd /devhoros/assokit
-//   go test -tags=integration_cdp -v -timeout=120s ./internal/nps/ -run TestCDPIntegration
+//
+//	cd /devhoros/assokit
+//	go test -tags=integration_cdp -v -timeout=120s ./internal/nps/ -run TestCDPIntegration
 //
 // Pré-requis : chromium ou chromium-browser installé (snap, apt). Le test détecte
 // automatiquement le binaire. Il refuse de tourner si l'exec n'est pas trouvée.
 //
 // Le test :
-//   1. Crée une DB fresh in-memory (file::memory:?cache=shared) avec schema + seeds.
-//   2. Bootstrap admin (email=admin@test.local, password=admin-test-pwd).
-//   3. Lance un httptest.NewServer câblé sur le router NPS.
-//   4. Lance Chromium headless via chromedp.
-//   5. Exécute des scénarios end-to-end (navigation + submit) et vérifie la DB
-//      directement via sql.DB après chaque mutation.
+//  1. Crée une DB fresh in-memory (file::memory:?cache=shared) avec schema + seeds.
+//  2. Bootstrap admin (email=admin@test.local, password=admin-test-pwd).
+//  3. Lance un httptest.NewServer câblé sur le router NPS.
+//  4. Lance Chromium headless via chromedp.
+//  5. Exécute des scénarios end-to-end (navigation + submit) et vérifie la DB
+//     directement via sql.DB après chaque mutation.
 //
 // Si tout passe : 0 échec → on a la preuve que les routes pondent du HTML cohérent
 // ET que les actions impactent la DB comme spécifié dans AUDIT_ACTIONS.md.
