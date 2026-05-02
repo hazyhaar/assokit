@@ -59,7 +59,7 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.Get("/donate", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/soutenir", http.StatusMovedPermanently) })
 	r.Get("/signup", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/participer", http.StatusMovedPermanently) })
 	r.Get("/forgot-password", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/forgot", http.StatusMovedPermanently) })
-	r.Get("/reset-password", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/forgot", http.StatusMovedPermanently) })
+	// /reset-password redirect géré plus bas avec préservation du query token (M-ASSOKIT-IMPL-PASSWORD-RESET-FLOW).
 	// Assets branding (logo.svg, og.png, favicon.ico, etc.) servis depuis BrandingFS.
 	// Permet à branding.toml::logo_path = "assets/logo.svg" de résoudre /static/assets/logo.svg.
 	if deps.BrandingFS != nil {
@@ -110,7 +110,20 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.Get("/register", handleRegisterPage(deps))
 	r.Post("/register", handleRegisterSubmit(deps))
 	r.Post("/logout", handleLogout)
-	r.Get("/forgot", handleForgotStub)
+	// Password reset flow (M-ASSOKIT-IMPL-PASSWORD-RESET-FLOW)
+	r.Get("/forgot", handleForgotForm(deps))
+	r.Post("/forgot", handleForgotSubmit(deps))
+	r.Get("/reset", handleResetForm(deps))
+	r.Post("/reset", handleResetSubmit(deps))
+	// Aliases /forgot-password et /reset-password déjà redirect 301 vers /forgot et /forgot.
+	// On override /reset-password pour rediriger vers /reset?token=... si token query présent.
+	r.Get("/reset-password", func(w http.ResponseWriter, req *http.Request) {
+		target := "/reset"
+		if t := req.URL.Query().Get("token"); t != "" {
+			target = "/reset?token=" + t
+		}
+		http.Redirect(w, req, target, http.StatusMovedPermanently)
+	})
 
 	// Feedback widget
 	r.Get("/feedback/form", handleFeedbackForm(deps))

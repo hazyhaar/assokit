@@ -11,7 +11,6 @@ import (
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/pages"
 	"github.com/hazyhaar/assokit/pkg/horui/search"
-	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/horui/tree"
 )
 
@@ -153,12 +152,11 @@ var handleLogout = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 })
 
+// handleForgotStub : laissé en compat pour ancien call-site (orphelin
+// après livraison M-ASSOKIT-IMPL-PASSWORD-RESET-FLOW). Le router pointe
+// maintenant vers handleForgotForm/Submit. À supprimer dans v0.3.
 func handleForgotStub(w http.ResponseWriter, r *http.Request) {
-	contact := theme.Brand().ContactEmail
-	if contact == "" {
-		contact = "support"
-	}
-	http.Error(w, "Réinitialisation par email à venir. Contactez "+contact+".", http.StatusNotImplemented)
+	http.Redirect(w, r, "/forgot", http.StatusMovedPermanently)
 }
 
 func handleMerci(w http.ResponseWriter, r *http.Request) { merciHandlerImpl(w, r) }

@@ -461,6 +461,56 @@ templ Register() {
 	</section>
 }
 
+// ForgotPasswordForm : étape 1 du flow reset — saisie email.
+templ ForgotPasswordForm(csrfToken string) {
+	<section class="section page-forgot">
+		<div class="form-card">
+			<div class="page-header">
+				<h1>Mot de passe oublié</h1>
+			</div>
+			<p>Entrez votre email. Si un compte existe, vous recevrez un lien de réinitialisation valable 1h.</p>
+			<form method="POST" action="/forgot" class="form-stack">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				<div class="form-field">
+					<label for="forgot-email">Email</label>
+					<input id="forgot-email" type="email" name="email" required autocomplete="email"/>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn btn-primary">Envoyer le lien</button>
+					<a href="/login" class="btn btn-ghost">Annuler</a>
+				</div>
+			</form>
+		</div>
+	</section>
+}
+
+// ResetPasswordForm : étape 2 — saisie nouveau password (token validé en amont par handler).
+templ ResetPasswordForm(token, csrfToken string) {
+	<section class="section page-reset">
+		<div class="form-card">
+			<div class="page-header">
+				<h1>Nouveau mot de passe</h1>
+			</div>
+			<p>Choisissez un nouveau mot de passe (12 caractères minimum).</p>
+			<form method="POST" action="/reset" class="form-stack">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				<input type="hidden" name="token" value={ token }/>
+				<div class="form-field">
+					<label for="reset-password">Nouveau mot de passe</label>
+					<input id="reset-password" type="password" name="password" required minlength="12" autocomplete="new-password"/>
+				</div>
+				<div class="form-field">
+					<label for="reset-password-confirm">Confirmer le mot de passe</label>
+					<input id="reset-password-confirm" type="password" name="password_confirm" required minlength="12" autocomplete="new-password"/>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn btn-primary">Définir le nouveau mot de passe</button>
+				</div>
+			</form>
+		</div>
+	</section>
+}
+
 // ========================================================================
 // SEARCH
 // ========================================================================
