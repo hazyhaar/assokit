@@ -1,5 +1,37 @@
 # Changelog
 
+## [v0.3.0] - 2026-05-02
+
+### Added
+- **Feedback module** (F1/F2/F3) : collecte anonyme stricte, widget HTMX public, interface admin triage paginée
+  - `pkg/horui/admin/feedback_list.templ` — liste + détail + formulaire triage
+  - `internal/handlers/admin_feedbacks.go` — GET list, GET detail, POST triage (whitelist status)
+  - Migration v2 : table `feedbacks` (ip_hash, fingerprint, source, status, triaged_by)
+- **RBAC module** (Sprint 1, briques 1–3) :
+  - RBAC-1 : schema Goose `permissions`, `grades`, `grade_permissions`, `grade_inherits` DAG, `user_grades`, `user_effective_permissions`, `rbac_audit` + `Store` complet
+  - RBAC-2 : `Service{Store, Cache}` — `Can()` hot-path L1→L2, `Recompute()` TX atomique, hooks mutation (`AssignGrade`, `GrantPerm`, `AddInherit`, …)
+  - `Cache` L1 in-memory version-based (`sync.Map` + `atomic.Uint64`), invalidation par `BumpVersion()`, bound 10k users
+  - RBAC-3 : middleware chi `RBAC(svc)` — injection service+userID en ctx ; helpers `perms.Required(perm)`, `perms.Has(ctx, perm)`, `perms.IfHas(ctx, perm, component)` pour rendu conditionnel templ
+- `Store.GradeDescendants(ctx, id)` — CTE récursive descendante pour propagation cache sur mutation grade parent
+- `pkg/horui/perms` : helpers contexte RBAC (`ContextWithService`, `ServiceFromContext`, `ContextWithUserID`, `UserID`)
+
+### Fixed
+- Tests CDP (`integration_cdp_test.go`) portés vers API post-Lot2 (`SeedNodes` → `app.Bootstrap`, `theme.Defaults` supprimé)
+- `recomputeGradeUsers` : closure descendante manquante — GrantPerm sur grade B ne recomputait pas les users du grade A (A inherits B) ; corrigé via `GradeDescendants` CTE
+
+### Testing
+- Suite complète `go test ./...` verte — aucune régression
+- Tests gardiens RBAC : `TestService_TransitiveClosure_DAG`, `TestCan_HotPath_NoDBQueryAfterCacheHit`, `TestService_GrantPermOnAncestorGradeRecomputesDescendantUsers`, `TestService_AddInheritCascadesDescendantRecompute`, `TestStore_GradeDescendants_RecursiveCTE`
+- Tests gardiens RBAC-3 : `TestPerms_Required403WithoutPerm_NextWithPerm`, `TestPerms_IfHasRendersContentOnlyWhenAllowed`, `TestPerms_CtxWithoutUserReturnsForbidden`
+- Benchmark `BenchmarkCan_CacheHit` < 1µs (hot path L1)
+
+### Migration notes (v0.2 → v0.3)
+- Ajouter `middleware.RBAC(svc)` après `middleware.Auth(...)` dans la chaîne chi si RBAC activé
+- `perms.Required("my.perm")` remplace les checks manuels `if !user.HasPerm(...)` dans les routes
+- Run `chassis.Run(db)` inclut maintenant les migrations RBAC (v3) — idempotent, pas d'action manuelle
+
+---
+
 ## [v0.2.0] - 2026-05-01
 
 ### Added
