@@ -1,0 +1,188 @@
+package admin
+
+// FeedbackRow est une ligne de la liste des feedbacks.
+type FeedbackRow struct {
+	ID          string
+	PageURL     string
+	MessageSnip string // 100 premiers chars
+	Status      string
+	CreatedAt   string
+}
+
+// FeedbackDetail contient les données complètes d'un feedback.
+type FeedbackDetail struct {
+	ID          string
+	PageURL     string
+	PageTitle   string
+	Message     string
+	IPHashSnip  string // 4 derniers chars de ip_hash
+	UserAgent   string
+	Locale      string
+	Status      string
+	AdminNote   string
+	TriagedBy   string
+	TriagedAt   string
+	CreatedAt   string
+}
+
+// FeedbackFilter regroupe les paramètres de filtrage actifs.
+type FeedbackFilter struct {
+	Status string
+	Search string
+}
+
+// PaginationInfo porte le contexte de pagination.
+type PaginationInfo struct {
+	Page      int
+	Total     int
+	HasPrev   bool
+	HasNext   bool
+	PrevPage  int
+	NextPage  int
+	BaseQuery string // query string sans page=
+}
+
+// statusBadgeClass retourne la classe CSS du badge selon le statut.
+func statusBadgeClass(status string) string {
+	switch status {
+	case "pending":
+		return "badge badge-warning"
+	case "triaged":
+		return "badge badge-info"
+	case "closed":
+		return "badge badge-success"
+	case "spam":
+		return "badge badge-danger"
+	default:
+		return "badge"
+	}
+}
+
+// FeedbackListPage rend la liste paginée des feedbacks avec filtres.
+templ FeedbackListPage(rows []FeedbackRow, pag PaginationInfo, filter FeedbackFilter) {
+	<div class="admin-feedbacks">
+		<h1>Feedbacks</h1>
+		<form method="get" action="/admin/feedbacks" class="admin-filters">
+			<label>
+				Statut
+				<select name="status" onchange="this.form.submit()">
+					<option value="" selected?={ filter.Status == "" }>Tous</option>
+					<option value="pending" selected?={ filter.Status == "pending" }>En attente</option>
+					<option value="triaged" selected?={ filter.Status == "triaged" }>Traité</option>
+					<option value="closed" selected?={ filter.Status == "closed" }>Fermé</option>
+					<option value="spam" selected?={ filter.Status == "spam" }>Spam</option>
+				</select>
+			</label>
+			<label>
+				Recherche
+				<input type="search" name="search" value={ filter.Search } placeholder="message, URL…"/>
+			</label>
+			<button type="submit">Filtrer</button>
+		</form>
+		<p>{ intToStr(pag.Total) } résultat(s)</p>
+		<table class="admin-table">
+			<thead>
+				<tr>
+					<th>Créé</th>
+					<th>URL</th>
+					<th>Message</th>
+					<th>Statut</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, fb := range rows {
+					@FeedbackListRow(fb)
+				}
+				if len(rows) == 0 {
+					<tr><td colspan="5">Aucun feedback.</td></tr>
+				}
+			</tbody>
+		</table>
+		<nav class="admin-pagination">
+			if pag.HasPrev {
+				<a href={ templ.SafeURL("/admin/feedbacks?" + pag.BaseQuery + "page=" + intToStr(pag.PrevPage)) }>&laquo; Précédent</a>
+			}
+			<span>Page { intToStr(pag.Page) }</span>
+			if pag.HasNext {
+				<a href={ templ.SafeURL("/admin/feedbacks?" + pag.BaseQuery + "page=" + intToStr(pag.NextPage)) }>Suivant &raquo;</a>
+			}
+		</nav>
+	</div>
+}
+
+// FeedbackListRow rend une ligne de tableau (réutilisé pour HTMX swap).
+templ FeedbackListRow(fb FeedbackRow) {
+	<tr id={ "fb-row-" + fb.ID }>
+		<td>{ fb.CreatedAt }</td>
+		<td><a href={ templ.SafeURL(fb.PageURL) } target="_blank" rel="noopener">{ fb.PageURL }</a></td>
+		<td>{ fb.MessageSnip }</td>
+		<td><span class={ statusBadgeClass(fb.Status) }>{ fb.Status }</span></td>
+		<td>
+			<a href={ templ.SafeURL("/admin/feedbacks/" + fb.ID) }>Détail</a>
+		</td>
+	</tr>
+}
+
+// FeedbackDetailPage rend la page de détail d'un feedback avec le formulaire de triage.
+templ FeedbackDetailPage(fb FeedbackDetail, csrfToken string) {
+	<div class="admin-feedback-detail">
+		<h1>Feedback</h1>
+		<a href="/admin/feedbacks">&larr; Retour à la liste</a>
+		<dl class="admin-dl">
+			<dt>Créé</dt><dd>{ fb.CreatedAt }</dd>
+			<dt>URL</dt><dd><a href={ templ.SafeURL(fb.PageURL) } target="_blank" rel="noopener">{ fb.PageURL }</a></dd>
+			<dt>Page</dt><dd>{ fb.PageTitle }</dd>
+			<dt>Statut</dt><dd><span class={ statusBadgeClass(fb.Status) }>{ fb.Status }</span></dd>
+			<dt>User-Agent</dt><dd>{ fb.UserAgent }</dd>
+			<dt>Locale</dt><dd>{ fb.Locale }</dd>
+			<dt>IP (partiel)</dt><dd>…{ fb.IPHashSnip }</dd>
+			if fb.TriagedBy != "" {
+				<dt>Traité par</dt><dd>{ fb.TriagedBy }</dd>
+				<dt>Traité le</dt><dd>{ fb.TriagedAt }</dd>
+			}
+		</dl>
+		<blockquote class="feedback-message">{ fb.Message }</blockquote>
+		<form
+			method="post"
+			action={ templ.SafeURL("/admin/feedbacks/" + fb.ID + "/triage") }
+			hx-post={ "/admin/feedbacks/" + fb.ID + "/triage" }
+			hx-target={ "#fb-row-" + fb.ID }
+			hx-swap="outerHTML"
+			class="admin-triage-form"
+		>
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<label>
+				Note admin
+				<textarea name="admin_note" rows="3" placeholder="Note interne…">{ fb.AdminNote }</textarea>
+			</label>
+			<div class="triage-actions">
+				<button type="submit" name="status" value="triaged" class="btn btn-info">Traité</button>
+				<button type="submit" name="status" value="closed" class="btn btn-success">Fermé</button>
+				<button type="submit" name="status" value="spam" class="btn btn-danger">Spam</button>
+				<button type="submit" name="status" value="pending" class="btn">Remettre en attente</button>
+			</div>
+		</form>
+	</div>
+}
+
+// intToStr convertit un int en string pour les templates.
+func intToStr(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	b := make([]byte, 0, 10)
+	if n < 0 {
+		b = append(b, '-')
+		n = -n
+	}
+	var digits []byte
+	for n > 0 {
+		digits = append(digits, byte('0'+n%10))
+		n /= 10
+	}
+	for i := len(digits) - 1; i >= 0; i-- {
+		b = append(b, digits[i])
+	}
+	return string(b)
+}

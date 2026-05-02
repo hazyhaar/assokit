@@ -84,6 +84,11 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.Get("/feedback/form", handleFeedbackForm(deps))
 	r.Post("/feedback", handleFeedbackPost(deps, feedbackRL))
 
+	// Admin feedbacks
+	r.With(requireAdmin).Get("/admin/feedbacks", handleAdminFeedbackList(deps))
+	r.With(requireAdmin).Get("/admin/feedbacks/{id}", handleAdminFeedbackDetail(deps))
+	r.With(requireAdmin).Post("/admin/feedbacks/{id}/triage", handleAdminFeedbackTriage(deps))
+
 	_ = permsStore
 }
 
