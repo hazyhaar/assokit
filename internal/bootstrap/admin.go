@@ -80,3 +80,8 @@ func bootstrapAdmin(db *sql.DB, adminEmail, adminPassword string, logger *slog.L
 	}
 	return nil
 }
+
+// BootstrapAdmin est l'export public de bootstrapAdmin — appelé par pkg/api.New.
+func BootstrapAdmin(db *sql.DB, adminEmail, adminPassword string, logger *slog.Logger) error {
+	return bootstrapAdmin(db, adminEmail, adminPassword, logger)
+}
