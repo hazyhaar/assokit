@@ -56,6 +56,95 @@ func TestRunIdempotent(t *testing.T) {
 	}
 }
 
+// TestMigrateV2_FeedbacksTableExists : table feedbacks présente après Run.
+func TestMigrateV2_FeedbacksTableExists(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	var name string
+	if err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='feedbacks'`).Scan(&name); err != nil {
+		t.Fatalf("table feedbacks absente après migration v2: %v", err)
+	}
+	if name != "feedbacks" {
+		t.Errorf("name = %q, want feedbacks", name)
+	}
+
+	var v int
+	if err := db.QueryRow(`SELECT version FROM schema_version WHERE version=2`).Scan(&v); err != nil {
+		t.Fatalf("schema_version v2 absente: %v", err)
+	}
+}
+
+// TestMigrateV2_FeedbackInsertRespectsCheckLength : CHECK length(message) BETWEEN 5 AND 2000.
+func TestMigrateV2_FeedbackInsertRespectsCheckLength(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// message 4 chars → doit échouer.
+	_, err := db.Exec(`INSERT INTO feedbacks(id, page_url, message) VALUES('fb-fail','/test','abcd')`)
+	if err == nil {
+		t.Error("INSERT message 4 chars devrait échouer (CHECK length >= 5)")
+	}
+
+	// message 5 chars → doit passer.
+	_, err = db.Exec(`INSERT INTO feedbacks(id, page_url, message) VALUES('fb-ok','/test','abcde')`)
+	if err != nil {
+		t.Errorf("INSERT message 5 chars devrait passer: %v", err)
+	}
+}
+
+// TestMigrateV2_FeedbackInsertRespectsCheckStatus : CHECK status IN ('pending','triaged','closed','spam').
+func TestMigrateV2_FeedbackInsertRespectsCheckStatus(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// status invalide → doit échouer.
+	_, err := db.Exec(`INSERT INTO feedbacks(id, page_url, message, status) VALUES('fb-bad','/test','message ok','invalid')`)
+	if err == nil {
+		t.Error("INSERT status='invalid' devrait échouer (CHECK status IN ...)")
+	}
+
+	// status valide → doit passer.
+	_, err = db.Exec(`INSERT INTO feedbacks(id, page_url, message, status) VALUES('fb-good','/test','message ok','spam')`)
+	if err != nil {
+		t.Errorf("INSERT status='spam' devrait passer: %v", err)
+	}
+}
+
+// TestMigrateV2_Idempotent : Run() 2x sans erreur (v2 no-op au 2e appel).
+func TestMigrateV2_Idempotent(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("Run 1: %v", err)
+	}
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("Run 2 (idempotent v2): %v", err)
+	}
+
+	// La table ne doit pas être dupliquée.
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='feedbacks'`).Scan(&count); err != nil {
+		t.Fatalf("COUNT feedbacks: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("feedbacks table count = %d after 2x Run, want 1", count)
+	}
+}
+
 func TestFTS5TriggersWork(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
