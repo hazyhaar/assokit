@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"io/fs"
 	"log/slog"
+	"net/http"
 
 	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/internal/types"
@@ -23,4 +24,9 @@ type AppDeps struct {
 	Mailer     Mailer
 	BrandingFS fs.FS
 	Profils    []types.Profil
+
+	// WebhookReceiver : handler /webhooks/{provider} câblé depuis api.New si
+	// NPS_MASTER_KEY+Vault disponibles. Nil sinon → la route renvoie 503 explicite
+	// (HelloAsso peut détecter via leur retry pattern).
+	WebhookReceiver func(http.ResponseWriter, *http.Request)
 }

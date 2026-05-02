@@ -1,0 +1,60 @@
+// CLAUDE:SUMMARY Page consent OAuth en français accessible (M-ASSOKIT-DCR-4).
+package pages
+
+// ConsentProps : données rendues sur la page /oauth2/consent.
+type ConsentProps struct {
+	ClientName    string
+	AuthRequestID string
+	CSRFToken     string
+	ScopesGranted []string // libellés FR déjà résolus via LibellesScope.
+	RedirectURI   string
+	State         string
+}
+
+templ Consent(p ConsentProps) {
+	<section class="oauth-consent">
+		<div class="page-header">
+			<h1>{ p.ClientName } demande accès à votre compte</h1>
+		</div>
+		<p class="consent-intro">
+			L'application <strong>{ p.ClientName }</strong> souhaite faire des actions à votre place.
+			Vérifiez ce qu'elle pourra faire avant d'autoriser.
+		</p>
+
+		<div class="consent-can">
+			<h2>Elle pourra :</h2>
+			<ul>
+				for _, label := range p.ScopesGranted {
+					<li>✓ { label }</li>
+				}
+			</ul>
+		</div>
+
+		<div class="consent-cannot">
+			<h2>Elle ne pourra PAS :</h2>
+			<ul>
+				<li>✗ Voir votre mot de passe (vous n'en avez pas — connexion par email seulement)</li>
+				<li>✗ Modifier les comptes des autres membres (sauf si autorisé ci-dessus)</li>
+				<li>✗ Faire des dons en votre nom (sauf si autorisé ci-dessus)</li>
+				<li>✗ Supprimer votre compte (sauf si autorisé ci-dessus)</li>
+			</ul>
+		</div>
+
+		<form method="POST" action="/oauth2/consent" class="consent-form">
+			<input type="hidden" name="_csrf" value={ p.CSRFToken }/>
+			<input type="hidden" name="auth_request_id" value={ p.AuthRequestID }/>
+			<input type="hidden" name="redirect_uri" value={ p.RedirectURI }/>
+			<input type="hidden" name="state" value={ p.State }/>
+			<div class="consent-actions">
+				<button type="submit" name="decision" value="approve" class="btn btn-primary">Autoriser</button>
+				<button type="submit" name="decision" value="deny" class="btn btn-ghost">Refuser</button>
+			</div>
+		</form>
+
+		<p class="consent-revoke">
+			<small>
+				Vous pourrez révoquer cette autorisation à tout moment via vos paramètres de compte.
+			</small>
+		</p>
+	</section>
+}

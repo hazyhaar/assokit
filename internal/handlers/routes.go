@@ -129,6 +129,22 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 	r.Get("/feedback/form", handleFeedbackForm(deps))
 	r.Post("/feedback", handleFeedbackPost(deps, feedbackRL))
 
+	// Webhooks PUBLICS (HelloAsso/Stripe/etc.) : PAS de Bearer/session, HMAC obligatoire.
+	// HelloAsso POST depuis ses serveurs avec X-HelloAsso-Signature, sans token user.
+	// Si Vault/connectors absent (NPS_MASTER_KEY pas set), 503 explicite + Retry-After
+	// (HelloAsso retry pattern récupère après config admin).
+	// M-ASSOKIT-HELLOASSO-WEBHOOK-PUBLIC-ENDPOINT.
+	r.Post("/webhooks/{provider}", func(w http.ResponseWriter, req *http.Request) {
+		if deps.WebhookReceiver == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Retry-After", "3600")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"status":"webhook_receiver_not_configured","retry_after":3600}`))
+			return
+		}
+		deps.WebhookReceiver(w, req)
+	})
+
 	// Admin feedbacks
 	r.With(requireAdmin).Get("/admin/feedbacks", handleAdminFeedbackList(deps))
 	r.With(requireAdmin).Get("/admin/feedbacks/{id}", handleAdminFeedbackDetail(deps))

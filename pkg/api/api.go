@@ -24,6 +24,7 @@ import (
 	"github.com/hazyhaar/assokit/pkg/connectors"
 	"github.com/hazyhaar/assokit/pkg/connectors/assets"
 	"github.com/hazyhaar/assokit/pkg/connectors/helloasso"
+	"github.com/hazyhaar/assokit/pkg/connectors/webhooks"
 	appMiddleware "github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/static"
@@ -219,6 +220,17 @@ func New(opts Options) (*App, error) {
 				logger.Warn("connectors: StartAll partial", "err", err.Error())
 			}
 			startCancel()
+
+			// Webhook receiver (HelloAsso pour l'instant, extensible) : route publique
+			// /webhooks/{provider} verifying HMAC via Vault. M-ASSOKIT-HELLOASSO-WEBHOOK-PUBLIC.
+			whStore := &webhooks.Store{DB: db}
+			whConfigs := map[string]handlers.SignatureConfig{
+				"helloasso": {
+					HeaderName:   helloasso.WebhookSignatureHeader,
+					ExtractEvent: helloasso.ExtractWebhookEventID,
+				},
+			}
+			deps.WebhookReceiver = handlers.WebhookHandler(deps, whStore, vault, whConfigs)
 		}
 	} else {
 		logger.Info("connectors: NPS_MASTER_KEY absent — Vault désactivé, connectors inactifs")

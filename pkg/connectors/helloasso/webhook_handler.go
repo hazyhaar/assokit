@@ -49,6 +49,36 @@ type webhookEnvelope struct {
 	Data      json.RawMessage `json:"data"`
 }
 
+// dataWithID : sous-payload data.id pour extraction event_id.
+type dataWithID struct {
+	ID json.Number `json:"id"`
+}
+
+// ExtractWebhookEventID parse le payload HelloAsso et retourne (event_id, event_type, err).
+// Le receiver générique (handlers/webhook_receiver.go) appelle cet extractor pour
+// remplir webhooks.Event{ID, EventType} avant Insert idempotent.
+//
+// Format HelloAsso : `{"eventType":"Payment.Notification","data":{"id":12345,...}}`.
+// event_id = "<eventType>:<data.id>" pour garantir unicité cross-event-type
+// (un même paiement peut générer plusieurs notifications de types différents).
+func ExtractWebhookEventID(payload []byte) (eventID, eventType string, err error) {
+	var env webhookEnvelope
+	if err := json.Unmarshal(payload, &env); err != nil {
+		return "", "", fmt.Errorf("ExtractWebhookEventID: parse envelope: %w", err)
+	}
+	if env.EventType == "" {
+		return "", "", errors.New("ExtractWebhookEventID: eventType absent")
+	}
+	var data dataWithID
+	if err := json.Unmarshal(env.Data, &data); err != nil {
+		return "", "", fmt.Errorf("ExtractWebhookEventID: parse data: %w", err)
+	}
+	if data.ID == "" {
+		return "", "", errors.New("ExtractWebhookEventID: data.id absent")
+	}
+	return env.EventType + ":" + string(data.ID), env.EventType, nil
+}
+
 // ProcessWebhook dispatche un payload webhook HelloAsso.
 // Le receiver générique (S2-4) a déjà fait HMAC verify + Insert webhook_events ;
 // cette méthode est appelée par le worker drainer via Connector.HandleWebhook.
