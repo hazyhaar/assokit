@@ -53,6 +53,13 @@ func MountRoutes(r chi.Router, deps app.AppDeps) {
 
 	// Soutenir / Contact
 	r.Get("/soutenir", handleDonatePage(deps))
+	// Aliases liens-externes/branding pour éviter 404 (prod NPS branding.toml + layout.templ buttons).
+	r.Get("/donate", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/soutenir", http.StatusMovedPermanently) })
+	r.Get("/signup", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/participer", http.StatusMovedPermanently) })
+	r.Get("/forgot-password", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/forgot", http.StatusMovedPermanently) })
+	r.Get("/reset-password", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/forgot", http.StatusMovedPermanently) })
+	// Favicon : redirect vers /static/favicon.svg ou 204 si absent.
+	r.Get("/static/assets/favicon.ico", func(w http.ResponseWriter, req *http.Request) { http.Redirect(w, req, "/static/favicon.svg", http.StatusMovedPermanently) })
 	r.Get("/contact", handleContactPage(deps))
 	r.Post("/contact", handleContactSubmit(deps))
 
