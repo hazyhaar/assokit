@@ -1,0 +1,23 @@
+// CLAUDE:SUMMARY Template admin /admin/connectors/{id}/configure — host minimal pour le JS vanilla.
+package admin
+
+templ ConnectorsConfigurePage(connectorID, connectorName string) {
+	<!DOCTYPE html>
+	<html lang="fr">
+		<head>
+			<meta charset="utf-8"/>
+			<title>Configurer { connectorName } — Admin</title>
+			<link rel="stylesheet" href="/static/css/admin_connector_form.css"/>
+		</head>
+		<body>
+			<header>
+				<h1>Configurer { connectorName }</h1>
+				<p><a href="/admin/connectors">← Retour à la liste</a></p>
+			</header>
+			<main>
+				<div id="connector-form" data-connector-id={ connectorID }></div>
+			</main>
+			<script src="/static/js/admin_connector_form.js"></script>
+		</body>
+	</html>
+}
