@@ -4,8 +4,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 )
 
 // RBAC injecte svc dans le contexte et extrait l'userID depuis le middleware Auth.

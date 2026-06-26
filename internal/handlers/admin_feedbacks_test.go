@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 func newAdminDeps(t *testing.T) app.AppDeps {
@@ -52,7 +52,7 @@ func feedbackItoa(n int) string {
 	return string(b)
 }
 
-func adminRequest(r *http.Request, user *auth.User) *http.Request {
+func adminRequest(r *http.Request, user *identity.User) *http.Request {
 	return r.WithContext(middleware.ContextWithUser(r.Context(), user))
 }
 
@@ -62,7 +62,7 @@ func TestAdminFeedbacks_NonAdminReturns403(t *testing.T) {
 	handler := requireAdmin(handleAdminFeedbackList(deps))
 
 	r := httptest.NewRequest(http.MethodGet, "/admin/feedbacks", nil)
-	member := &auth.User{ID: "u1", Roles: []string{"member"}}
+	member := &identity.User{ID: "u1", Roles: []string{"member"}}
 	r = adminRequest(r, member)
 
 	w := httptest.NewRecorder()
@@ -92,7 +92,7 @@ func TestAdminFeedbacks_AdminReturns200(t *testing.T) {
 	handler := requireAdmin(handleAdminFeedbackList(deps))
 
 	r := httptest.NewRequest(http.MethodGet, "/admin/feedbacks", nil)
-	admin := &auth.User{ID: "admin1", Roles: []string{"admin"}}
+	admin := &identity.User{ID: "admin1", Roles: []string{"admin"}}
 	r = adminRequest(r, admin)
 
 	w := httptest.NewRecorder()
@@ -109,7 +109,7 @@ func TestAdminFeedbacks_PaginationLimit50(t *testing.T) {
 
 	handler := handleAdminFeedbackList(deps)
 	r := httptest.NewRequest(http.MethodGet, "/admin/feedbacks", nil)
-	adminUser := &auth.User{ID: "admin1", Roles: []string{"admin"}}
+	adminUser := &identity.User{ID: "admin1", Roles: []string{"admin"}}
 	r = adminRequest(r, adminUser)
 
 	w := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestAdminFeedbacks_FilterByStatus(t *testing.T) {
 
 	handler := handleAdminFeedbackList(deps)
 	r := httptest.NewRequest(http.MethodGet, "/admin/feedbacks?status=spam", nil)
-	adminUser := &auth.User{ID: "admin1", Roles: []string{"admin"}}
+	adminUser := &identity.User{ID: "admin1", Roles: []string{"admin"}}
 	r = adminRequest(r, adminUser)
 
 	w := httptest.NewRecorder()
@@ -165,7 +165,7 @@ func TestAdminFeedbacks_FilterBySearch(t *testing.T) {
 	form := url.Values{"search": {"unique alpha"}}
 	r := httptest.NewRequest(http.MethodGet, "/admin/feedbacks?search=unique+alpha", nil)
 	_ = form
-	adminUser := &auth.User{ID: "admin1", Roles: []string{"admin"}}
+	adminUser := &identity.User{ID: "admin1", Roles: []string{"admin"}}
 	r = adminRequest(r, adminUser)
 
 	w := httptest.NewRecorder()
@@ -206,7 +206,7 @@ func TestAdminFeedbacks_TriagePersistsFields(t *testing.T) {
 		strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	adminUser := &auth.User{ID: "admin-user-1", Roles: []string{"admin"}}
+	adminUser := &identity.User{ID: "admin-user-1", Roles: []string{"admin"}}
 	r = adminRequest(r, adminUser)
 
 	rctx := chi.NewRouteContext()
@@ -250,7 +250,7 @@ func TestAdminFeedbacks_TriageInvalidStatus(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/admin/feedbacks/fb-bad/triage",
 		strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	adminUser := &auth.User{ID: "admin1", Roles: []string{"admin"}}
+	adminUser := &identity.User{ID: "admin1", Roles: []string{"admin"}}
 	r = adminRequest(r, adminUser)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", "fb-bad")
@@ -272,7 +272,7 @@ func TestAdminFeedbacks_TriageNotFound(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/admin/feedbacks/nonexistent/triage",
 		strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	adminUser := &auth.User{ID: "admin1", Roles: []string{"admin"}}
+	adminUser := &identity.User{ID: "admin1", Roles: []string{"admin"}}
 	r = adminRequest(r, adminUser)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", "nonexistent")

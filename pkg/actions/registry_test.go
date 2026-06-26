@@ -17,11 +17,11 @@ import (
 	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 
 	"github.com/hazyhaar/assokit/pkg/actions/seeds"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
+	"github.com/hazyhaar/assokit/pkg/identity"
 	"github.com/mark3labs/mcp-go/server"
 )
 
@@ -89,7 +89,7 @@ func TestMountHTTP_ActionFiresWithPerm_Returns200(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/admin/actions/test.ping", strings.NewReader(""))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	u := &auth.User{ID: "user-test-1"}
+	u := &identity.User{ID: "user-test-1"}
 	req = req.WithContext(middleware.ContextWithUser(
 		perms.ContextWithUserID(perms.ContextWithService(req.Context(), svc), "user-test-1"),
 		u,
@@ -173,7 +173,7 @@ func TestMountHTTP_GenericFormRendersFromSchema(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/admin/actions/test.form", nil)
 	req = req.WithContext(middleware.ContextWithUser(
 		perms.ContextWithUserID(perms.ContextWithService(req.Context(), svc), "user-form-1"),
-		&auth.User{ID: "user-form-1"},
+		&identity.User{ID: "user-form-1"},
 	))
 
 	w := httptest.NewRecorder()
@@ -280,7 +280,7 @@ func TestMCP_InvocationRowOnEachCall(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req = req.WithContext(middleware.ContextWithUser(
 		perms.ContextWithUserID(perms.ContextWithService(req.Context(), svc), "user-audit-mcp"),
-		&auth.User{ID: "user-audit-mcp"},
+		&identity.User{ID: "user-audit-mcp"},
 	))
 
 	w := httptest.NewRecorder()
@@ -295,7 +295,7 @@ func TestMCP_InvocationRowOnEachCall(t *testing.T) {
 
 	ctxWithPerms := middleware.ContextWithUser(
 		perms.ContextWithUserID(perms.ContextWithService(ctx, svc), "user-audit-mcp"),
-		&auth.User{ID: "user-audit-mcp"},
+		&identity.User{ID: "user-audit-mcp"},
 	)
 	_ = ctxWithPerms
 

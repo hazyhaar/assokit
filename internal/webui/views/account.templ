@@ -1,0 +1,265 @@
+// views/account.templ — espace propriétaire membre (V3a) : accueil consolidé,
+// cotisations, attestation imprimable, déclaration de mutation. Vendoring templux,
+// gabarit conventions/parcelles. Aucune donnée fabriquée : tout vient des stores
+// réels du membre connecté, état vide assumé sinon.
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/membership"
+	"github.com/hazyhaar/assokit/pkg/mutation"
+	"github.com/hazyhaar/assokit/pkg/parcelle"
+)
+
+// AccountSummary agrège les compteurs et l'état d'adhésion du membre connecté pour
+// l'écran d'accueil. Tous les champs sont dérivés de stores réels (cf. handler).
+type AccountSummary struct {
+	DisplayName     string
+	ParcellesCount  int
+	SurfaceTotalM2  int64
+	ConventionsLen  int
+	CotisationsLen  int
+	MembershipState string // libellé de l'adhésion courante (CurrentStatus)
+}
+
+// AccountHomePage : page d'accueil rôle-scopée du propriétaire. Résumés + liens vers
+// les vues détaillées existantes (parcelles, conventions, cotisations, gouvernance).
+templ AccountHomePage(s AccountSummary) {
+	<section id="account-home" class="flex flex-col gap-space-lg">
+		<header class="flex flex-col gap-space-sm">
+			<h1 class="text-2xl font-semibold text-ink">Espace propriétaire</h1>
+			if s.DisplayName != "" {
+				<p class="text-ink-muted">{ s.DisplayName }</p>
+			}
+			<p class="text-ink-muted text-sm">Adhésion : { s.MembershipState }</p>
+		</header>
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+			@accountCard("Mes parcelles", accountParcellesResume(s), "/account/parcelles")
+			@accountCard("Mes conventions", accountConventionsResume(s), "/account/conventions")
+			@accountCard("Espace élevage", "Entretien, problèmes terrain, export PAC.", "/account/elevage")
+			@accountCard("Demander une mise à disposition", "Solliciter une parcelle pour pâturage ou usage.", "/account/demande-mad")
+			@accountCard("Mes cotisations", accountCotisationsResume(s), "/account/cotisations")
+			@accountCard("Attestation d'adhésion", "Document imprimable (adhésion et parcelles).", "/account/attestation")
+			@accountCard("Déclarer une mutation", "Vente ou succession sur une de mes parcelles.", "/account/mutation")
+			@accountCard("Corpus juridique", "Rechercher dans le corpus de droit rural.", "/account/corpus")
+			@accountCard("Mes données", "Télécharger mes données personnelles.", "/account/data-download")
+		</div>
+	</section>
+}
+
+templ accountCard(title, resume, href string) {
+	<a href={ templ.SafeURL(href) } class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm hover:shadow-md">
+		<h2 class="text-lg font-medium text-ink">{ title }</h2>
+		<p class="text-ink-muted text-sm">{ resume }</p>
+	</a>
+}
+
+// AccountCotisationsPage : liste des appels de cotisation du membre (lecture seule).
+templ AccountCotisationsPage(list []membership.Membership) {
+	<section id="account-cotisations" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Mes cotisations</h1>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune cotisation rattachée à votre compte.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Période</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Montant</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range list {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ cotisationPeriode(m) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ cotisationMontant(m.AmountCents) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ cotisationStatut(m.Status) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// AccountAttestationPage : attestation d'adhésion imprimable (impression navigateur
+// = PDF). Contenu réel issu de l'adhésion et des parcelles du membre.
+templ AccountAttestationPage(displayName, email, membershipState string, parcelles []parcelle.Parcelle) {
+	<article id="account-attestation" class="flex flex-col gap-space-lg max-w-prose mx-auto">
+		<header class="flex flex-col gap-space-sm">
+			<h1 class="text-2xl font-semibold text-ink">Attestation d'adhésion</h1>
+			<p class="text-ink-muted text-sm">Membre : { displayName } · { email }</p>
+			<p class="text-ink-muted text-sm">Adhésion : { membershipState }</p>
+		</header>
+		<section class="flex flex-col gap-space-sm">
+			<p class="whitespace-pre-line">{ attestationCorps(displayName, membershipState) }</p>
+		</section>
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-xl font-semibold text-ink">Parcelles rattachées</h2>
+			if len(parcelles) == 0 {
+				<p class="text-ink-muted">Aucune parcelle rattachée à ce compte.</p>
+			} else {
+				<ul class="list-disc pl-space-lg">
+					for _, p := range parcelles {
+						<li>{ attestationParcelleRef(p) }</li>
+					}
+				</ul>
+			}
+		</section>
+	</article>
+}
+
+// AccountMutationPage : formulaire de déclaration de mutation + déclarations déjà
+// faites par le membre. Le sélecteur de parcelle propose les parcelles du membre ;
+// un champ libre reste possible (succession d'un bien non encore enregistré).
+templ AccountMutationPage(parcelles []parcelle.Parcelle, declarations []mutation.Declaration, csrfToken string) {
+	<section id="account-mutation" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Déclarer une mutation</h1>
+		<form method="POST" action="/account/mutation" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<p class="text-ink-muted text-sm">Déclarer une vente ou une succession portant sur une parcelle. La déclaration est transmise à l'administration : elle n'opère aucun transfert automatique.</p>
+			@templux.FormField("Référence de parcelle", "", "", templux.Input("parcelle_ref", "", templ.Attributes{"type": "text", "required": "required", "placeholder": "commune · section · numéro", "list": "account-mutation-parcelles"}))
+			<datalist id="account-mutation-parcelles">
+				for _, p := range parcelles {
+					<option value={ mutationParcelleRef(p) }></option>
+				}
+			</datalist>
+			@templux.FormField("Type de mutation", "", "", templux.Select("type", mutationTypeOptions, "vente", templ.Attributes{}))
+			@templux.FormField("Précisions", "", "", templux.Input("details", "", templ.Attributes{"type": "text", "placeholder": "Acquéreur, héritier, date prévue…"}))
+			@templux.Button("Déclarer la mutation", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(declarations) == 0 {
+			<p class="text-ink-muted">Aucune mutation déclarée.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Parcelle</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Type</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Précisions</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, d := range declarations {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ d.ParcelleRef }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ d.Type }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ d.Details }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ mutationStatut(d.Status) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// AdminMutationsPage : liste de toutes les déclarations de mutation (administration).
+templ AdminMutationsPage(list []mutation.Declaration) {
+	<section id="admin-mutations" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Déclarations de mutation</h1>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune déclaration de mutation.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Membre</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Parcelle</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Type</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Précisions</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, d := range list {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ d.UserID }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ d.ParcelleRef }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ d.Type }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ d.Details }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ mutationStatut(d.Status) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+var mutationTypeOptions = []templux.SelectOption{
+	{Value: "vente", Label: "Vente"},
+	{Value: "succession", Label: "Succession"},
+	{Value: "autre", Label: "Autre"},
+}
+
+func accountParcellesResume(s AccountSummary) string {
+	if s.ParcellesCount == 0 {
+		return "Aucune parcelle rattachée."
+	}
+	return fmt.Sprintf("%d parcelle(s) · %d m² au total.", s.ParcellesCount, s.SurfaceTotalM2)
+}
+
+func accountConventionsResume(s AccountSummary) string {
+	if s.ConventionsLen == 0 {
+		return "Aucune convention rattachée."
+	}
+	return fmt.Sprintf("%d convention(s).", s.ConventionsLen)
+}
+
+func accountCotisationsResume(s AccountSummary) string {
+	if s.CotisationsLen == 0 {
+		return "Aucune cotisation enregistrée."
+	}
+	return fmt.Sprintf("%d appel(s) de cotisation.", s.CotisationsLen)
+}
+
+func cotisationPeriode(m membership.Membership) string {
+	return fmt.Sprintf("%s → %s", m.PeriodStart, m.PeriodEnd)
+}
+
+func cotisationMontant(cents int64) string {
+	return fmt.Sprintf("%d,%02d €", cents/100, cents%100)
+}
+
+func cotisationStatut(status string) string {
+	switch status {
+	case "active":
+		return "actif"
+	case "expired":
+		return "expiré"
+	case "cancelled":
+		return "annulé"
+	case "pending":
+		return "en attente"
+	default:
+		return status
+	}
+}
+
+func attestationCorps(displayName, membershipState string) string {
+	return fmt.Sprintf("Il est attesté que %s est membre de l'association foncière pastorale. État de l'adhésion courante : %s.", displayName, membershipState)
+}
+
+func attestationParcelleRef(p parcelle.Parcelle) string {
+	return fmt.Sprintf("%s · %s · %s (%d m²)", p.CommuneCode, p.Section, p.NumeroParcelle, p.SurfaceM2)
+}
+
+func mutationParcelleRef(p parcelle.Parcelle) string {
+	return fmt.Sprintf("%s · %s · %s", p.CommuneCode, p.Section, p.NumeroParcelle)
+}
+
+func mutationStatut(status string) string {
+	switch status {
+	case "declaree":
+		return "déclarée"
+	case "traitee":
+		return "traitée"
+	default:
+		return status
+	}
+}

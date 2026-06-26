@@ -18,8 +18,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
 	adminpanel "github.com/hazyhaar/assokit/internal/handlers/admin_panel"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 func newAdminDeps(t *testing.T) app.AppDeps {
@@ -37,7 +37,7 @@ func newAdminDeps(t *testing.T) app.AppDeps {
 }
 
 func withAdminUser(r *http.Request) *http.Request {
-	u := &auth.User{ID: "", Email: "admin@test.com", Roles: []string{"admin"}}
+	u := &identity.User{ID: "", Email: "admin@test.com", Roles: []string{"admin"}}
 	return r.WithContext(middleware.ContextWithUser(r.Context(), u))
 }
 

@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 )
 
-func contextWithUser(ctx context.Context, u *auth.User) context.Context {
+func contextWithUser(ctx context.Context, u *identity.User) context.Context {
 	return context.WithValue(ctx, ctxKeyUser, u)
 }
 
@@ -26,7 +26,7 @@ func TestMiddlewareRBAC_InjectsServiceInCtx(t *testing.T) {
 	}))
 
 	r := httptest.NewRequest("GET", "/", nil)
-	r = r.WithContext(contextWithUser(r.Context(), &auth.User{ID: "user-123"}))
+	r = r.WithContext(contextWithUser(r.Context(), &identity.User{ID: "user-123"}))
 	handler.ServeHTTP(httptest.NewRecorder(), r)
 
 	if gotSvc == nil {
@@ -37,7 +37,7 @@ func TestMiddlewareRBAC_InjectsServiceInCtx(t *testing.T) {
 	}
 }
 
-// TestMiddlewareRBAC_InjectsUserID : RBAC() extrait l'ID de l'auth.User et l'injecte.
+// TestMiddlewareRBAC_InjectsUserID : RBAC() extrait l'ID de l'identity.User et l'injecte.
 func TestMiddlewareRBAC_InjectsUserID(t *testing.T) {
 	svc := &rbac.Service{Store: &rbac.Store{}, Cache: &rbac.Cache{}}
 
@@ -47,7 +47,7 @@ func TestMiddlewareRBAC_InjectsUserID(t *testing.T) {
 	}))
 
 	r := httptest.NewRequest("GET", "/", nil)
-	r = r.WithContext(contextWithUser(r.Context(), &auth.User{ID: "user-abc"}))
+	r = r.WithContext(contextWithUser(r.Context(), &identity.User{ID: "user-abc"}))
 	handler.ServeHTTP(httptest.NewRecorder(), r)
 
 	if gotUID != "user-abc" {
@@ -55,7 +55,7 @@ func TestMiddlewareRBAC_InjectsUserID(t *testing.T) {
 	}
 }
 
-// TestMiddlewareRBAC_AnonymousNoUserID : sans auth.User, userID reste "".
+// TestMiddlewareRBAC_AnonymousNoUserID : sans identity.User, userID reste "".
 func TestMiddlewareRBAC_AnonymousNoUserID(t *testing.T) {
 	svc := &rbac.Service{Store: &rbac.Store{}, Cache: &rbac.Cache{}}
 

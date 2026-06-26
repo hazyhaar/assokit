@@ -1,0 +1,35 @@
+// templux message-card — bulle de message dans un fil de discussion.
+// bodyHTML est rendu brut (doit être assaini en amont).
+//
+// Usage :
+//   @MessageCard("Alice", "2026-06-01", "<p>Bonjour</p>", "")
+//   @MessageCard("", "2026-06-01", "<p>…</p>", "muted")
+package templux
+
+templ MessageCard(author string, timestamp string, bodyHTML string, tone string) {
+	<div class={ messageCardClass(tone) }>
+		<div class="flex items-center justify-between text-xs text-ink-faint">
+			<span class="font-medium text-ink-muted">
+				if author != "" {
+					{ author }
+				} else {
+					<em>Anonyme</em>
+				}
+			</span>
+			<time>{ timestamp }</time>
+		</div>
+		if bodyHTML != "" {
+			<div class="text-ink text-sm">@templ.Raw(bodyHTML)</div>
+		}
+	</div>
+}
+
+func messageCardClass(tone string) string {
+	base := "flex flex-col gap-space-xs rounded-lg border p-space-sm"
+	switch tone {
+	case "raised":
+		return base + " bg-surface-raised border-border"
+	default: // muted / ""
+		return base + " bg-surface-muted border-border"
+	}
+}

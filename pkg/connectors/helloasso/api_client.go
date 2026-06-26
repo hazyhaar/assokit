@@ -28,22 +28,22 @@ type Organization struct {
 
 // Payment : slim model d'un paiement HelloAsso.
 type Payment struct {
-	ID            int64   `json:"id"`
-	Amount        float64 `json:"amount"`
-	State         string  `json:"state"`
-	Date          string  `json:"date"`
-	PayerEmail    string  `json:"payerEmail,omitempty"`
-	PayerName     string  `json:"payerName,omitempty"`
-	FormSlug      string  `json:"formSlug,omitempty"`
-	OrganizationSlug string `json:"organizationSlug,omitempty"`
+	ID               int64   `json:"id"`
+	Amount           float64 `json:"amount"`
+	State            string  `json:"state"`
+	Date             string  `json:"date"`
+	PayerEmail       string  `json:"payerEmail,omitempty"`
+	PayerName        string  `json:"payerName,omitempty"`
+	FormSlug         string  `json:"formSlug,omitempty"`
+	OrganizationSlug string  `json:"organizationSlug,omitempty"`
 }
 
 // Form : slim model campagne HelloAsso (Don, Adhésion, Crowdfunding, etc.).
 type Form struct {
-	Slug      string `json:"formSlug"`
-	Title     string `json:"title"`
-	FormType  string `json:"formType"`
-	State     string `json:"state"`
+	Slug     string `json:"formSlug"`
+	Title    string `json:"title"`
+	FormType string `json:"formType"`
+	State    string `json:"state"`
 }
 
 // GetOrganization GET /v5/organizations/{slug}
@@ -59,9 +59,9 @@ func (c *APIClient) GetOrganization(ctx context.Context, slug string) (*Organiza
 type listPaymentsPage struct {
 	Data       []Payment `json:"data"`
 	Pagination struct {
-		PageIndex   int    `json:"pageIndex"`
-		PageSize    int    `json:"pageSize"`
-		TotalCount  int    `json:"totalCount"`
+		PageIndex         int    `json:"pageIndex"`
+		PageSize          int    `json:"pageSize"`
+		TotalCount        int    `json:"totalCount"`
 		ContinuationToken string `json:"continuationToken,omitempty"`
 	} `json:"pagination"`
 }

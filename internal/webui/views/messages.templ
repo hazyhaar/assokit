@@ -1,0 +1,73 @@
+// views/messages.templ — messagerie privee migree vers templux (vague 2).
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/messaging"
+)
+
+// MessagesInbox affiche la liste des conversations.
+templ MessagesInbox(convs []messaging.Conversation) {
+	<section id="messages-inbox" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Messages</h1>
+		if len(convs) == 0 {
+			<p class="text-ink-muted">Aucune conversation pour l'instant.</p>
+		} else {
+			<ul class="list-none flex flex-col gap-space-sm">
+				for _, c := range convs {
+					<li class="bg-surface-raised rounded-lg shadow-sm">
+						<a href={ templ.SafeURL("/messages/" + c.WithUserID) } class="flex items-center gap-space-sm p-space-lg">
+							<strong class="text-ink font-semibold">{ msgConversationName(c) }</strong>
+							if c.Unread > 0 {
+								@templux.Badge(fmt.Sprintf("%d", c.Unread), "info")
+							}
+							<span class="text-sm text-ink-muted">{ msgExcerpt(c.LastBody) }</span>
+						</a>
+					</li>
+				}
+			</ul>
+		}
+	</section>
+}
+
+// MessagesThread affiche le fil d'une conversation + formulaire d'envoi.
+templ MessagesThread(withUserID, withName string, msgs []messaging.Message, currentUserID, csrfToken string) {
+	<section id="messages-thread" class="flex flex-col gap-space-md">
+		<p><a href="/messages" class="text-accent">← Messages</a></p>
+		<h1 class="text-2xl font-semibold text-ink">{ withName }</h1>
+		<div class="flex flex-col gap-space-sm">
+			if len(msgs) == 0 {
+				<p class="text-ink-muted">Aucun message. Démarrez la conversation.</p>
+			} else {
+				for _, m := range msgs {
+					<div class={ "rounded-lg p-space-md text-sm", templ.KV("bg-accent text-ink-on-accent", m.SenderID == currentUserID), templ.KV("bg-surface-muted text-ink", m.SenderID != currentUserID) }>
+						@templ.Raw(m.BodyHTML)
+						<time class="block text-xs text-ink-faint">{ m.CreatedAt.Format("2006-01-02 15:04") }</time>
+					</div>
+				}
+			}
+		</div>
+		<form method="POST" action={ templ.SafeURL("/messages/" + withUserID) } class="flex flex-col gap-space-sm">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			@templux.Textarea("body", "", 3, templ.Attributes{"required": "required", "placeholder": "Votre message…"})
+			@templux.Button("Envoyer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+	</section>
+}
+
+func msgConversationName(c messaging.Conversation) string {
+	if c.WithName != "" {
+		return c.WithName
+	}
+	return c.WithEmail
+}
+
+func msgExcerpt(s string) string {
+	const max = 80
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
+}

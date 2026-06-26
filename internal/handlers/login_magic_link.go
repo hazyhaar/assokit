@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/hazyhaar/assokit/pkg/uid"
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
@@ -24,9 +24,9 @@ import (
 var _ = "magic_link" // sentinel pour clarté package
 
 const (
-	magicTokenTTL    = 15 * time.Minute
-	magicRateLimit   = 3
-	magicRateWindow  = 15 * time.Minute
+	magicTokenTTL   = 15 * time.Minute
+	magicRateLimit  = 3
+	magicRateWindow = 15 * time.Minute
 )
 
 // magicRateLimiter : 3 demandes/15min/IP. Pattern identique à dcrRateLimiter.
@@ -71,7 +71,7 @@ func resetMagicRateLimiter() {
 // Rate-limit 3/15min/IP. Token random hex 32 bytes (64 chars).
 func LoginMagicSubmit(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := clientIPFromRequest(r)
+		ip := clientIP(r, deps.Config.TrustProxyHeaders)
 		if !globalMagicRateLimiter.Allow(ip) {
 			deps.Logger.Warn("login_magic_rate_limited", "ip_hash_prefix", hashIPShort(ip, deps.Config.CookieSecret))
 			http.Error(w, "trop de demandes (3 / 15 minutes)", http.StatusTooManyRequests)
@@ -178,16 +178,29 @@ func LoginMagicCallback(deps app.AppDeps) http.HandlerFunc {
 			return
 		}
 
-		// Marquer used_at AVANT toute autre op (anti-replay).
-		_, _ = deps.DB.ExecContext(r.Context(),
-			`UPDATE login_magic_tokens SET used_at = CURRENT_TIMESTAMP WHERE token = ?`, token)
+		// Consommer le token de façon atomique AVANT toute autre op (anti-rejeu) :
+		// l'UPDATE conditionnel `used_at IS NULL` + la vérification d'effet (une seule
+		// ligne consommée) ferment la fenêtre TOCTOU entre la lecture usedAt ci-dessus
+		// et l'établissement de session. Un échec d'écriture ou un second clic ne pose
+		// jamais la session.
+		consumeRes, err := deps.DB.ExecContext(r.Context(),
+			`UPDATE login_magic_tokens SET used_at = CURRENT_TIMESTAMP WHERE token = ? AND used_at IS NULL`, token)
+		if err != nil {
+			deps.Logger.Error("login_magic_consume", "err", err.Error())
+			http.Error(w, "db error", http.StatusInternalServerError)
+			return
+		}
+		if n, _ := consumeRes.RowsAffected(); n != 1 {
+			renderMagicError(w, "Ce lien a déjà été utilisé. Demandez un nouveau lien.")
+			return
+		}
 
 		// Si first-time : créer user.
 		var finalUserID string
 		if userID.Valid {
 			finalUserID = userID.String
 		} else {
-			finalUserID = uuid.New().String()
+			finalUserID = uid.New()
 			_, err := deps.DB.ExecContext(r.Context(), `
 				INSERT INTO users(id, email, password_hash, display_name)
 				VALUES (?, ?, '', ?)
@@ -203,8 +216,7 @@ func LoginMagicCallback(deps app.AppDeps) http.HandlerFunc {
 		}
 
 		// Set session cookie.
-		secure := strings.HasPrefix(deps.Config.BaseURL, "https://")
-		middleware.SetSessionCookie(w, finalUserID, deps.Config.CookieSecret, secure)
+		middleware.SetSessionCookie(w, finalUserID, deps.Config.CookieSecret, deps.Config.CookieSecure())
 
 		deps.Logger.Info("login_magic_consumed",
 			"user_id", finalUserID, "email_hash_prefix", emailHashShort(email),

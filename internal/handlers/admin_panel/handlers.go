@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
-	"os"
 	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	adminui "github.com/hazyhaar/assokit/pkg/horui/admin"
+
 	"github.com/hazyhaar/assokit/pkg/horui/branding"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
@@ -31,10 +32,6 @@ func requireAdmin(next http.Handler) http.Handler {
 // Mount câble les routes /admin/panel sur le router fourni.
 func Mount(r chi.Router, deps app.AppDeps) {
 	fields := V0Fields()
-	brandingDir := os.Getenv("BRANDING_DIR")
-	if brandingDir == "" {
-		brandingDir = "./uploads"
-	}
 
 	r.With(requireAdmin).Get("/admin/panel", AdminPanelPage(deps, fields))
 	r.With(requireAdmin).Post("/admin/panel/save-field", AdminPanelSaveField(deps, fields))
@@ -114,7 +111,7 @@ func AdminPanelPage(deps app.AppDeps, fields []Field) http.HandlerFunc {
 		panelBySection := toPanelBySec(fields)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := adminui.AdminPanelPage(panelBySection, values, progress).Render(r.Context(), w); err != nil {
+		if err := views.AdminPanelPage(panelBySection, values, progress).Render(r.Context(), w); err != nil {
 			deps.Logger.Error("admin panel render", "err", err)
 		}
 	}
@@ -183,9 +180,8 @@ func AdminPanelSaveField(deps app.AppDeps, fields []Field) http.HandlerFunc {
 			Placeholder: field.Placeholder, Required: field.Required,
 			MaxBytes: field.MaxBytes, MimeAllow: field.MimeAllow,
 		}
-		filled := value != ""
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := adminui.AdminFieldBadge(pf, value, filled).Render(r.Context(), w); err != nil {
+		if err := views.AdminFieldBadge(pf, value).Render(r.Context(), w); err != nil {
 			deps.Logger.Error("admin panel badge render", "err", err)
 		}
 	}

@@ -111,7 +111,7 @@ func TestDCRRegister_InvalidRedirectURIReturns400(t *testing.T) {
 func TestWellKnownOAuthAS_IncludesRegistrationEndpoint(t *testing.T) {
 	deps := app.AppDeps{
 		Logger: slog.Default(),
-		Config: config.Config{BaseURL: "https://nonpossumus.eu"},
+		Config: config.Config{BaseURL: "https://example.org"},
 	}
 	req := httptest.NewRequest("GET", "/.well-known/oauth-authorization-server", nil)
 	w := httptest.NewRecorder()
@@ -122,10 +122,10 @@ func TestWellKnownOAuthAS_IncludesRegistrationEndpoint(t *testing.T) {
 	}
 	body := w.Body.String()
 	for _, want := range []string{
-		`"registration_endpoint":"https://nonpossumus.eu/oauth2/register"`,
+		`"registration_endpoint":"https://example.org/oauth2/register"`,
 		`"code_challenge_methods_supported":["S256"]`,
-		`"authorization_endpoint":"https://nonpossumus.eu/oauth2/authorize"`,
-		`"token_endpoint":"https://nonpossumus.eu/oauth2/token"`,
+		`"authorization_endpoint":"https://example.org/oauth2/authorize"`,
+		`"token_endpoint":"https://example.org/oauth2/token"`,
 		`"token_endpoint_auth_methods_supported"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -155,5 +155,35 @@ func TestDCRRegister_PersistsInDBViaHandler(t *testing.T) {
 	}
 	if !strings.Contains(redirects, "example.org") {
 		t.Errorf("redirect_uris stored = %q", redirects)
+	}
+}
+
+// TestClientIP_SpoofingMitigated : sans reverse-proxy de confiance
+// (trustProxy=false), les en-têtes X-Forwarded-For / X-Real-IP sont IGNORÉS —
+// un attaquant ne peut donc pas usurper une IP pour contourner les rate-limits.
+// Avec trustProxy=true, ils sont honorés (déploiement derrière proxy fiable).
+func TestClientIP_SpoofingMitigated(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/oauth2/register", nil)
+	req.RemoteAddr = "203.0.113.7:5555"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	req.Header.Set("X-Real-IP", "5.6.7.8")
+
+	// trustProxy=false : on doit obtenir l'IP réelle de la connexion, pas le spoof.
+	if got := clientIP(req, false); got != "203.0.113.7" {
+		t.Fatalf("spoofing non mitigé : clientIP(false)=%q, attendu 203.0.113.7", got)
+	}
+
+	// trustProxy=true : X-Real-IP (posé par le proxy, non spoofable) prioritaire sur
+	// X-Forwarded-For (que le client peut préfixer).
+	if got := clientIP(req, true); got != "5.6.7.8" {
+		t.Fatalf("proxy de confiance : clientIP(true)=%q, attendu 5.6.7.8 (X-Real-IP)", got)
+	}
+
+	// Sans X-Real-IP, XFF en chaîne : élément le PLUS À DROITE (celui que le proxy de
+	// confiance a appendé), pas le premier qui serait spoofable.
+	req.Header.Del("X-Real-IP")
+	req.Header.Set("X-Forwarded-For", " 9.9.9.9 , 1.1.1.1 ")
+	if got := clientIP(req, true); got != "1.1.1.1" {
+		t.Fatalf("chaîne XFF : clientIP(true)=%q, attendu 1.1.1.1 (rightmost)", got)
 	}
 }

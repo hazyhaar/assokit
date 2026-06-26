@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	authpages "github.com/hazyhaar/assokit/pkg/horui/auth/pages"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
@@ -112,16 +112,16 @@ func OAuth2ConsentSubmit(deps app.AppDeps) http.HandlerFunc {
 // Mappe les scopes raw vers libellés FR via authpages.LibellesScope.
 func RenderConsentPage(w http.ResponseWriter, r *http.Request, deps app.AppDeps,
 	clientName, authRequestID, redirectURI, state string, scopes []string) {
-	props := authpages.ConsentProps{
+	props := views.OAuthConsentProps{
 		ClientName:    clientName,
 		AuthRequestID: authRequestID,
 		CSRFToken:     middleware.CSRFToken(r.Context()),
-		ScopesGranted: authpages.LibellesScope(scopes),
+		ScopesGranted: libellesScope(scopes),
 		RedirectURI:   redirectURI,
 		State:         state,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := authpages.Consent(props).Render(r.Context(), w); err != nil {
+	if err := views.OAuthConsent(props).Render(r.Context(), w); err != nil {
 		deps.Logger.Error("consent render", "err", err.Error())
 	}
 }

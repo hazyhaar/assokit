@@ -1,0 +1,41 @@
+// templux alert — message contextuel avec 4 niveaux de sévérité.
+//
+// Usage :
+//   @Alert("success", "Enregistrement effectué.")
+//   @Alert("danger", "Une erreur est survenue.")
+
+package templux
+
+templ Alert(severity string, message string) {
+	<div class={ alertClass(severity) } role="alert">
+		<span class="font-semibold">{ alertPrefix(severity) }</span>
+		{ " " }{ message }
+	</div>
+}
+
+func alertClass(severity string) string {
+	base := "flex items-start gap-space-sm rounded-md border px-space-md py-space-sm text-sm"
+	switch severity {
+	case "success":
+		return base + " bg-surface border-success text-success"
+	case "warning":
+		return base + " bg-surface border-warning text-warning"
+	case "danger":
+		return base + " bg-surface border-danger text-danger"
+	default: // info
+		return base + " bg-surface border-info text-info"
+	}
+}
+
+func alertPrefix(severity string) string {
+	switch severity {
+	case "success":
+		return "Succès :"
+	case "warning":
+		return "Attention :"
+	case "danger":
+		return "Erreur :"
+	default:
+		return "Info :"
+	}
+}

@@ -27,13 +27,13 @@ func TestBrandingKV_SetAndGet(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
 
-	if err := branding.Set(db, "identite.nom_asso", "Nonpossumus", "text", ""); err != nil {
+	if err := branding.Set(db, "identite.nom_asso", "Example Org", "text", ""); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
 	got := branding.Get(db, "identite.nom_asso")
-	if got != "Nonpossumus" {
-		t.Errorf("Get: attendu %q, got %q", "Nonpossumus", got)
+	if got != "Example Org" {
+		t.Errorf("Get: attendu %q, got %q", "Example Org", got)
 	}
 }
 

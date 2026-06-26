@@ -40,26 +40,26 @@ type DonationListItem struct {
 
 // DonationListFilters : filtres URL parsed.
 type DonationListFilters struct {
-	From    string // RFC3339 date inclusive
-	To      string // RFC3339 date exclusive
-	Status  string // pending|authorized|paid|refunded|failed|""
-	Type    string // Donation|Membership|""
-	MinEur  int    // amount >= MinEur*100
-	MaxEur  int    // amount <= MaxEur*100 (0 = ignored)
-	Search  string // donor_name OR donor_email LIKE
-	Cursor  string // keyset : created_at|id from previous page
+	From   string // RFC3339 date inclusive
+	To     string // RFC3339 date exclusive
+	Status string // pending|authorized|paid|refunded|failed|""
+	Type   string // Donation|Membership|""
+	MinEur int    // amount >= MinEur*100
+	MaxEur int    // amount <= MaxEur*100 (0 = ignored)
+	Search string // donor_name OR donor_email LIKE
+	Cursor string // keyset : created_at|id from previous page
 }
 
 // DonationsStats : agrégation pour header dashboard.
 type DonationsStats struct {
-	TotalCumulEUR        float64           `json:"total_cumul_eur"`
-	TotalMoisCourantEUR  float64           `json:"total_mois_courant_eur"`
-	NbDonateursUniques   int               `json:"nb_donateurs_uniques"`
-	NbDonsMois           int               `json:"nb_dons_mois"`
-	MontantMoyenEUR      float64           `json:"montant_moyen_eur"`
-	DonateursMembresPct  float64           `json:"donateurs_membres_pct"`
-	Top3Paliers          []PalierStat      `json:"top_3_paliers"`
-	Evolution30j         []EvolutionPoint  `json:"evolution_30j"`
+	TotalCumulEUR       float64          `json:"total_cumul_eur"`
+	TotalMoisCourantEUR float64          `json:"total_mois_courant_eur"`
+	NbDonateursUniques  int              `json:"nb_donateurs_uniques"`
+	NbDonsMois          int              `json:"nb_dons_mois"`
+	MontantMoyenEUR     float64          `json:"montant_moyen_eur"`
+	DonateursMembresPct float64          `json:"donateurs_membres_pct"`
+	Top3Paliers         []PalierStat     `json:"top_3_paliers"`
+	Evolution30j        []EvolutionPoint `json:"evolution_30j"`
 }
 
 type PalierStat struct {
@@ -146,7 +146,7 @@ func AdminDonationDetail(deps app.AppDeps) http.HandlerFunc {
 }
 
 // AdminDonationSoftEraseEmail POST /admin/donations/{id}/erase-email
-// RGPD : donor_email='', donor_name='[supprimé RGPD]', row gardée.
+// RGPD : donor_email=”, donor_name='[supprimé RGPD]', row gardée.
 func AdminDonationSoftEraseEmail(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !requireAdminACL(w, r) {
@@ -188,7 +188,9 @@ func AdminDonationManualUserMatch(deps app.AppDeps) http.HandlerFunc {
 			return
 		}
 		id := chi.URLParam(r, "id")
-		var req struct{ UserID string `json:"user_id"` }
+		var req struct {
+			UserID string `json:"user_id"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UserID == "" {
 			http.Error(w, "user_id requis", http.StatusBadRequest)
 			return
@@ -296,7 +298,7 @@ func queryDonations(ctx context.Context, db *sql.DB, f DonationListFilters, limi
 			d.helloasso_form_type, d.amount_cents, d.currency, d.payment_status,
 			COALESCE(d.user_id, ''), COALESCE(u.email, ''),
 			COALESCE(d.paid_at, d.created_at), d.created_at,
-			CASE WHEN EXISTS (SELECT 1 FROM user_roles WHERE user_id = d.user_id AND role_id = 'member') THEN 1 ELSE 0 END
+			CASE WHEN EXISTS (SELECT 1 FROM user_grades ug JOIN grades g ON g.id = ug.grade_id WHERE ug.user_id = d.user_id AND g.name = 'member') THEN 1 ELSE 0 END
 		FROM donations d
 		LEFT JOIN users u ON u.id = d.user_id
 		%s
@@ -351,7 +353,7 @@ func queryDonationByID(ctx context.Context, db *sql.DB, id string) (*DonationLis
 			d.helloasso_form_type, d.amount_cents, d.currency, d.payment_status,
 			COALESCE(d.user_id, ''), COALESCE(u.email, ''),
 			COALESCE(d.paid_at, d.created_at), d.created_at,
-			CASE WHEN EXISTS (SELECT 1 FROM user_roles WHERE user_id = d.user_id AND role_id = 'member') THEN 1 ELSE 0 END
+			CASE WHEN EXISTS (SELECT 1 FROM user_grades ug JOIN grades g ON g.id = ug.grade_id WHERE ug.user_id = d.user_id AND g.name = 'member') THEN 1 ELSE 0 END
 		FROM donations d
 		LEFT JOIN users u ON u.id = d.user_id
 		WHERE d.id = ?
@@ -436,7 +438,7 @@ func computeStats(ctx context.Context, db *sql.DB) (*DonationsStats, error) {
 	_ = db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT d.user_id)
 		FROM donations d
-		JOIN user_roles ur ON ur.user_id = d.user_id AND ur.role_id = 'member'
+		JOIN user_grades ur ON ur.user_id = d.user_id JOIN grades gm ON gm.id = ur.grade_id AND gm.name = 'member'
 		WHERE d.payment_status = 'paid' AND d.user_id IS NOT NULL
 	`).Scan(&nbMembres)
 	if nbDonateurs > 0 {

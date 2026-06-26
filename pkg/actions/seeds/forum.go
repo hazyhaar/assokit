@@ -2,14 +2,16 @@ package seeds
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hazyhaar/assokit/internal/app"
+	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/uid"
 )
 
 func initForum(reg *actions.Registry) {
@@ -34,16 +36,25 @@ func initForum(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			_, err := deps.DB.ExecContext(ctx,
-				`INSERT INTO nodes(id, slug, parent_id, kind, body, created_at)
-				 SELECT hex(randomblob(8)), hex(randomblob(8)), id, 'reply', ?, CURRENT_TIMESTAMP
-				 FROM nodes WHERE slug=? AND kind='thread'`,
-				p.Message, p.ThreadSlug,
-			)
+			store := &tree.Store{DB: deps.DB}
+			parent, err := store.GetBySlug(ctx, p.ThreadSlug)
+			if err != nil {
+				return actions.Result{Status: "error", Message: "Thread introuvable : " + p.ThreadSlug}, err
+			}
+			node := tree.Node{
+				ParentID: sql.NullString{String: parent.ID, Valid: true},
+				Type:     "post",
+				Title:    "Message",
+				BodyMD:   p.Message,
+			}
+			if u := middleware.UserFromContext(ctx); u != nil {
+				node.AuthorID = sql.NullString{String: u.ID, Valid: true}
+			}
+			id, err := store.Create(ctx, node)
 			if err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
-			return actions.Result{Status: "ok", Message: "Message publié."}, nil
+			return actions.Result{Status: "ok", Message: "Message publié.", Data: map[string]string{"node_id": id}}, nil
 		},
 	})
 
@@ -68,15 +79,21 @@ func initForum(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			_, err := deps.DB.ExecContext(ctx,
-				`INSERT INTO nodes(id, slug, parent_id, kind, body, created_at)
-				 VALUES(hex(randomblob(8)), hex(randomblob(8)), ?, 'reply', ?, CURRENT_TIMESTAMP)`,
-				p.ParentID, p.Message,
-			)
+			store := &tree.Store{DB: deps.DB}
+			node := tree.Node{
+				ParentID: sql.NullString{String: p.ParentID, Valid: true},
+				Type:     "post",
+				Title:    "Réponse",
+				BodyMD:   p.Message,
+			}
+			if u := middleware.UserFromContext(ctx); u != nil {
+				node.AuthorID = sql.NullString{String: u.ID, Valid: true}
+			}
+			id, err := store.Create(ctx, node)
 			if err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
-			return actions.Result{Status: "ok", Message: "Réponse publiée."}, nil
+			return actions.Result{Status: "ok", Message: "Réponse publiée.", Data: map[string]string{"node_id": id}}, nil
 		},
 	})
 
@@ -101,8 +118,21 @@ func initForum(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			_, err := deps.DB.ExecContext(ctx, `UPDATE nodes SET body=? WHERE id=?`, p.Message, p.ID)
+			store := &tree.Store{DB: deps.DB}
+			node, err := store.GetByID(ctx, p.ID)
 			if err != nil {
+				return actions.Result{Status: "error", Message: "Post introuvable."}, err
+			}
+			// Appartenance : seul l'auteur peut modifier son propre post.
+			u := middleware.UserFromContext(ctx)
+			if u == nil {
+				return actions.Result{Status: "error", Message: "Authentification requise."}, nil
+			}
+			if !node.AuthorID.Valid || node.AuthorID.String != u.ID {
+				return actions.Result{Status: "error", Message: "Modification refusée : ce post ne vous appartient pas."}, nil
+			}
+			node.BodyMD = p.Message
+			if err := store.Update(ctx, *node); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
 			return actions.Result{Status: "ok", Message: "Post modifié."}, nil
@@ -317,7 +347,7 @@ func initForum(reg *actions.Registry) {
 			if u := middleware.UserFromContext(ctx); u != nil {
 				issuedBy = u.ID
 			}
-			id := uuid.New().String()
+			id := uid.New()
 			if _, err := deps.DB.ExecContext(ctx,
 				`INSERT INTO forum_warnings(id, user_id, reason, issued_by) VALUES(?,?,?,?)`,
 				id, p.UserID, p.Reason, issuedBy); err != nil {

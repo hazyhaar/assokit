@@ -1,0 +1,17 @@
+// templux collapsible-header — bandeau-titre cliquable qui replie/déplie le corps
+// d'un panneau adjacent (géré par le JS consommateur via data-collapse / data-chevron).
+//
+// Usage :
+//   @CollapsibleHeader("Catégories")
+package templux
+
+templ CollapsibleHeader(title string) {
+	<button
+		type="button"
+		data-collapse
+		class="flex items-center justify-between gap-space-sm px-space-sm py-space-xs bg-surface-muted border-b border-border text-xs font-semibold text-ink-faint uppercase cursor-pointer hover:text-ink transition"
+	>
+		<span>{ title }</span>
+		<span data-chevron aria-hidden="true" class="transition">▾</span>
+	</button>
+}

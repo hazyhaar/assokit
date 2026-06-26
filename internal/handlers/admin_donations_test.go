@@ -18,15 +18,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 const adminDonationsSchema = `
 CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT, display_name TEXT);
-CREATE TABLE roles (id TEXT PRIMARY KEY, label TEXT);
-INSERT INTO roles(id, label) VALUES('admin','Admin'),('member','Member');
-CREATE TABLE user_roles (user_id TEXT, role_id TEXT, PRIMARY KEY(user_id, role_id));
+CREATE TABLE grades (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, system INTEGER NOT NULL DEFAULT 0);
+INSERT INTO grades(id, name, system) VALUES('sys-admin','admin',1),('sys-member','member',1);
+CREATE TABLE user_grades (user_id TEXT, grade_id TEXT, PRIMARY KEY(user_id, grade_id));
 CREATE TABLE donations (
 	id TEXT PRIMARY KEY,
 	helloasso_payment_id TEXT NOT NULL UNIQUE,
@@ -71,7 +71,7 @@ func seedDonation(t *testing.T, db *sql.DB, id, payID, donorName, donorEmail, st
 
 func adminCtx(req *http.Request) *http.Request {
 	return req.WithContext(middleware.ContextWithUser(req.Context(),
-		&auth.User{ID: "admin-1", Roles: []string{"admin"}}))
+		&identity.User{ID: "admin-1", Roles: []string{"admin"}}))
 }
 
 // TestAdminDonations_NonAdminReturns403
@@ -81,7 +81,7 @@ func TestAdminDonations_NonAdminReturns403(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/admin/donations", nil)
 	req = req.WithContext(middleware.ContextWithUser(req.Context(),
-		&auth.User{ID: "u", Roles: []string{"member"}}))
+		&identity.User{ID: "u", Roles: []string{"member"}}))
 	w := httptest.NewRecorder()
 	AdminDonationsList(deps)(w, req)
 	if w.Code != http.StatusForbidden {

@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Middleware HTTP NPS : HTMX, Flash(ctx+cookie), Auth(HMAC cookie), RequirePerm, CSRF.
+// CLAUDE:SUMMARY Middleware HTTP assokit : HTMX, Flash(ctx+cookie), Auth(HMAC cookie), RequirePerm, CSRF.
 package middleware
 
 import (
@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/perms"
 )
 
 type ctxKey int
@@ -58,11 +58,11 @@ type FlashMessage struct {
 func Flash(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var msgs []FlashMessage
-		if c, err := r.Cookie("nps_flash"); err == nil {
+		if c, err := r.Cookie("assokit_flash"); err == nil {
 			if data, err := base64.StdEncoding.DecodeString(c.Value); err == nil {
 				json.Unmarshal(data, &msgs) //nolint:errcheck
 			}
-			http.SetCookie(w, &http.Cookie{Name: "nps_flash", MaxAge: -1, Path: "/"})
+			http.SetCookie(w, &http.Cookie{Name: "assokit_flash", MaxAge: -1, Path: "/"})
 		}
 		ctx := context.WithValue(r.Context(), ctxKeyFlash, msgs)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -74,7 +74,7 @@ func PushFlash(w http.ResponseWriter, level, msg string) {
 	msgs := []FlashMessage{{Level: level, Message: msg}}
 	data, _ := json.Marshal(msgs)
 	http.SetCookie(w, &http.Cookie{
-		Name:     "nps_flash",
+		Name:     "assokit_flash",
 		Value:    base64.StdEncoding.EncodeToString(data),
 		Path:     "/",
 		HttpOnly: true,
@@ -91,14 +91,14 @@ func PopFlash(ctx context.Context) []FlashMessage {
 
 // --- Auth ---
 
-const sessionCookieName = "nps_session"
+const sessionCookieName = "assokit_session"
 
 // Auth lit le cookie session, charge l'utilisateur depuis DB et l'injecte dans ctx.
 func Auth(db *sql.DB, secret []byte) func(http.Handler) http.Handler {
-	store := &auth.Store{DB: db}
+	store := &identity.Store{DB: db}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var u *auth.User
+			var u *identity.User
 			if c, err := r.Cookie(sessionCookieName); err == nil {
 				if id, ok := verifySession(c.Value, secret); ok {
 					ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
@@ -113,13 +113,13 @@ func Auth(db *sql.DB, secret []byte) func(http.Handler) http.Handler {
 }
 
 // UserFromContext retourne l'utilisateur courant (nil si non connecté).
-func UserFromContext(ctx context.Context) *auth.User {
-	u, _ := ctx.Value(ctxKeyUser).(*auth.User)
+func UserFromContext(ctx context.Context) *identity.User {
+	u, _ := ctx.Value(ctxKeyUser).(*identity.User)
 	return u
 }
 
 // ContextWithUser injecte un utilisateur dans le contexte. Réservé aux tests.
-func ContextWithUser(ctx context.Context, u *auth.User) context.Context {
+func ContextWithUser(ctx context.Context, u *identity.User) context.Context {
 	return context.WithValue(ctx, ctxKeyUser, u)
 }
 
@@ -140,14 +140,24 @@ func SetSessionCookie(w http.ResponseWriter, userID string, secret []byte, secur
 	})
 }
 
-// ClearSessionCookie supprime le cookie de session.
+// ClearSessionCookie supprime le cookie de session côté navigateur.
+//
+// Limite assumée : la session est sans état (cookie signé HMAC, aucune liste de
+// révocation serveur). Le logout efface le cookie du navigateur mais ne révoque
+// pas un cookie déjà capturé, qui reste valide jusqu'à son expiration (7 jours).
+// Acceptable pour le modèle « une instance = une communauté » ; introduire un
+// identifiant de session opaque persisté serait le prix d'une révocation immédiate.
+// La suppression matche sur name/path/domain (RFC 6265), indépendamment des
+// attributs Secure/SameSite.
 func ClearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:    sessionCookieName,
-		Value:   "",
-		Path:    "/",
-		MaxAge:  -1,
-		Expires: time.Unix(0, 0),
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
 	})
 }
 
@@ -166,7 +176,7 @@ func verifySession(cookieVal string, secret []byte) (string, bool) {
 		return "", false
 	}
 	payload := userID + ":" + expiresStr
-	if signHMAC(secret, payload) != sig {
+	if !hmac.Equal([]byte(signHMAC(secret, payload)), []byte(sig)) {
 		return "", false
 	}
 	return userID, true
@@ -203,22 +213,25 @@ func RequirePerm(db *sql.DB, p perms.Permission, nodeIDFn func(*http.Request) st
 
 // --- CSRF ---
 
-const csrfCookieName = "nps_csrf"
+const csrfCookieName = "assokit_csrf"
 const csrfHeaderName = "X-CSRF-Token"
 const csrfFieldName = "_csrf"
 
 // csrfExemptPrefixes : paths où le CSRF check est désactivé.
 // /webhooks/* : POST depuis serveurs tiers (HelloAsso, Stripe, etc.) sans cookie CSRF.
-//               Sécurité = HMAC signature provider-specific (verify dans handler).
+//
+//	Sécurité = HMAC signature provider-specific (verify dans handler).
 var csrfExemptPrefixes = []string{
 	"/webhooks/",
 }
 
 // CSRF middleware double-submit cookie pattern. Exempte /webhooks/* (HMAC-protected).
-func CSRF(secret []byte) func(http.Handler) http.Handler {
+// secure : pose l'attribut Secure sur le cookie CSRF (dérivé de la config HTTPS à la
+// bordure), pour qu'il ne transite pas en clair sur un downgrade HTTP.
+func CSRF(secret []byte, secure bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token := ensureCSRFToken(w, r)
+			token := ensureCSRFToken(w, r, secure)
 			ctx := context.WithValue(r.Context(), ctxKeyCSRF, token)
 			r = r.WithContext(ctx)
 
@@ -251,7 +264,7 @@ func CSRFToken(ctx context.Context) string {
 	return t
 }
 
-func ensureCSRFToken(w http.ResponseWriter, r *http.Request) string {
+func ensureCSRFToken(w http.ResponseWriter, r *http.Request, secure bool) string {
 	if c, err := r.Cookie(csrfCookieName); err == nil && c.Value != "" {
 		return c.Value
 	}
@@ -263,6 +276,7 @@ func ensureCSRFToken(w http.ResponseWriter, r *http.Request) string {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: false, // doit être lisible par JS si besoin
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	})
 	return token

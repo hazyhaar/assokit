@@ -1,0 +1,42 @@
+// admin_dashboard.templ — tableau de bord de gestion : accès groupé à toutes les
+// fonctions. La section « Espaces membre » donne à l'administrateur le point de vue
+// de chaque profil pour tester. Les liens sont fournis par le handler (le kit
+// générique pourrait à terme les tenir dans un registre extensible par module).
+package views
+
+// DashLink est une entrée du tableau de bord (libellé, cible, description courte).
+type DashLink struct {
+	Label string
+	Href  string
+	Desc  string
+}
+
+// DashGroup regroupe des liens sous un intitulé de domaine.
+type DashGroup struct {
+	Title string
+	Links []DashLink
+}
+
+templ AdminDashboard(groups []DashGroup) {
+	<section class="flex flex-col gap-space-xl">
+		<div class="flex flex-col gap-space-xs">
+			<h1 class="text-2xl font-semibold text-ink">Gestion</h1>
+			<p class="text-sm text-ink-muted">Toutes les fonctions de l'association. La section « Espaces membre » montre ce que voit chaque profil.</p>
+		</div>
+		for _, g := range groups {
+			<div class="flex flex-col gap-space-sm">
+				<h2 class="text-lg font-semibold text-ink">{ g.Title }</h2>
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-md">
+					for _, l := range g.Links {
+						<a href={ templ.SafeURL(l.Href) } class="block rounded-lg border border-border bg-surface-raised p-space-md no-underline hover:shadow-md">
+							<span class="block font-medium text-ink">{ l.Label }</span>
+							if l.Desc != "" {
+								<span class="block text-sm text-ink-muted">{ l.Desc }</span>
+							}
+						</a>
+					}
+				</div>
+			</div>
+		}
+	</section>
+}

@@ -1,0 +1,60 @@
+// views/setup.templ — configuration instance migree vers templux (vague 2).
+package views
+
+import (
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/setup"
+)
+
+// SetupPage affiche le diagnostic de configuration.
+templ SetupPage(items []setup.Item) {
+	<section id="admin-setup" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Configuration de l'instance</h1>
+		<p class="text-ink-muted">État de chaque fonction. Renseignez ce qui manque, une chose à la fois.</p>
+		<ul class="flex flex-col gap-space-sm list-none m-0 p-0">
+			for _, it := range items {
+				<li class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm sm:flex-row sm:items-center sm:justify-between">
+					<div class="flex items-center gap-space-md">
+						@templux.Badge(setupStateLabel(it.State), setupStateTone(it.State))
+						<span class="font-medium text-ink">
+							{ it.Label }
+							if !it.Required {
+								<em class="text-ink-faint">(optionnel)</em>
+							}
+						</span>
+					</div>
+					<div class="flex items-center gap-space-md">
+						if it.State != setup.StateOK {
+							<span class="text-sm text-ink-muted">{ it.Hint }</span>
+						}
+						if it.EditURL != "" {
+							@templux.LinkButton("Configurer", it.EditURL, "secondary", templ.Attributes{})
+						}
+					</div>
+				</li>
+			}
+		</ul>
+	</section>
+}
+
+func setupStateTone(s setup.State) string {
+	switch s {
+	case setup.StateOK:
+		return "success"
+	case setup.StatePartial:
+		return "warning"
+	default:
+		return "danger"
+	}
+}
+
+func setupStateLabel(s setup.State) string {
+	switch s {
+	case setup.StateOK:
+		return "OK"
+	case setup.StatePartial:
+		return "Partiel"
+	default:
+		return "À faire"
+	}
+}

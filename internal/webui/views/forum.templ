@@ -1,0 +1,317 @@
+// views/forum.templ — station forum multi-panneaux : composition pure, sans markup inline.
+// Tous les blocs identifiables sont des composants nommés (templux/ ou components/forum/).
+package views
+
+import (
+	"strconv"
+
+	forumcomp "github.com/hazyhaar/assokit/internal/webui/components/forum"
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/forum"
+	"github.com/hazyhaar/assokit/pkg/identity"
+)
+
+// ForumMaxRenderDepth borne la récursion forumThreadView.
+const ForumMaxRenderDepth = 5
+
+// ForumIndex : station forum — quatre panneaux persistants.
+templ ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[string]int) {
+	@forumcomp.ForumFullBleedSection() {
+		@forumcomp.ForumStationBreadcrumb()
+		@templux.ResizableStation() {
+			@templux.ResizableEdge("left")
+			// Panneau Catégories
+			@templux.ResizablePanel("flex:0 0 15rem", "sunken") {
+				@forumcomp.ForumColumnHeader(
+					"Catégories",
+					"+ Créer catégorie",
+					"",
+					"/forum/new",
+					"",
+					"",
+					"",
+				)
+				@forumcomp.ForumPanelBodyGrid("") {
+					if len(categories) == 0 {
+						@forumcomp.ForumColumnHint("Aucun sujet pour l'instant.")
+					} else {
+						for _, c := range categories {
+							@forumcomp.ForumItemCard(
+								c.Slug,
+								c.Title,
+								forumItemMeta(c.AuthorName, c.CreatedAt),
+								"",
+								c.ChildCount,
+								"question",
+								unread[c.ID] > 0,
+								"/forum/"+c.Slug+"/questions",
+								"#forum-col-questions",
+							)
+						}
+					}
+				}
+			}
+			@templux.ResizableHandle()
+			// Panneau Questions (vide à l'ouverture, rempli par HTMX au clic d'une catégorie)
+			@templux.ResizablePanel("flex:0 0 20rem", "sunken") {
+				@forumcomp.ForumColumnHeader("Questions", "", "", "", "", "", "")
+				@forumcomp.ForumPanelBody("forum-col-questions") {
+					@forumcomp.ForumColumnEmpty("Sélectionnez une catégorie pour afficher ses questions.")
+				}
+			}
+			@templux.ResizableHandle()
+			// Panneau Branches (vide à l'ouverture, rempli par HTMX au clic d'une question)
+			@templux.ResizablePanel("flex:0 0 18rem", "sunken") {
+				@forumcomp.ForumColumnHeader("Branches", "", "", "", "", "", "")
+				@forumcomp.ForumPanelBody("forum-col-branches") {
+					@forumcomp.ForumColumnEmpty("Sélectionnez une question pour afficher ses branches.")
+				}
+			}
+			@templux.ResizableHandle()
+			// Panneau Détail (espace restant)
+			@templux.ResizablePanel("flex:1 1 0", "raised") {
+				@forumcomp.ForumColumnHeader("Détail", "", "", "", "", "", "")
+				@forumcomp.ForumPanelBody("forum-col-detail") {
+					@forumcomp.ForumColumnEmpty("Sélectionnez une question pour afficher l'échange et y répondre.")
+				}
+			}
+			@templux.ResizableEdge("right")
+		}
+	}
+}
+
+// ForumQuestionsColumn : panneau questions d'une catégorie (fragment HTMX).
+templ ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNode, unread map[string]bool, canCreate bool) {
+	<div class="flex flex-col gap-space-sm">
+		@forumcomp.ForumColumnHeader(
+			category.Title,
+			func() string {
+				if canCreate {
+					return "+ Créer question"
+				}
+				return ""
+			}(),
+			func() string {
+				if canCreate {
+					return "/forum/" + category.Slug + "/new-question"
+				}
+				return ""
+			}(),
+			"",
+			"#forum-col-detail",
+			category.Slug,
+			"#forum-col-questions",
+		)
+		if len(questions) == 0 {
+			@forumcomp.ForumColumnHint("Aucune question dans cette catégorie.")
+		} else {
+			for _, q := range questions {
+				@forumcomp.ForumItemCard(
+					q.Slug,
+					q.Title,
+					forumItemMeta(q.AuthorName, q.CreatedAt),
+					q.SnippetHTML,
+					0,
+					"",
+					unread[q.ID],
+					"/forum/"+q.Slug+"/branches",
+					"#forum-col-branches",
+				)
+			}
+		}
+	</div>
+}
+
+// ForumBranchesColumn : panneau branches d'une question (fragment HTMX).
+templ ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode, unread map[string]bool, canCreate bool) {
+	<div class="flex flex-col gap-space-sm">
+		@forumcomp.ForumColumnHeader(
+			question.Title,
+			func() string {
+				if canCreate {
+					return "+ Créer branche"
+				}
+				return ""
+			}(),
+			func() string {
+				if canCreate {
+					return "/forum/" + question.Slug + "/new-branch"
+				}
+				return ""
+			}(),
+			"",
+			"#forum-col-detail",
+			question.Slug,
+			"#forum-col-questions",
+		)
+		if len(branches) == 0 {
+			@forumcomp.ForumColumnHint("Aucune branche.")
+		} else {
+			for _, b := range branches {
+				@forumcomp.ForumItemCard(
+					b.Slug,
+					b.Title,
+					forumItemMeta(b.AuthorName, b.CreatedAt),
+					"",
+					b.ChildCount,
+					"réponse",
+					unread[b.ID],
+					"/forum/"+b.Slug+"/detail",
+					"#forum-col-detail",
+				)
+			}
+		}
+	</div>
+}
+
+// ForumNewBranchForm : formulaire de création d'une branche (fragment HTMX dans détail).
+templ ForumNewBranchForm(questionSlug, questionTitle, csrfToken string) {
+	<div class="flex flex-col gap-space-md">
+		@forumcomp.ForumFormHeader("Nouvelle branche", "Sous la question « "+questionTitle+" ».")
+		<form
+			class="flex flex-col gap-space-sm"
+			hx-post={ "/forum/" + questionSlug + "/branch" }
+			hx-target="#forum-col-branches"
+			hx-swap="innerHTML"
+		>
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			@templux.FormField("Titre de la branche", "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": "Nommer la branche…"}))
+			@templux.FormField("Détail (optionnel)", "", "", templux.Textarea("body", "", 4, templ.Attributes{"placeholder": "Préciser…"}))
+			<div>
+				@templux.Button("Créer la branche", "primary", templ.Attributes{"type": "submit"})
+			</div>
+		</form>
+	</div>
+}
+
+// ForumNewQuestionForm : formulaire de création d'une question (fragment HTMX dans détail).
+templ ForumNewQuestionForm(categorySlug, categoryTitle, csrfToken string) {
+	<div class="flex flex-col gap-space-md">
+		@forumcomp.ForumFormHeader("Nouvelle question", "Dans la catégorie « "+categoryTitle+" ».")
+		<form
+			class="flex flex-col gap-space-sm"
+			hx-post={ "/forum/" + categorySlug + "/question" }
+			hx-target="#forum-col-questions"
+			hx-swap="innerHTML"
+		>
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			@templux.FormField("Titre de la question", "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": "Formuler la question…"}))
+			@templux.FormField("Détail (optionnel)", "", "", templux.Textarea("body", "", 4, templ.Attributes{"placeholder": "Préciser le contexte…"}))
+			<div>
+				@templux.Button("Créer la question", "primary", templ.Attributes{"type": "submit"})
+			</div>
+		</form>
+	</div>
+}
+
+// ForumQuestionDetail : panneau de droite — question + échanges + formulaire HTMX.
+templ ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, user *identity.User, canReply bool, csrfToken string) {
+	<div class="flex flex-col gap-space-md">
+		@forumcomp.ForumArticle(
+			question.Title,
+			question.CreatedAt,
+			question.BodyHTML,
+			"",
+			func() string {
+				if user != nil {
+					return question.Slug
+				}
+				return ""
+			}(),
+			false,
+		)
+		@forumcomp.ForumSeparator()
+		<h3 class="text-sm font-semibold text-ink-muted">Échanges</h3>
+		if len(replies) > 0 {
+			<div class="flex flex-col gap-space-sm">
+				for _, r := range replies {
+					@templux.MessageCard(r.AuthorName, r.CreatedAt, r.BodyHTML, "")
+				}
+			</div>
+		} else {
+			@templux.Alert("info", "Pas encore de réponse.")
+		}
+		if canReply {
+			@forumcomp.ForumHTMXReplyForm(question.Slug, csrfToken)
+		} else if user == nil {
+			@forumcomp.ForumLoginPrompt()
+		}
+	</div>
+}
+
+// ForumNewTopic : formulaire de création d'un nouveau sujet (page entière).
+templ ForumNewTopic(csrfToken string) {
+	<section class="flex flex-col gap-space-lg">
+		@forumcomp.ForumBreadcrumb("Nouveau sujet")
+		<div class="flex flex-col gap-space-sm">
+			<h1 class="text-2xl font-semibold text-ink">Ouvrir une discussion</h1>
+			<p class="text-ink-muted">Donnez un titre clair et un message d'introduction.</p>
+		</div>
+		<form method="POST" action="/forum/new" class="flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			@templux.FormField("Titre", "", "", templux.Input("title", "", templ.Attributes{"id": "topic-title", "type": "text", "required": "required", "maxlength": "180"}))
+			@templux.FormField("Message", "", "", templux.Textarea("body", "", 10, templ.Attributes{"id": "topic-body", "required": "required"}))
+			<div class="flex items-center gap-space-sm">
+				@templux.Button("Publier", "primary", templ.Attributes{"type": "submit"})
+				@templux.LinkButton("Annuler", "/forum", "ghost", templ.Attributes{})
+			</div>
+		</form>
+	</section>
+}
+
+// ForumThread : page /forum/{slug} — affichage plein écran d'un fil (lien direct / sans JS).
+templ ForumThread(node forum.ThreadNode, replies []forum.ThreadNode, user *identity.User, canReply bool, csrfToken string) {
+	<section class="forum-thread flex flex-col gap-space-lg">
+		@forumcomp.ForumBreadcrumb(node.Title)
+		@forumcomp.ForumArticle(node.Title, node.CreatedAt, node.BodyHTML, "sunken", "", true)
+		if len(replies) > 0 {
+			<h2 class="text-xl font-semibold text-ink">{ strconv.Itoa(len(replies)) } { forumRepliesLabel(len(replies)) }</h2>
+			<div class="flex flex-col gap-space-sm">
+				for _, r := range replies {
+					@forumThreadView(r, 0)
+				}
+			</div>
+		} else {
+			@templux.Alert("info", "Pas encore de réponse.")
+		}
+		if canReply {
+			@forumcomp.ForumReplyForm(node.Slug, csrfToken)
+		} else if user == nil {
+			@forumcomp.ForumLoginPromptBlock()
+		}
+	</section>
+}
+
+// forumThreadView : rendu récursif d'un nœud de fil avec indentation bornée.
+templ forumThreadView(n forum.ThreadNode, depth int) {
+	@forumcomp.ForumThreadArticle(n.Title, n.AuthorName, n.CreatedAt, n.BodyHTML, depth) {
+		if depth+1 < ForumMaxRenderDepth {
+			if len(n.Children) > 0 {
+				@forumcomp.ForumNestingIndent() {
+					for _, c := range n.Children {
+						@forumThreadView(c, depth+1)
+					}
+				}
+			}
+		}
+	}
+}
+
+// forumItemMeta : ligne de métadonnée pour ForumItemCard.
+// Format : "Créé par <auteur>, le DD/MM/YYYY" ou "Le DD/MM/YYYY" si auteur absent.
+func forumItemMeta(authorName, createdAt string) string {
+	if authorName != "" && createdAt != "" {
+		return "Créé par " + authorName + ", le " + createdAt
+	}
+	if createdAt != "" {
+		return "Le " + createdAt
+	}
+	return ""
+}
+
+func forumRepliesLabel(n int) string {
+	if n == 1 {
+		return "réponse"
+	}
+	return "réponses"
+}

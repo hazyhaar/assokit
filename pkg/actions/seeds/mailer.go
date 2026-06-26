@@ -17,7 +17,7 @@ func initMailer(reg *actions.Registry) {
 		ParamsSchema: actions.MustSchema(`{
 			"type":"object",
 			"properties":{
-				"status":{"type":"string","enum":["pending","sent","error","cancelled",""]},
+				"status":{"type":"string","enum":["pending","sent","failed","cancelled",""]},
 				"limit":{"type":"integer","minimum":1,"maximum":100}
 			}
 		}`),
@@ -33,7 +33,7 @@ func initMailer(reg *actions.Registry) {
 				p.Limit = 20
 			}
 			rows, err := deps.DB.QueryContext(ctx,
-				`SELECT id, to_addr, subject, status, created_at FROM mailer_outbox
+				`SELECT id, to_addr, subject, status, created_at FROM email_outbox
 				 WHERE (? = '' OR status = ?) ORDER BY created_at DESC LIMIT ?`,
 				p.Status, p.Status, p.Limit,
 			)
@@ -73,7 +73,7 @@ func initMailer(reg *actions.Registry) {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
 			_, err := deps.DB.ExecContext(ctx,
-				`UPDATE mailer_outbox SET status='pending', retry_at=CURRENT_TIMESTAMP WHERE id=?`,
+				`UPDATE email_outbox SET status='pending', retry_after=CURRENT_TIMESTAMP WHERE id=?`,
 				p.ID,
 			)
 			if err != nil {
@@ -100,7 +100,7 @@ func initMailer(reg *actions.Registry) {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
 			_, err := deps.DB.ExecContext(ctx,
-				`UPDATE mailer_outbox SET status='cancelled' WHERE id=? AND status='pending'`,
+				`UPDATE email_outbox SET status='cancelled' WHERE id=? AND status='pending'`,
 				p.ID,
 			)
 			if err != nil {

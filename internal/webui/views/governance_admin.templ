@@ -1,0 +1,322 @@
+// views/governance_admin.templ — gouvernance associative, socle réunion (vendoring templux, gabarit conventions).
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/governance"
+)
+
+// GovernanceAdminPage : formulaire de création d'assemblée générale + table des
+// assemblées (admin). La convocation se déclenche depuis la ligne d'une assemblée
+// en brouillon.
+templ GovernanceAdminPage(list []governance.Assembly, csrfToken string) {
+	<section id="admin-governance" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Assemblées générales</h1>
+		<form method="POST" action="/admin/governance" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<h2 class="text-xl font-semibold text-ink">Créer une assemblée</h2>
+			<p class="text-ink-muted text-sm">Renseigner le nom, l'ordre du jour et la date programmée. L'assemblée est créée en brouillon ; la convocation des adhérents actifs est une étape distincte.</p>
+			@templux.FormField("Nom de l'assemblée", "", "", templux.Input("name", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Date programmée", "", "", templux.Input("scheduled_at", "", templ.Attributes{"type": "text", "placeholder": "2026-09-12 18:00"}))
+			<label class="flex flex-col gap-space-xs text-sm">
+				<span class="font-medium text-ink">Ordre du jour</span>
+				<textarea name="agenda" rows="4" class="rounded-md border border-border bg-surface px-space-sm py-space-xs text-ink"></textarea>
+			</label>
+			@templux.Button("Créer l'assemblée", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune assemblée enregistrée.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr class="text-left text-ink-muted">
+						<th class="py-space-xs">Nom</th>
+						<th class="py-space-xs">Date programmée</th>
+						<th class="py-space-xs">Statut</th>
+						<th class="py-space-xs">Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, a := range list {
+						<tr class="border-t border-border">
+							<td class="py-space-xs text-ink">{ a.Name }</td>
+							<td class="py-space-xs text-ink-muted">{ governanceScheduled(a) }</td>
+							<td class="py-space-xs text-ink-muted">{ governanceStatutLabel(a.Status) }</td>
+							<td class="py-space-xs">
+								if a.Status == "drafting" {
+									<form method="POST" action={ templ.SafeURL("/admin/governance/" + a.ID + "/convoke") }>
+										<input type="hidden" name="_csrf" value={ csrfToken }/>
+										@templux.Button("Convoquer", "secondary", templ.Attributes{"type": "submit"})
+									</form>
+								} else if a.Status == "convoked" {
+									<a href={ templ.SafeURL("/admin/governance/" + a.ID + "/attendance") } class="text-ink underline">Émargement</a>
+								} else {
+									<span class="text-ink-muted">—</span>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// AttendanceRow décrit, pour l'écran d'émargement, un adhérent actif éligible et
+// son état de présence à l'assemblée.
+type AttendanceRow struct {
+	UserID      string
+	DisplayName string
+	Present     bool
+}
+
+// GovernanceAttendancePage : écran d'émargement d'une assemblée (marquer présent)
+// + affichage du résultat de quorum. La population présentée est celle des adhérents
+// actifs éligibles ; le décompte (présents, représentés, total, seuil) provient de
+// ComputeQuorum.
+templ GovernanceAttendancePage(asm governance.Assembly, rows []AttendanceRow, quorum governance.QuorumResult, csrfToken string) {
+	<section id="admin-governance-attendance" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Émargement — { asm.Name }</h1>
+		<p class="text-ink-muted text-sm">Marquer chaque adhérent actif présent en séance. Le quorum se recalcule à chaque émargement.</p>
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-xs">
+			<h2 class="text-xl font-semibold text-ink">Quorum</h2>
+			<p class="text-ink text-sm">{ quorumSummary(quorum) }</p>
+			<p class="text-ink-muted text-sm">{ quorumVerdictLabel(quorum) }</p>
+		</div>
+		if len(rows) == 0 {
+			<p class="text-ink-muted">Aucun adhérent actif éligible.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr class="text-left text-ink-muted">
+						<th class="py-space-xs">Adhérent</th>
+						<th class="py-space-xs">Présence</th>
+						<th class="py-space-xs">Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range rows {
+						<tr class="border-t border-border">
+							<td class="py-space-xs text-ink">{ m.DisplayName }</td>
+							<td class="py-space-xs text-ink-muted">{ presenceLabel(m.Present) }</td>
+							<td class="py-space-xs">
+								if m.Present {
+									<span class="text-ink-muted">—</span>
+								} else {
+									<form method="POST" action={ templ.SafeURL("/admin/governance/" + asm.ID + "/sign") }>
+										<input type="hidden" name="_csrf" value={ csrfToken }/>
+										<input type="hidden" name="member_user_id" value={ m.UserID }/>
+										@templux.Button("Marquer présent", "secondary", templ.Attributes{"type": "submit"})
+									</form>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// ResolutionRow décrit une résolution et son dépouillement courant pour l'écran de
+// vote.
+type ResolutionRow struct {
+	Resolution governance.Resolution
+	Tally      governance.Tally
+}
+
+// GovernanceResolutionsPage : écran de décision d'une assemblée convoquée — ouverture
+// de résolutions, formulaire de vote par adhérent actif, clôture du scrutin et
+// affichage du dépouillement. Le choix de votant et de bulletin se fait par
+// formulaire ; l'éligibilité est contrôlée à l'enregistrement (par-votant).
+templ GovernanceResolutionsPage(asm governance.Assembly, rows []ResolutionRow, voters []AttendanceRow, csrfToken string) {
+	<section id="admin-governance-resolutions" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Vote — { asm.Name }</h1>
+		<p class="text-ink-muted text-sm">Soumettre une question au vote, enregistrer les bulletins des adhérents actifs, puis clôturer le scrutin. Un adhérent ne vote qu'une fois par résolution.</p>
+		<a href={ templ.SafeURL("/admin/governance/" + asm.ID + "/pv") } class="text-ink underline text-sm">Procès-verbal et registre des délibérations</a>
+		<form method="POST" action={ templ.SafeURL("/admin/governance/" + asm.ID + "/resolutions") } class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<h2 class="text-xl font-semibold text-ink">Ouvrir une résolution</h2>
+			@templux.FormField("Question soumise au vote", "", "", templux.Input("label", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.Button("Ouvrir au vote", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(rows) == 0 {
+			<p class="text-ink-muted">Aucune résolution ouverte.</p>
+		} else {
+			for _, row := range rows {
+				<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm">
+					<div class="flex flex-row justify-between gap-space-md">
+						<h3 class="text-lg font-semibold text-ink">{ row.Resolution.Label }</h3>
+						<span class="text-ink-muted text-sm">{ resolutionStatutLabel(row.Resolution.Status) }</span>
+					</div>
+					<p class="text-ink text-sm">{ tallySummary(row.Tally) }</p>
+					if row.Resolution.Status == "open" {
+						<form method="POST" action={ templ.SafeURL("/admin/governance/resolutions/" + row.Resolution.ID + "/vote") } class="flex flex-col gap-space-sm">
+							<input type="hidden" name="_csrf" value={ csrfToken }/>
+							<label class="flex flex-col gap-space-xs text-sm">
+								<span class="font-medium text-ink">Votant</span>
+								<select name="voter_user_id" required class="rounded-md border border-border bg-surface px-space-sm py-space-xs text-ink">
+									for _, v := range voters {
+										<option value={ v.UserID }>{ v.DisplayName }</option>
+									}
+								</select>
+							</label>
+							<label class="flex flex-col gap-space-xs text-sm">
+								<span class="font-medium text-ink">Choix</span>
+								<select name="choice" required class="rounded-md border border-border bg-surface px-space-sm py-space-xs text-ink">
+									<option value="pour">Pour</option>
+									<option value="contre">Contre</option>
+									<option value="abstention">Abstention</option>
+								</select>
+							</label>
+							<div class="flex flex-row gap-space-sm">
+								@templux.Button("Enregistrer le vote", "secondary", templ.Attributes{"type": "submit"})
+							</div>
+						</form>
+						<form method="POST" action={ templ.SafeURL("/admin/governance/resolutions/" + row.Resolution.ID + "/close") }>
+							<input type="hidden" name="_csrf" value={ csrfToken }/>
+							@templux.Button("Clôturer le scrutin", "ghost", templ.Attributes{"type": "submit"})
+						</form>
+					} else {
+						<p class="text-ink-muted text-sm">Scrutin clos.</p>
+					}
+				</div>
+			}
+		}
+	</section>
+}
+
+// GovernancePVPage : écran de trace d'une assemblée (V2d) — registre des
+// délibérations consignées (dépouillement figé de chaque résolution close) et
+// procès-verbal. Une résolution close non encore consignée peut l'être ; une fois
+// l'AG tracée, le PV est généré (immuable). minutesBody est vide tant qu'aucun PV
+// n'a été généré.
+templ GovernancePVPage(asm governance.Assembly, register []governance.Deliberation, closable []ResolutionRow, minutesBody string, csrfToken string) {
+	<section id="admin-governance-pv" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Procès-verbal et registre — { asm.Name }</h1>
+		<p class="text-ink-muted text-sm">Consigner au registre le dépouillement figé d'une résolution close, puis générer le procès-verbal de l'assemblée. Une délibération consignée et un procès-verbal généré sont immuables.</p>
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<h2 class="text-xl font-semibold text-ink">Résolutions closes à consigner</h2>
+			if len(closable) == 0 {
+				<p class="text-ink-muted text-sm">Aucune résolution close en attente de consignation.</p>
+			} else {
+				for _, row := range closable {
+					<div class="flex flex-row justify-between items-center gap-space-md border-t border-border py-space-xs">
+						<span class="text-ink text-sm">{ row.Resolution.Label } — { tallySummary(row.Tally) }</span>
+						<form method="POST" action={ templ.SafeURL("/admin/governance/resolutions/" + row.Resolution.ID + "/record") }>
+							<input type="hidden" name="_csrf" value={ csrfToken }/>
+							@templux.Button("Consigner", "secondary", templ.Attributes{"type": "submit"})
+						</form>
+					</div>
+				}
+			}
+		</div>
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<h2 class="text-xl font-semibold text-ink">Registre des délibérations</h2>
+			if len(register) == 0 {
+				<p class="text-ink-muted text-sm">Aucune délibération consignée.</p>
+			} else {
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-left text-ink-muted">
+							<th class="py-space-xs">Résolution</th>
+							<th class="py-space-xs">Dépouillement figé</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, d := range register {
+							<tr class="border-t border-border">
+								<td class="py-space-xs text-ink">{ d.Label }</td>
+								<td class="py-space-xs text-ink-muted">{ deliberationSummary(d) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<h2 class="text-xl font-semibold text-ink">Procès-verbal</h2>
+			if minutesBody == "" {
+				<p class="text-ink-muted text-sm">Aucun procès-verbal généré.</p>
+				<form method="POST" action={ templ.SafeURL("/admin/governance/" + asm.ID + "/minutes") }>
+					<input type="hidden" name="_csrf" value={ csrfToken }/>
+					@templux.Button("Générer le procès-verbal", "primary", templ.Attributes{"type": "submit"})
+				</form>
+			} else {
+				<pre class="whitespace-pre-wrap text-ink text-sm">{ minutesBody }</pre>
+				<p class="text-ink-muted text-sm">Le procès-verbal est généré et immuable.</p>
+			}
+		</div>
+	</section>
+}
+
+// deliberationSummary rend le dépouillement figé d'une délibération consignée.
+func deliberationSummary(d governance.Deliberation) string {
+	return fmt.Sprintf("Pour : %d · Contre : %d · Abstention : %d · Total des votes : %d",
+		d.Pour, d.Contre, d.Abstention, d.Total)
+}
+
+// resolutionStatutLabel traduit le statut d'une résolution en libellé user-facing.
+func resolutionStatutLabel(status string) string {
+	switch status {
+	case "open":
+		return "Ouverte"
+	case "closed":
+		return "Close"
+	default:
+		return status
+	}
+}
+
+// tallySummary rend le décompte chiffré d'un dépouillement.
+func tallySummary(t governance.Tally) string {
+	return fmt.Sprintf("Pour : %d · Contre : %d · Abstention : %d · Total des votes : %d",
+		t.Pour, t.Contre, t.Abstention, t.Total)
+}
+
+// quorumSummary rend le décompte chiffré du quorum.
+func quorumSummary(q governance.QuorumResult) string {
+	return fmt.Sprintf("Éligibles : %d · Présents : %d · Représentés : %d · Présents ou représentés : %d",
+		q.Eligible, q.Present, q.Represented, q.Attending)
+}
+
+// quorumVerdictLabel rend le verdict d'atteinte du quorum en clair.
+func quorumVerdictLabel(q governance.QuorumResult) string {
+	pct := int(q.Threshold * 100)
+	if q.Reached {
+		return fmt.Sprintf("Quorum atteint (seuil %d%%).", pct)
+	}
+	return fmt.Sprintf("Quorum non atteint (seuil %d%%).", pct)
+}
+
+// presenceLabel traduit l'état de présence en libellé user-facing.
+func presenceLabel(present bool) string {
+	if present {
+		return "Présent"
+	}
+	return "Absent"
+}
+
+// governanceScheduled rend la date programmée d'une assemblée, ou un repère vide.
+func governanceScheduled(a governance.Assembly) string {
+	if a.ScheduledAt == "" {
+		return "(non datée)"
+	}
+	return a.ScheduledAt
+}
+
+// governanceStatutLabel traduit le statut technique en libellé user-facing.
+func governanceStatutLabel(status string) string {
+	switch status {
+	case "drafting":
+		return "Brouillon"
+	case "convoked":
+		return "Convoquée"
+	case "cancelled":
+		return "Annulée"
+	default:
+		return status
+	}
+}

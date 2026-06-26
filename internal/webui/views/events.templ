@@ -1,0 +1,48 @@
+// views/events.templ — agenda migre vers templux (vague 2).
+package views
+
+import "github.com/hazyhaar/assokit/pkg/horui/events"
+
+// EventsList affiche la liste publique des événements.
+templ EventsList(items []events.Event) {
+	<section id="events-list" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Agenda</h1>
+		if len(items) == 0 {
+			<p class="text-ink-muted">Aucun événement pour l'instant.</p>
+		} else {
+			<ul class="list-none flex flex-col gap-space-sm">
+				for _, e := range items {
+					<li class="bg-surface-raised rounded-lg shadow-sm">
+						<a href={ templ.SafeURL("/events/" + e.Slug) } class="flex flex-col gap-space-xs p-space-lg">
+							<strong class="text-ink font-semibold">{ e.Title }</strong>
+							<time class="text-sm text-ink-muted">{ e.StartsAt }</time>
+							if e.Location != "" {
+								<span class="text-sm text-ink-muted">{ e.Location }</span>
+							}
+						</a>
+					</li>
+				}
+			</ul>
+		}
+	</section>
+}
+
+// EventDetail affiche la fiche d'un événement.
+templ EventDetail(e events.Event) {
+	<section id="event-detail" class="flex flex-col gap-space-md">
+		<p><a href="/events" class="text-accent">← Agenda</a></p>
+		<h1 class="text-2xl font-semibold text-ink">{ e.Title }</h1>
+		<p class="text-ink-muted">
+			<time>{ e.StartsAt }</time>
+			if e.EndsAt.Valid && e.EndsAt.String != "" {
+				<span>{ " → " + e.EndsAt.String }</span>
+			}
+		</p>
+		if e.Location != "" {
+			<p class="text-ink-muted">{ e.Location }</p>
+		}
+		if e.DescHTML != "" {
+			<div class="text-ink">@templ.Raw(e.DescHTML)</div>
+		}
+	</section>
+}

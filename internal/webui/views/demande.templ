@@ -1,0 +1,221 @@
+// views/demande.templ — parcours guidés V3c : intégration d'un propriétaire (admin),
+// demande de mise à disposition (membre preneur) et conversion administrative en
+// convention. Vendoring templux, gabarit account/conventions. Aucune donnée
+// fabriquée : tout vient des stores réels, état vide assumé sinon.
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/demande"
+	"github.com/hazyhaar/assokit/pkg/parcelle"
+)
+
+// OnboardProprietairePage : formulaire guidé d'intégration d'un propriétaire. Une
+// seule soumission crée le membre, son adhésion et ses parcelles rattachées. Trois
+// lignes de parcelle vierges sont proposées (les lignes entièrement vides sont
+// ignorées côté serveur) ; chaque parcelle porte sa nature de droit.
+templ OnboardProprietairePage(natures []string, csrfToken string) {
+	<section id="onboard-proprietaire" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Intégrer un propriétaire</h1>
+		<form method="POST" action="/admin/onboard-proprietaire" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-lg">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<p class="text-ink-muted text-sm">Ce parcours crée en une fois le compte du propriétaire, son adhésion et la ou les parcelles dont il détient un droit. Toutes les entrées sont validées avant la moindre création.</p>
+			<fieldset class="flex flex-col gap-space-md">
+				<legend class="text-lg font-medium text-ink">Identité du propriétaire</legend>
+				@templux.FormField("Nom affiché", "", "", templux.Input("display_name", "", templ.Attributes{"type": "text", "required": "required"}))
+				@templux.FormField("Adresse électronique", "", "", templux.Input("email", "", templ.Attributes{"type": "email", "required": "required"}))
+				@templux.FormField("Mot de passe initial", "Au moins 8 caractères, communiqué au propriétaire.", "", templux.Input("password", "", templ.Attributes{"type": "password", "required": "required", "minlength": "8"}))
+			</fieldset>
+			<fieldset class="flex flex-col gap-space-md">
+				<legend class="text-lg font-medium text-ink">Adhésion</legend>
+				@templux.FormField("Début de période", "", "", templux.Input("period_start", "", templ.Attributes{"type": "date", "required": "required"}))
+				@templux.FormField("Fin de période", "", "", templux.Input("period_end", "", templ.Attributes{"type": "date", "required": "required"}))
+				@templux.FormField("Montant de cotisation (centimes)", "Laisser vide si aucun montant.", "", templux.Input("amount_cents", "", templ.Attributes{"type": "number", "min": "0", "placeholder": "0"}))
+			</fieldset>
+			<fieldset class="flex flex-col gap-space-md">
+				<legend class="text-lg font-medium text-ink">Parcelles et quote-part (nature du droit)</legend>
+				<p class="text-ink-muted text-sm">Renseigner au moins une parcelle. Les lignes laissées entièrement vides sont ignorées.</p>
+				for i := 0; i < 3; i++ {
+					@onboardParcelleRow(natures)
+				}
+			</fieldset>
+			@templux.Button("Intégrer le propriétaire", "primary", templ.Attributes{"type": "submit"})
+		</form>
+	</section>
+}
+
+templ onboardParcelleRow(natures []string) {
+	<div class="grid grid-cols-1 sm:grid-cols-5 gap-space-sm border-b border-border pb-space-sm">
+		@templux.Input("parcelle_commune", "", templ.Attributes{"type": "text", "placeholder": "Commune (INSEE)"})
+		@templux.Input("parcelle_section", "", templ.Attributes{"type": "text", "placeholder": "Section"})
+		@templux.Input("parcelle_numero", "", templ.Attributes{"type": "text", "placeholder": "Numéro"})
+		@templux.Input("parcelle_surface", "", templ.Attributes{"type": "number", "min": "0", "placeholder": "Surface m²"})
+		@templux.Select("parcelle_nature", natureOptions(natures), "", templ.Attributes{})
+	</div>
+}
+
+// DemandeMadPage : formulaire de demande de mise à disposition + demandes déjà
+// soumises par le membre connecté (rôle-scopé). Le statut est forcé serveur.
+templ DemandeMadPage(parcelles []parcelle.Parcelle, demandes []demande.Demande, csrfToken string) {
+	<section id="account-demande-mad" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Demander une mise à disposition</h1>
+		<form method="POST" action="/account/demande-mad" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<p class="text-ink-muted text-sm">Solliciter la mise à disposition d'une parcelle. La demande est transmise à l'administration : elle ne crée aucune convention par elle-même.</p>
+			@templux.FormField("Référence de parcelle souhaitée", "", "", templux.Input("parcelle_ref", "", templ.Attributes{"type": "text", "required": "required", "placeholder": "commune · section · numéro", "list": "demande-mad-parcelles"}))
+			<datalist id="demande-mad-parcelles">
+				for _, p := range parcelles {
+					<option value={ demandeParcelleRef(p) }></option>
+				}
+			</datalist>
+			@templux.FormField("Objet / usage", "", "", templux.Input("objet", "", templ.Attributes{"type": "text", "required": "required", "placeholder": "Pâturage ovin estival…"}))
+			@templux.FormField("Précisions", "", "", templux.Input("details", "", templ.Attributes{"type": "text", "placeholder": "Période, charge, conditions…"}))
+			@templux.Button("Soumettre la demande", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(demandes) == 0 {
+			<p class="text-ink-muted">Aucune demande soumise.</p>
+		} else {
+			@demandesTable(demandes, false)
+		}
+	</section>
+}
+
+// AdminDemandesPage : liste de toutes les demandes (administration), avec lien de
+// conversion vers le parcours guidé pour les demandes non closes.
+templ AdminDemandesPage(list []demande.Demande) {
+	<section id="admin-demandes" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Demandes de mise à disposition</h1>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune demande de mise à disposition.</p>
+		} else {
+			@demandesTable(list, true)
+		}
+	</section>
+}
+
+templ demandesTable(list []demande.Demande, admin bool) {
+	<table class="w-full text-sm">
+		<thead>
+			<tr>
+				if admin {
+					<th class="px-space-md py-space-sm border-b border-border text-left">Membre</th>
+				}
+				<th class="px-space-md py-space-sm border-b border-border text-left">Parcelle</th>
+				<th class="px-space-md py-space-sm border-b border-border text-left">Objet</th>
+				<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+				if admin {
+					<th class="px-space-md py-space-sm border-b border-border text-left">Action</th>
+				}
+			</tr>
+		</thead>
+		<tbody>
+			for _, d := range list {
+				<tr>
+					if admin {
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ d.UserID }</td>
+					}
+					<td class="px-space-md py-space-sm border-b border-border text-left">{ d.ParcelleRef }</td>
+					<td class="px-space-md py-space-sm border-b border-border text-left">{ d.Objet }</td>
+					<td class="px-space-md py-space-sm border-b border-border text-left">{ demandeStatut(d.Statut) }</td>
+					if admin {
+						<td class="px-space-md py-space-sm border-b border-border text-left">
+							if d.Statut == demande.StatutConvertie || d.Statut == demande.StatutRefusee {
+								<span class="text-ink-muted">close</span>
+							} else {
+								<a class="text-accent underline" href={ templ.SafeURL("/admin/demandes/" + d.ID + "/convertir") }>Convertir</a>
+							}
+						</td>
+					}
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+// DemandeConvertirPage : formulaire de convention pré-rempli depuis une demande
+// (preneur = demandeur, parcelle souhaitée rappelée). La soumission crée la convention
+// puis marque la demande convertie ; un bouton de refus est aussi proposé.
+templ DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrfToken string) {
+	<section id="admin-demande-convertir" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Convertir une demande en convention</h1>
+		<div class="bg-surface-muted rounded-lg p-space-md flex flex-col gap-space-xs text-sm">
+			<p class="text-ink">Demandeur (preneur) : { d.UserID }</p>
+			<p class="text-ink">Parcelle souhaitée : { d.ParcelleRef }</p>
+			<p class="text-ink">Objet : { d.Objet }</p>
+			if d.Details != "" {
+				<p class="text-ink-muted">{ d.Details }</p>
+			}
+		</div>
+		<form method="POST" action={ templ.SafeURL("/admin/demandes/" + d.ID + "/convertir") } class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<input type="hidden" name="preneur_id" value={ d.UserID }/>
+			<p class="text-ink-muted text-sm">Sélectionner les parcelles du registre à rattacher à la convention, et la durée.</p>
+			<fieldset class="flex flex-col gap-space-xs">
+				<legend class="text-sm font-medium text-ink">Parcelles à rattacher</legend>
+				if len(parcelles) == 0 {
+					<p class="text-ink-muted text-sm">Aucune parcelle au registre. Enregistrer d'abord la parcelle souhaitée.</p>
+				} else {
+					for _, p := range parcelles {
+						<label class="flex items-center gap-space-sm text-sm">
+							<input type="checkbox" name="parcelle_id" value={ p.ID }/>
+							<span>{ convertirParcelleLabel(p) }</span>
+						</label>
+					}
+				}
+			</fieldset>
+			@templux.FormField("Durée (mois)", "Par défaut 60 mois (5 ans).", "", templux.Input("duree_mois", "60", templ.Attributes{"type": "number", "min": "1"}))
+			<div class="flex gap-space-sm">
+				@templux.Button("Créer la convention", "primary", templ.Attributes{"type": "submit", "name": "action", "value": "convertir"})
+				@templux.Button("Refuser la demande", "danger", templ.Attributes{"type": "submit", "name": "action", "value": "refuser"})
+			</div>
+		</form>
+	</section>
+}
+
+func natureOptions(natures []string) []templux.SelectOption {
+	opts := make([]templux.SelectOption, 0, len(natures))
+	for _, n := range natures {
+		opts = append(opts, templux.SelectOption{Value: n, Label: natureLabel(n)})
+	}
+	return opts
+}
+
+func natureLabel(n string) string {
+	switch n {
+	case "pleine_propriete":
+		return "Pleine propriété"
+	case "usufruit":
+		return "Usufruit"
+	case "nue_propriete":
+		return "Nue-propriété"
+	case "occupant":
+		return "Occupant"
+	default:
+		return n
+	}
+}
+
+func demandeParcelleRef(p parcelle.Parcelle) string {
+	return fmt.Sprintf("%s · %s · %s", p.CommuneCode, p.Section, p.NumeroParcelle)
+}
+
+func convertirParcelleLabel(p parcelle.Parcelle) string {
+	return fmt.Sprintf("%s · %s · %s (%d m²)", p.CommuneCode, p.Section, p.NumeroParcelle, p.SurfaceM2)
+}
+
+func demandeStatut(statut string) string {
+	switch statut {
+	case "soumise":
+		return "soumise"
+	case "acceptee":
+		return "acceptée"
+	case "refusee":
+		return "refusée"
+	case "convertie":
+		return "convertie"
+	default:
+		return statut
+	}
+}

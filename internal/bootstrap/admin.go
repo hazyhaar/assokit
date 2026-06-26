@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/hazyhaar/assokit/pkg/uid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -39,7 +39,7 @@ func bootstrapAdmin(db *sql.DB, adminEmail, adminPassword string, logger *slog.L
 		return fmt.Errorf("bootstrapAdmin bcrypt: %w", err)
 	}
 
-	id := uuid.New().String()
+	id := uid.New()
 	now := time.Now().UTC().Format("2006-01-02 15:04:05")
 
 	tx, err := db.Begin()
@@ -56,9 +56,13 @@ func bootstrapAdmin(db *sql.DB, adminEmail, adminPassword string, logger *slog.L
 		return fmt.Errorf("bootstrapAdmin insert user: %w", err)
 	}
 
-	_, err = tx.Exec(`INSERT INTO user_roles(user_id, role_id) VALUES(?,?)`, id, "admin")
+	// RBAC : assigner le grade système admin. Le modèle RBAC a migré de
+	// roles/user_roles (legacy initial.sql) vers grades/user_grades (migration
+	// 00003 + seed 00004 qui crée le grade 'sys-admin'). On écrit donc dans
+	// user_grades vers sys-admin, pas dans la table roles morte.
+	_, err = tx.Exec(`INSERT OR IGNORE INTO user_grades(user_id, grade_id) VALUES(?,?)`, id, "sys-admin")
 	if err != nil {
-		return fmt.Errorf("bootstrapAdmin insert role: %w", err)
+		return fmt.Errorf("bootstrapAdmin assign grade: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {

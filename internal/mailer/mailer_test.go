@@ -58,7 +58,7 @@ func TestEnqueueInsertsRow(t *testing.T) {
 // et pose retry_after dans le futur avec un délai d'au moins 30s.
 func TestMailer_RunWorker_RetryExponential(t *testing.T) {
 	db := newTestDB(t)
-	m := &mailer.Mailer{DB: db, APIKey: "test", From: "contact@nps.org"}
+	m := &mailer.Mailer{DB: db, APIKey: "test", From: "contact@example.org"}
 	ctx := context.Background()
 
 	m.Enqueue(ctx, "x@y.com", "Test", "body", "<p>html</p>")

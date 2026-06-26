@@ -1,0 +1,275 @@
+// views/elevage.templ — espace éleveur/preneur (V3b) : accueil consolidé du preneur
+// (conventions + parcelles mises à disposition + redevance en lecture seule),
+// déclaration d'entretien réalisé, signalement de problème terrain, et vue
+// administration du journal de terrain. Vendoring templux, gabarit account.templ.
+// Aucune donnée fabriquée : tout vient des stores réels du membre, état vide assumé.
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/convention"
+	"github.com/hazyhaar/assokit/pkg/fieldlog"
+	"github.com/hazyhaar/assokit/pkg/parcelle"
+)
+
+// ElevageSummary agrège la situation du preneur connecté pour l'écran d'accueil
+// élevage. Tous les champs sont dérivés de stores réels (cf. handler) : conventions
+// dont le membre est preneur, parcelles mises à disposition, durée contractuelle.
+type ElevageSummary struct {
+	DisplayName    string
+	Conventions    []convention.Convention
+	Parcelles      []parcelle.Parcelle
+	SurfaceTotalM2 int64
+}
+
+// ElevagePage : accueil rôle-scopé de l'éleveur/preneur. Consultation en lecture
+// seule de ses conventions, des parcelles mises à disposition et de l'engagement de
+// redevance. Le paiement de la redevance n'est pas traité ici (suivi différé).
+templ ElevagePage(s ElevageSummary) {
+	<section id="account-elevage" class="flex flex-col gap-space-lg">
+		<header class="flex flex-col gap-space-sm">
+			<h1 class="text-2xl font-semibold text-ink">Espace élevage</h1>
+			if s.DisplayName != "" {
+				<p class="text-ink-muted">{ s.DisplayName }</p>
+			}
+		</header>
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+			@accountCard("Déclarer un entretien", "Clôture, point d'eau, débroussaillage réalisé.", "/account/elevage/entretien")
+			@accountCard("Signaler un problème", "Gibier, divagation, accès, danger sur le terrain.", "/account/elevage/probleme")
+			@accountCard("Export PAC (RPG)", "Télécharger mes parcelles et surfaces exploitées.", "/account/elevage/export-pac.csv")
+		</div>
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-xl font-semibold text-ink">Mes conventions de pâturage</h2>
+			if len(s.Conventions) == 0 {
+				<p class="text-ink-muted">Aucune convention de pâturage rattachée à votre compte.</p>
+			} else {
+				<table class="w-full text-sm">
+					<thead>
+						<tr>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Convention</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Durée</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Parcelles</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, c := range s.Conventions {
+							<tr>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ c.ID }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ elevageDuree(c.DureeMois) }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ fmt.Sprintf("%d parcelle(s)", len(c.Parcelles)) }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ elevageStatutConvention(c.Statut) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</section>
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-xl font-semibold text-ink">Parcelles mises à disposition</h2>
+			if len(s.Parcelles) == 0 {
+				<p class="text-ink-muted">Aucune parcelle mise à disposition.</p>
+			} else {
+				<ul class="list-disc pl-space-lg">
+					for _, p := range s.Parcelles {
+						<li>{ attestationParcelleRef(p) }</li>
+					}
+				</ul>
+				<p class="text-ink-muted text-sm">{ fmt.Sprintf("Surface exploitée totale : %d m².", s.SurfaceTotalM2) }</p>
+			}
+		</section>
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-xl font-semibold text-ink">Redevance</h2>
+			<p class="text-ink-muted text-sm">La redevance est attachée à vos conventions de pâturage (consultation en lecture seule). Le suivi des appels et des paiements sera disponible dans une prochaine version.</p>
+		</section>
+	</section>
+}
+
+// ElevageEntretienPage : formulaire de déclaration d'entretien réalisé + entrées
+// déjà saisies par le membre. Le sélecteur de parcelle propose les parcelles mises à
+// disposition ; un champ libre reste possible.
+templ ElevageEntretienPage(parcelles []parcelle.Parcelle, entries []fieldlog.Entry, csrfToken string) {
+	<section id="account-elevage-entretien" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Déclarer un entretien réalisé</h1>
+		<form method="POST" action="/account/elevage/entretien" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<p class="text-ink-muted text-sm">Consigner un entretien réalisé sur une parcelle mise à disposition. La déclaration est transmise au bureau pour suivi.</p>
+			@templux.FormField("Catégorie", "", "", templux.Select("category", entretienCategorieOptions, "cloture", templ.Attributes{}))
+			@templux.FormField("Référence de parcelle", "", "", templux.Input("parcelle_ref", "", templ.Attributes{"type": "text", "placeholder": "commune · section · numéro", "list": "elevage-parcelles"}))
+			<datalist id="elevage-parcelles">
+				for _, p := range parcelles {
+					<option value={ mutationParcelleRef(p) }></option>
+				}
+			</datalist>
+			@templux.FormField("Date", "", "", templux.Input("event_date", "", templ.Attributes{"type": "date"}))
+			@templux.FormField("Précisions", "", "", templux.Input("details", "", templ.Attributes{"type": "text", "placeholder": "Nature et étendue de l'entretien…"}))
+			@templux.Button("Enregistrer l'entretien", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		@fieldlogTable("Aucun entretien déclaré.", entries)
+	</section>
+}
+
+// ElevageProblemePage : formulaire de signalement de problème terrain + signalements
+// déjà saisis par le membre. Même patron que l'entretien.
+templ ElevageProblemePage(parcelles []parcelle.Parcelle, entries []fieldlog.Entry, csrfToken string) {
+	<section id="account-elevage-probleme" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Signaler un problème terrain</h1>
+		<form method="POST" action="/account/elevage/probleme" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<p class="text-ink-muted text-sm">Signaler un problème observé sur le terrain. Le signalement est transmis au bureau.</p>
+			@templux.FormField("Catégorie", "", "", templux.Select("category", problemeCategorieOptions, "gibier", templ.Attributes{}))
+			@templux.FormField("Référence de parcelle", "", "", templux.Input("parcelle_ref", "", templ.Attributes{"type": "text", "placeholder": "commune · section · numéro", "list": "elevage-parcelles-probleme"}))
+			<datalist id="elevage-parcelles-probleme">
+				for _, p := range parcelles {
+					<option value={ mutationParcelleRef(p) }></option>
+				}
+			</datalist>
+			@templux.FormField("Date", "", "", templux.Input("event_date", "", templ.Attributes{"type": "date"}))
+			@templux.FormField("Précisions", "", "", templux.Input("details", "", templ.Attributes{"type": "text", "placeholder": "Description du problème observé…"}))
+			@templux.Button("Enregistrer le signalement", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		@fieldlogTable("Aucun problème signalé.", entries)
+	</section>
+}
+
+// AdminFieldReportsPage : journal de terrain consolidé (administration). Toutes les
+// entrées de tous les membres, tous types confondus.
+// FieldReportRow associe une entrée du journal de terrain au nom affichable de son
+// auteur, résolu côté handler (le store fieldlog ne porte que l'UserID). Évite
+// d'afficher un UUID brut dans la colonne « Membre » de la vue administration.
+type FieldReportRow struct {
+	Entry       fieldlog.Entry
+	DisplayName string
+}
+
+templ AdminFieldReportsPage(rows []FieldReportRow) {
+	<section id="admin-field-reports" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Journal de terrain</h1>
+		if len(rows) == 0 {
+			<p class="text-ink-muted">Aucune entrée au journal de terrain.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Membre</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Type</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Catégorie</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Parcelle</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Date</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Précisions</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range rows {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ row.DisplayName }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ fieldlogKindLabel(row.Entry.Kind) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ fieldlogCategorieLabel(row.Entry.Category) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ row.Entry.ParcelleRef }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ row.Entry.EventDate }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ row.Entry.Details }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+templ fieldlogTable(emptyMsg string, entries []fieldlog.Entry) {
+	if len(entries) == 0 {
+		<p class="text-ink-muted">{ emptyMsg }</p>
+	} else {
+		<table class="w-full text-sm">
+			<thead>
+				<tr>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Catégorie</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Parcelle</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Date</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Précisions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, e := range entries {
+					<tr>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ fieldlogCategorieLabel(e.Category) }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ e.ParcelleRef }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ e.EventDate }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ e.Details }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+var entretienCategorieOptions = []templux.SelectOption{
+	{Value: "cloture", Label: "Clôture"},
+	{Value: "eau", Label: "Point d'eau"},
+	{Value: "debroussaillage", Label: "Débroussaillage"},
+	{Value: "autre", Label: "Autre"},
+}
+
+var problemeCategorieOptions = []templux.SelectOption{
+	{Value: "gibier", Label: "Gibier"},
+	{Value: "divagation", Label: "Divagation"},
+	{Value: "acces", Label: "Accès"},
+	{Value: "danger", Label: "Danger"},
+	{Value: "autre", Label: "Autre"},
+}
+
+func elevageDuree(mois int) string {
+	if mois <= 0 {
+		return "—"
+	}
+	return fmt.Sprintf("%d mois", mois)
+}
+
+func elevageStatutConvention(statut string) string {
+	switch statut {
+	case "brouillon":
+		return "brouillon"
+	case "active":
+		return "active"
+	case "revoquee":
+		return "révoquée"
+	default:
+		return statut
+	}
+}
+
+func fieldlogKindLabel(kind string) string {
+	switch kind {
+	case "entretien":
+		return "entretien"
+	case "probleme":
+		return "problème"
+	default:
+		return kind
+	}
+}
+
+func fieldlogCategorieLabel(cat string) string {
+	switch cat {
+	case "cloture":
+		return "clôture"
+	case "eau":
+		return "point d'eau"
+	case "debroussaillage":
+		return "débroussaillage"
+	case "gibier":
+		return "gibier"
+	case "divagation":
+		return "divagation"
+	case "acces":
+		return "accès"
+	case "danger":
+		return "danger"
+	case "autre":
+		return "autre"
+	default:
+		return cat
+	}
+}

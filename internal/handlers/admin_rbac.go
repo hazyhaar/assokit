@@ -10,9 +10,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	adminrbac "github.com/hazyhaar/assokit/pkg/horui/admin/rbac"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 )
 
 const auditPageSize = 50
@@ -63,7 +64,7 @@ func handleAdminRBACGradesList(deps app.AppDeps, svc *rbac.Service) http.Handler
 			gradeRows = append(gradeRows, g)
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		adminrbac.GradeListPage(gradeRows).Render(r.Context(), w) //nolint:errcheck
+		views.RbacGradeListPage(gradeRows).Render(r.Context(), w) //nolint:errcheck
 	}
 }
 
@@ -83,7 +84,7 @@ func handleAdminRBACGradesCreate(deps app.AppDeps, svc *rbac.Service) http.Handl
 		g := adminrbac.GradeRow{ID: id, Name: name}
 		if r.Header.Get("HX-Request") != "" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			adminrbac.GradeListRow(g).Render(r.Context(), w) //nolint:errcheck
+			views.RbacGradeListRow(g).Render(r.Context(), w) //nolint:errcheck
 			return
 		}
 		http.Redirect(w, r, "/admin/rbac/grades", http.StatusSeeOther)
@@ -136,7 +137,7 @@ func handleAdminRBACGradeEdit(deps app.AppDeps, svc *rbac.Service) http.HandlerF
 			Parents:   parents,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		adminrbac.GradeEditPage(detail).Render(r.Context(), w) //nolint:errcheck
+		views.RbacGradeEditPage(detail).Render(r.Context(), w) //nolint:errcheck
 	}
 }
 
@@ -279,7 +280,7 @@ func handleAdminRBACUsersList(deps app.AppDeps, svc *rbac.Service) http.HandlerF
 		}
 		filter := adminrbac.UserFilter{Search: search, GradeID: gradeFilter}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		adminrbac.UserListPage(users, filter, gradeRows).Render(r.Context(), w) //nolint:errcheck
+		views.RbacUserListPage(users, filter, gradeRows).Render(r.Context(), w) //nolint:errcheck
 	}
 }
 
@@ -311,7 +312,7 @@ func handleAdminRBACUserGradeAssign(deps app.AppDeps, svc *rbac.Service) http.Ha
 			}
 			u := adminrbac.UserRow{ID: userID, Email: email, Grades: gradeNames}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			adminrbac.UserListRow(u, allGradeRows).Render(r.Context(), w) //nolint:errcheck
+			views.RbacUserListRow(u, allGradeRows).Render(r.Context(), w) //nolint:errcheck
 			return
 		}
 		http.Redirect(w, r, "/admin/rbac/users", http.StatusSeeOther)
@@ -385,6 +386,6 @@ func handleAdminRBACAuditList(deps app.AppDeps) http.HandlerFunc {
 		}
 		filter := adminrbac.AuditFilter{Action: filterAction, ActorID: filterActor}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		adminrbac.AuditListPage(auditRows, pag, filter).Render(r.Context(), w) //nolint:errcheck
+		views.RbacAuditListPage(auditRows, pag, filter).Render(r.Context(), w) //nolint:errcheck
 	}
 }

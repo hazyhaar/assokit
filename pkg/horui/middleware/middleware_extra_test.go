@@ -14,7 +14,7 @@ func TestCSRFValidToken(t *testing.T) {
 
 	// Obtenir un token depuis un GET
 	var token string
-	handler := middleware.CSRF(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := middleware.CSRF(secret, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token = middleware.CSRFToken(r.Context())
 		w.WriteHeader(200)
 	}))
@@ -46,7 +46,7 @@ func TestCSRFHeaderToken(t *testing.T) {
 
 	// Obtenir cookie CSRF
 	var token string
-	handler := middleware.CSRF(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := middleware.CSRF(secret, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token = middleware.CSRFToken(r.Context())
 		w.WriteHeader(200)
 	}))

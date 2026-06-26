@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"net/http"
 
-	"github.com/google/uuid"
+	"github.com/hazyhaar/assokit/pkg/uid"
 )
 
 type requestIDKey struct{}
@@ -17,7 +17,7 @@ type requestIDKey struct{}
 // Le header X-Request-ID entrant n'est jamais utilisé (trust serveur uniquement, pas client).
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := uuid.New().String()
+		id := uid.New()
 		w.Header().Set("X-Request-ID", id)
 		ctx := context.WithValue(r.Context(), requestIDKey{}, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -60,12 +60,14 @@ func HashIP(ip string, secret []byte) string {
 // X-Content-Type-Options nosniff : refuse MIME sniffing (XSS).
 // Referrer-Policy : limite l'exfiltration cross-origin.
 // Strict-Transport-Security : force HTTPS (1 an + subdomains + preload-eligible).
-//   Posé seulement si la requête arrive en HTTPS (sinon Chrome jette le header).
+//
+//	Posé seulement si la requête arrive en HTTPS (sinon Chrome jette le header).
+//
 // Content-Security-Policy : limite les sources autorisées (anti-XSS).
 //   - default-src 'self' : par défaut tout depuis le même origin.
 //   - img-src 'self' data: https: : autorise data-URI + images externes (HelloAsso, OG).
 //   - frame-src 'self' https://*.helloasso.com : iframe HelloAsso don/cotisation.
-//   - script-src 'self' 'unsafe-inline' : inline pour CSS vars + htmx attrs (NPS pas de SPA).
+//   - script-src 'self' 'unsafe-inline' : inline pour CSS vars + htmx attrs (assokit pas de SPA).
 //   - style-src 'self' 'unsafe-inline' : CSS vars dans <style> + attributs style.
 //   - connect-src 'self' : XHR htmx vers même origin uniquement.
 //   - object-src 'none', base-uri 'self', form-action 'self' : durcissement standard.

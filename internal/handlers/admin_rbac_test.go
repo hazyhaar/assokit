@@ -14,10 +14,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 
 	_ "modernc.org/sqlite"
 )
@@ -53,7 +53,7 @@ func withRBACPerms(r *http.Request, svc *rbac.Service, userID string, permNames 
 // adminRBACRequest crée une requête avec rôle admin (pour requireAdmin) et perms RBAC.
 func adminRBACRequest(r *http.Request, svc *rbac.Service, userID string, permNames ...string) *http.Request {
 	r = withRBACPerms(r, svc, userID, permNames...)
-	u := &auth.User{ID: userID, Roles: []string{"admin"}}
+	u := &identity.User{ID: userID, Roles: []string{"admin"}}
 	return r.WithContext(middleware.ContextWithUser(r.Context(), u))
 }
 

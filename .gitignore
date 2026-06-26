@@ -7,3 +7,9 @@
 # Build artifacts
 /dist/
 assokit.db
+
+# Artefacts runtime upload admin
+internal/handlers/admin_panel/uploads/
+
+# Matrices de couverture générées
+plans/MCP_COVERAGE_MATRIX_*.md

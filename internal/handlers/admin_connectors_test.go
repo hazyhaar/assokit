@@ -17,8 +17,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/connectors"
 	"github.com/hazyhaar/assokit/pkg/connectors/assets"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
@@ -28,13 +28,15 @@ type configurableConnector struct {
 	schema         *jsonschema.Schema
 }
 
-func (c *configurableConnector) ID() string                                            { return c.id }
-func (c *configurableConnector) DisplayName() string                                   { return c.name }
-func (c *configurableConnector) Description() string                                   { return c.desc }
-func (c *configurableConnector) ConfigSchema() *jsonschema.Schema                      { return c.schema }
-func (c *configurableConnector) Start(ctx context.Context, cfg map[string]any) error  { return nil }
-func (c *configurableConnector) Stop(ctx context.Context) error                       { return nil }
-func (c *configurableConnector) Ping(ctx context.Context) (connectors.Health, error)  { return connectors.Health{OK: true}, nil }
+func (c *configurableConnector) ID() string                                          { return c.id }
+func (c *configurableConnector) DisplayName() string                                 { return c.name }
+func (c *configurableConnector) Description() string                                 { return c.desc }
+func (c *configurableConnector) ConfigSchema() *jsonschema.Schema                    { return c.schema }
+func (c *configurableConnector) Start(ctx context.Context, cfg map[string]any) error { return nil }
+func (c *configurableConnector) Stop(ctx context.Context) error                      { return nil }
+func (c *configurableConnector) Ping(ctx context.Context) (connectors.Health, error) {
+	return connectors.Health{OK: true}, nil
+}
 func (c *configurableConnector) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
 	return nil
 }
@@ -54,13 +56,15 @@ func newConfigurableConnector(t *testing.T, id, schemaJSON string) *configurable
 
 type fakeConnector struct{ id, name, desc string }
 
-func (f *fakeConnector) ID() string                                            { return f.id }
-func (f *fakeConnector) DisplayName() string                                   { return f.name }
-func (f *fakeConnector) Description() string                                   { return f.desc }
-func (f *fakeConnector) ConfigSchema() *jsonschema.Schema                      { return nil }
-func (f *fakeConnector) Start(ctx context.Context, cfg map[string]any) error  { return nil }
-func (f *fakeConnector) Stop(ctx context.Context) error                       { return nil }
-func (f *fakeConnector) Ping(ctx context.Context) (connectors.Health, error)  { return connectors.Health{OK: true, Message: "OK"}, nil }
+func (f *fakeConnector) ID() string                                          { return f.id }
+func (f *fakeConnector) DisplayName() string                                 { return f.name }
+func (f *fakeConnector) Description() string                                 { return f.desc }
+func (f *fakeConnector) ConfigSchema() *jsonschema.Schema                    { return nil }
+func (f *fakeConnector) Start(ctx context.Context, cfg map[string]any) error { return nil }
+func (f *fakeConnector) Stop(ctx context.Context) error                      { return nil }
+func (f *fakeConnector) Ping(ctx context.Context) (connectors.Health, error) {
+	return connectors.Health{OK: true, Message: "OK"}, nil
+}
 func (f *fakeConnector) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
 	return nil
 }
@@ -92,7 +96,7 @@ func TestAdminConnectors_NonAdminReturns403(t *testing.T) {
 	reg := connectors.NewRegistry()
 
 	req := httptest.NewRequest("GET", "/admin/connectors", nil)
-	req = req.WithContext(middleware.ContextWithUser(req.Context(), &auth.User{ID: "u", Roles: []string{"member"}}))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "u", Roles: []string{"member"}}))
 	w := httptest.NewRecorder()
 	AdminConnectorsList(deps, reg, nil)(w, req)
 
@@ -164,7 +168,7 @@ func TestAdminConnectorsConfigure_PersistsConfigViaVaultForSecrets(t *testing.T)
 
 	body := `{"client_id":"id123","client_secret":"SUPER_SECRET","sandbox_mode":true}`
 	req := httptest.NewRequest("POST", "/admin/connectors/helloasso/configure", strings.NewReader(body))
-	req = req.WithContext(middleware.ContextWithUser(req.Context(), &auth.User{ID: "admin", Roles: []string{"admin"}}))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "admin", Roles: []string{"admin"}}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -211,7 +215,7 @@ func TestAdminConnectorsConfigure_ValidationFailsServerSide(t *testing.T) {
 	// client_secret manquant (required violé)
 	body := `{"client_id":"id"}`
 	req := httptest.NewRequest("POST", "/admin/connectors/helloasso/configure", strings.NewReader(body))
-	req = req.WithContext(middleware.ContextWithUser(req.Context(), &auth.User{ID: "admin", Roles: []string{"admin"}}))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "admin", Roles: []string{"admin"}}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -229,7 +233,7 @@ func TestAdminConnectorsConfigure_NonAdminReturns403(t *testing.T) {
 	r.Post("/admin/connectors/{id}/configure", AdminConnectorConfigure(deps, reg, nil))
 
 	req := httptest.NewRequest("POST", "/admin/connectors/x/configure", strings.NewReader(`{}`))
-	req = req.WithContext(middleware.ContextWithUser(req.Context(), &auth.User{ID: "u", Roles: []string{"member"}}))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "u", Roles: []string{"member"}}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -249,7 +253,7 @@ func TestAdminConnectorSchema_ReturnsJSONSchema(t *testing.T) {
 	r.Get("/admin/connectors/{id}/schema", AdminConnectorSchema(deps, reg))
 
 	req := httptest.NewRequest("GET", "/admin/connectors/helloasso/schema", nil)
-	req = req.WithContext(middleware.ContextWithUser(req.Context(), &auth.User{ID: "admin", Roles: []string{"admin"}}))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "admin", Roles: []string{"admin"}}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -276,7 +280,7 @@ func TestAdminConnectorsConfigure_NoSecretsInConfigJsonAfterPOST(t *testing.T) {
 
 	body := `{"client_id":"id123","client_secret":"NEVER_LOG_THIS","sandbox_mode":false}`
 	req := httptest.NewRequest("POST", "/admin/connectors/helloasso/configure", strings.NewReader(body))
-	req = req.WithContext(middleware.ContextWithUser(req.Context(), &auth.User{ID: "admin", Roles: []string{"admin"}}))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "admin", Roles: []string{"admin"}}))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -309,7 +313,7 @@ func TestAdminConnectors_ListShowsAllRegisteredWithStatus(t *testing.T) {
 	deps := app.AppDeps{DB: db, Logger: slog.Default()}
 
 	req := httptest.NewRequest("GET", "/admin/connectors", nil)
-	req = req.WithContext(middleware.ContextWithUser(req.Context(), &auth.User{ID: "admin", Roles: []string{"admin"}}))
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "admin", Roles: []string{"admin"}}))
 	w := httptest.NewRecorder()
 	AdminConnectorsList(deps, reg, nil)(w, req)
 

@@ -1,0 +1,30 @@
+// views/login.templ — page connexion migree vers templux vague 1.
+// Remplace pages.Login() de pkg/horui/pages pour les handlers cables sur webui.Shell.
+package views
+
+import (
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+)
+
+// Login est le formulaire de connexion par mot de passe.
+// Le handler la fournit comme content a webui.Shell.
+// Le token CSRF est rendu en champ cache cote serveur (et non delegue a csrf.js) :
+// avec hx-boost actif, htmx serialise le formulaire avant l'injection JS du token.
+templ Login(csrfToken string) {
+	<section class="py-space-xl max-w-md mx-auto">
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-lg">
+			<h1 class="text-2xl font-semibold text-ink">Connexion</h1>
+			<form method="POST" action="/login" hx-boost="false" class="flex flex-col gap-space-md">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				@templux.FormField("Email", "", "", templux.Input("email", "", templ.Attributes{"type": "email", "id": "login-email", "required": "required", "autocomplete": "email"}))
+				@templux.FormField("Mot de passe", "", "", templux.Input("password", "", templ.Attributes{"type": "password", "id": "login-password", "required": "required", "autocomplete": "current-password"}))
+				@templux.Button("Se connecter", "primary", templ.Attributes{"type": "submit"})
+			</form>
+			<p class="text-sm text-ink-muted">
+				<a href="/forgot" class="text-accent">Mot de passe oublié ?</a>
+				·
+				Pas encore de compte ? <a href="/participer" class="text-accent">Adhérer</a>.
+			</p>
+		</div>
+	</section>
+}

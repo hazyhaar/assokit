@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/hazyhaar/assokit/pkg/signupprofile"
 )
 
 // TestSignup_StoresIPHashNotRawIP vérifie que createMember stocke ip_hash et jamais l'IP brute.
@@ -19,7 +21,7 @@ func TestSignup_StoresIPHashNotRawIP(t *testing.T) {
 	rawIP := "192.0.2.42"
 	secret := []byte("test-cookie-secret")
 
-	_, err := createMember(context.Background(), db, "rgpd@test.com", "Test RGPD", "adherent", "{}", remoteAddr, secret)
+	_, err := createMember(context.Background(), db, "rgpd@test.com", "Test RGPD", signupprofile.Profile{ID: "adherent"}, "{}", remoteAddr, secret)
 	if err != nil {
 		t.Fatalf("createMember: %v", err)
 	}

@@ -1,0 +1,61 @@
+// templux resizable-station — conteneur de panneaux redimensionnables.
+// Utilise le pattern enfants (children) : les panneaux et poignées sont fournis
+// par l'appelant via le slot {children...}.
+//
+// Usage :
+//   @ResizableStation() {
+//     @ResizableEdge("left")
+//     @ResizablePanel("flex:0 0 15rem", "bg-surface-sunken") { … }
+//     @ResizableHandle()
+//     @ResizablePanel("flex:1 1 0", "bg-surface-raised") { … }
+//     @ResizableEdge("right")
+//   }
+package templux
+
+templ ResizableStation() {
+	<div
+		data-forum-station
+		class="flex flex-col gap-space-sm md:flex-row md:items-stretch md:gap-0 md:h-[calc(100vh-13rem)]"
+	>
+		{ children... }
+	</div>
+}
+
+// ResizableEdge : poignée de bordure externe (gauche / droite du groupe de panneaux).
+templ ResizableEdge(side string) {
+	<div
+		data-resize="edge"
+		data-edge={ side }
+		class="hidden md:block w-2 shrink-0 self-stretch cursor-col-resize rounded hover:bg-border transition"
+		title="Écartement"
+	></div>
+}
+
+// ResizableHandle : séparateur redimensionnable entre deux panneaux.
+templ ResizableHandle() {
+	<div
+		data-resize="panel"
+		class="hidden md:block w-2 shrink-0 self-stretch cursor-col-resize rounded hover:bg-border transition"
+		title="Écartement"
+	></div>
+}
+
+// ResizablePanel : panneau individuel avec style flex paramétrable.
+// bgVariant : "sunken" (défaut) ou "raised".
+templ ResizablePanel(flexStyle string, bgVariant string) {
+	<section
+		data-panel
+		style={ flexStyle }
+		class={ resizablePanelClass(bgVariant) }
+	>
+		{ children... }
+	</section>
+}
+
+func resizablePanelClass(bgVariant string) string {
+	base := "flex flex-col min-w-0 border border-border rounded-lg overflow-hidden"
+	if bgVariant == "raised" {
+		return base + " bg-surface-raised"
+	}
+	return base + " bg-surface-sunken"
+}

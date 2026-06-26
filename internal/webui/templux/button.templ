@@ -1,0 +1,47 @@
+// templux button — bouton action avec 4 variants sémantiques.
+//
+// Usage :
+//   @Button("Enregistrer", "primary", templ.Attributes{"hx-post": "/save", "hx-target": "#result"})
+//   @Button("Annuler", "secondary", templ.Attributes{})
+//   @Button("Supprimer", "danger", templ.Attributes{"hx-delete": "/item/1"})
+
+package templux
+
+
+templ Button(label string, variant string, attrs templ.Attributes) {
+	<button
+		class={ buttonClass(variant) }
+		{ buttonAttrs(attrs)... }
+	>
+		{ label }
+	</button>
+}
+
+// buttonAttrs garantit un attribut `type` unique : il pose le défaut "button"
+// seulement si l'appelant n'a pas fourni son propre type (ex. "submit"). Évite
+// l'attribut dupliqué <button type="button" type="submit"> qui, en HTML, retient
+// le premier et empêche la soumission du formulaire.
+func buttonAttrs(attrs templ.Attributes) templ.Attributes {
+	if _, ok := attrs["type"]; ok {
+		return attrs
+	}
+	out := templ.Attributes{"type": "button"}
+	for k, v := range attrs {
+		out[k] = v
+	}
+	return out
+}
+
+func buttonClass(variant string) string {
+	base := "inline-flex items-center justify-center px-space-md py-space-sm rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+	switch variant {
+	case "secondary":
+		return base + " bg-surface border border-border text-ink hover:bg-surface-muted"
+	case "ghost":
+		return base + " bg-transparent text-ink hover:bg-surface-muted"
+	case "danger":
+		return base + " bg-danger text-ink-on-accent hover:opacity-90"
+	default: // primary
+		return base + " bg-accent text-ink-on-accent hover:opacity-90"
+	}
+}

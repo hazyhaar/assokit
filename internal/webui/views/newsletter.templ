@@ -1,0 +1,42 @@
+// views/newsletter.templ — diffusions admin migrees vers templux (vague 2).
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/newsletter"
+)
+
+// NewsletterAdminPage affiche la liste des diffusions et le formulaire de composition.
+templ NewsletterAdminPage(items []newsletter.Newsletter, csrfToken string) {
+	<section id="admin-newsletters" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Diffusions</h1>
+		<form method="POST" action="/admin/newsletters" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			@templux.FormField("Sujet", "", "", templux.Input("subject", "", templ.Attributes{"type": "text", "required": "required", "placeholder": "Objet de la diffusion"}))
+			@templux.FormField("Corps (markdown)", "", "", templux.Textarea("body", "", 6, templ.Attributes{"required": "required", "placeholder": "Contenu de la diffusion…"}))
+			@templux.Button("Créer le brouillon", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(items) == 0 {
+			<p class="text-ink-muted">Aucune diffusion pour l'instant.</p>
+		} else {
+			<ul class="list-none flex flex-col gap-space-sm">
+				for _, n := range items {
+					<li class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm">
+						<strong class="text-ink font-semibold">{ n.Subject }</strong>
+						if n.SentAt.Valid {
+							@templux.Badge(fmt.Sprintf("envoyée à %d membre(s) le %s", n.RecipientsCount, n.SentAt.Time.Format("2006-01-02 15:04")), "success")
+						} else {
+							@templux.Badge("brouillon", "neutral")
+							<form method="POST" action={ templ.SafeURL("/admin/newsletters/" + n.ID + "/send") }>
+								<input type="hidden" name="_csrf" value={ csrfToken }/>
+								@templux.Button("Envoyer aux membres actifs", "primary", templ.Attributes{"type": "submit"})
+							</form>
+						}
+					</li>
+				}
+			</ul>
+		}
+	</section>
+}

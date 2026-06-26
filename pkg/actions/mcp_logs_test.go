@@ -13,10 +13,10 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 
 	_ "modernc.org/sqlite"
 )
@@ -48,7 +48,7 @@ func ctxWithPerm(t *testing.T, userID, perm string) (context.Context, *rbac.Serv
 
 	ctx := middleware.ContextWithUser(
 		perms.ContextWithUserID(perms.ContextWithService(bg, svc), userID),
-		&auth.User{ID: userID},
+		&identity.User{ID: userID},
 	)
 	return ctx, svc
 }

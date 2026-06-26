@@ -1,0 +1,27 @@
+// templux badge — étiquette compacte avec 5 tones sémantiques.
+//
+// Usage :
+//   @Badge("Actif", "success")
+//   @Badge("Archivé", "neutral")
+
+package templux
+
+templ Badge(label string, tone string) {
+	<span class={ badgeClass(tone) }>{ label }</span>
+}
+
+func badgeClass(tone string) string {
+	base := "inline-flex items-center px-space-sm py-space-xs rounded-pill text-xs font-medium"
+	switch tone {
+	case "info":
+		return base + " bg-surface border border-info text-info"
+	case "success":
+		return base + " bg-surface border border-success text-success"
+	case "warning":
+		return base + " bg-surface border border-warning text-warning"
+	case "danger":
+		return base + " bg-surface border border-danger text-danger"
+	default: // neutral
+		return base + " bg-surface-muted border border-border text-ink-muted"
+	}
+}

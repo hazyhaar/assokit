@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/hazyhaar/assokit/pkg/uid"
 )
 
 // Donation représente une row donations.
@@ -71,7 +71,7 @@ func (s *DonationsStore) UpsertFromPayment(ctx context.Context, p Payment, formS
 		refundedAt = sql.NullString{String: parseDateOrNow(p.Date), Valid: true}
 	}
 
-	id := uuid.New().String()
+	id := uid.New()
 	_, err := s.DB.ExecContext(ctx, `
 		INSERT INTO donations(id, helloasso_payment_id, helloasso_form_slug, helloasso_form_type,
 			amount_cents, currency, user_id, donor_email, donor_name, payment_status,
@@ -93,7 +93,7 @@ func (s *DonationsStore) UpsertFromPayment(ctx context.Context, p Payment, formS
 }
 
 // SoftEraseDonor RGPD : efface email + name d'une donation (row gardée).
-// Réversible non — donor_email='', donor_name='[supprimé RGPD]'.
+// Réversible non — donor_email=”, donor_name='[supprimé RGPD]'.
 func (s *DonationsStore) SoftEraseDonor(ctx context.Context, donationID string) error {
 	res, err := s.DB.ExecContext(ctx, `
 		UPDATE donations

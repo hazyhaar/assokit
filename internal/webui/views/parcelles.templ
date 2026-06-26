@@ -1,0 +1,107 @@
+// views/parcelles.templ — registre parcellaire AFP (vendoring templux, gabarit memberships).
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/parcelle"
+)
+
+var parcelleNatureOptions = []templux.SelectOption{
+	{Value: "pleine_propriete", Label: "pleine_propriete"},
+	{Value: "usufruit", Label: "usufruit"},
+	{Value: "nue_propriete", Label: "nue_propriete"},
+	{Value: "occupant", Label: "occupant"},
+}
+
+var parcelleStatutOptions = []templux.SelectOption{
+	{Value: "libre", Label: "libre"},
+	{Value: "mise_a_disposition", Label: "mise_a_disposition"},
+}
+
+// ParcelsAdminPage : formulaire de saisie de parcelle + table des parcelles (admin).
+templ ParcelsAdminPage(list []parcelle.Parcelle, csrfToken string) {
+	<section id="admin-parcelles" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Registre parcellaire</h1>
+		<form method="POST" action="/admin/parcelles" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<h2 class="text-xl font-semibold text-ink">Enregistrer une parcelle</h2>
+			@templux.FormField("Code commune (INSEE)", "", "", templux.Input("commune_code", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Section cadastrale", "", "", templux.Input("section", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Numéro de parcelle", "", "", templux.Input("numero_parcelle", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Surface (m²)", "", "", templux.Input("surface_m2", "0", templ.Attributes{"type": "number", "min": "0"}))
+			@templux.FormField("Statut de mise à disposition", "", "", templux.Select("statut_mad", parcelleStatutOptions, "libre", templ.Attributes{}))
+			@templux.Button("Enregistrer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune parcelle enregistrée.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Référence cadastrale</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Surface</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left"></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, p := range list {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ parcelleRef(p) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ parcelleSurface(p.SurfaceM2) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ p.StatutMad }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">
+								<form method="POST" action="/admin/parcelles/droit" class="flex items-center gap-space-sm">
+									<input type="hidden" name="_csrf" value={ csrfToken }/>
+									<input type="hidden" name="parcelle_id" value={ p.ID }/>
+									@templux.Input("user_id", "", templ.Attributes{"type": "text", "placeholder": "Identifiant du membre", "required": "required"})
+									@templux.Select("nature_du_droit", parcelleNatureOptions, "pleine_propriete", templ.Attributes{})
+									@templux.Button("Attacher un droit", "secondary", templ.Attributes{"type": "submit"})
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// MyParcelsPage : parcelles sur lesquelles l'utilisateur courant détient un droit.
+templ MyParcelsPage(list []parcelle.Parcelle) {
+	<section id="my-parcelles" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Mes parcelles</h1>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune parcelle rattachée à votre compte.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Référence cadastrale</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Surface</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, p := range list {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ parcelleRef(p) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ parcelleSurface(p.SurfaceM2) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ p.StatutMad }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+func parcelleRef(p parcelle.Parcelle) string {
+	return fmt.Sprintf("%s · %s · %s", p.CommuneCode, p.Section, p.NumeroParcelle)
+}
+
+func parcelleSurface(m2 int64) string {
+	return fmt.Sprintf("%d m²", m2)
+}

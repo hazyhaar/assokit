@@ -1,0 +1,188 @@
+// views/admin.templ — vues admin migrees vers templux (vague 2).
+// AdminPanelPage et ConnectorsConfigurePage avaient leur propre html/head/body :
+// migres en contenu de shell (renderPageV2).
+package views
+
+import (
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/admin"
+	"github.com/hazyhaar/assokit/pkg/horui/branding"
+)
+
+// sectionOrderAdmin : ordre d'affichage des sections panel.
+var sectionOrderAdmin = []string{"identite", "presentation", "helloasso", "virement"}
+
+// AdminPanelPage : panel de configuration branding (migre depuis admin.AdminPanelPage).
+templ AdminPanelPage(fields map[string][]admin.PanelField, values map[string]string, progress branding.ProgressInfo) {
+	<div class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Configuration de l'association</h1>
+		@templux.Progress(adminProgressMax(progress.RequiredFilled, progress.RequiredTotal), adminProgressMax(progress.RequiredTotal, 1), adminIntStr(progress.RequiredFilled)+"/"+adminIntStr(progress.RequiredTotal)+" champs obligatoires remplis")
+		<nav class="flex flex-wrap items-center gap-space-md">
+			for _, sec := range sectionOrderAdmin {
+				<a href={ templ.SafeURL("#section-" + sec) } class="text-accent no-underline">{ admin.SectionLabel(sec) }</a>
+			}
+		</nav>
+		for _, sec := range sectionOrderAdmin {
+			if sFields, ok := fields[sec]; ok {
+				<section id={ "section-" + sec } class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+					<h2 class="text-xl font-semibold text-ink">{ admin.SectionLabel(sec) }</h2>
+					for _, f := range sFields {
+						@adminField(f, values[f.Key])
+					}
+				</section>
+			}
+		}
+	</div>
+	<script src="/static/js/admin_panel_autosave.js"></script>
+}
+
+templ adminField(f admin.PanelField, value string) {
+	<div class="flex flex-col gap-space-xs" id={ "field-" + f.Key }>
+		<label for={ "input-" + f.Key } class="text-sm font-medium text-ink">
+			{ f.Label }
+			if f.Required {
+				<span class="text-danger">*</span>
+			}
+		</label>
+		if f.Hint != "" {
+			<p class="text-xs text-ink-muted">{ f.Hint }</p>
+		}
+		if f.Kind == "longtext" {
+			@templux.Textarea(f.Key, value, 4, templ.Attributes{"id": "input-" + f.Key, "data-autosave": f.Key, "placeholder": f.Placeholder})
+		} else if f.Kind == "color" {
+			<input
+				type="color"
+				id={ "input-" + f.Key }
+				name={ f.Key }
+				data-autosave={ f.Key }
+				value={ adminColorValue(value) }
+				class="h-10 w-16 rounded-md border border-border bg-surface"
+			/>
+		} else if f.Kind == "file" {
+			<div class="flex flex-col gap-space-sm">
+				if value != "" {
+					<p class="text-sm text-ink-muted">Fichier actuel : <code class="text-ink">{ value }</code></p>
+					<form method="post" action="/admin/panel/delete-file">
+						<input type="hidden" name="key" value={ f.Key }/>
+						@templux.Button("Supprimer", "danger", templ.Attributes{"type": "submit"})
+					</form>
+				}
+				<form
+					method="post"
+					action="/admin/panel/upload-file"
+					enctype="multipart/form-data"
+					hx-post="/admin/panel/upload-file"
+					hx-target={ "#badge-" + f.Key }
+					hx-swap="outerHTML"
+					class="flex items-center gap-space-sm"
+				>
+					<input type="hidden" name="key" value={ f.Key }/>
+					<input type="file" name="file" accept={ adminMimeAccept(f.MimeAllow) } class="text-sm text-ink"/>
+					@templux.Button("Envoyer", "secondary", templ.Attributes{"type": "submit"})
+				</form>
+			</div>
+		} else {
+			@templux.Input(f.Key, value, templ.Attributes{"type": adminInputType(f.Kind), "id": "input-" + f.Key, "data-autosave": f.Key, "placeholder": f.Placeholder})
+		}
+		@adminFieldBadge(f, value)
+	</div>
+}
+
+// AdminFieldBadge est la version exportée de adminFieldBadge (pour les handlers HTMX).
+templ AdminFieldBadge(f admin.PanelField, value string) {
+	@adminFieldBadge(f, value)
+}
+
+templ adminFieldBadge(f admin.PanelField, value string) {
+	<span id={ "badge-" + f.Key } class={ adminBadgeClass(f, value) }>
+		if value != "" {
+			Rempli
+		} else if f.Required {
+			Requis
+		} else {
+			Vide
+		}
+	</span>
+}
+
+func adminBadgeClass(f admin.PanelField, value string) string {
+	base := "inline-flex items-center px-space-sm py-space-xs rounded-pill text-xs font-medium"
+	if value != "" {
+		return base + " bg-surface border border-success text-success"
+	}
+	if f.Required {
+		return base + " bg-surface border border-danger text-danger"
+	}
+	return base + " bg-surface-muted border border-border text-ink-muted"
+}
+
+func adminInputType(kind string) string {
+	switch kind {
+	case "url":
+		return "url"
+	case "color":
+		return "color"
+	case "int":
+		return "number"
+	default:
+		return "text"
+	}
+}
+
+func adminColorValue(v string) string {
+	if v == "" {
+		return "#000000"
+	}
+	return v
+}
+
+func adminMimeAccept(mimes []string) string {
+	result := ""
+	for i, m := range mimes {
+		if i > 0 {
+			result += ","
+		}
+		result += m
+	}
+	return result
+}
+
+func adminProgressMax(val, total int) int {
+	if total <= 0 {
+		return 1
+	}
+	if val > total {
+		return total
+	}
+	return val
+}
+
+func adminIntStr(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	b := make([]byte, 0, 10)
+	if n < 0 {
+		b = append(b, '-')
+		n = -n
+	}
+	var digits []byte
+	for n > 0 {
+		digits = append(digits, byte('0'+n%10))
+		n /= 10
+	}
+	for i := len(digits) - 1; i >= 0; i-- {
+		b = append(b, digits[i])
+	}
+	return string(b)
+}
+
+// ConnectorsConfigurePage : page de configuration d'un connecteur.
+templ ConnectorsConfigurePage(connectorID, connectorName string) {
+	<div class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Configurer { connectorName }</h1>
+		<p><a class="text-accent" href="/admin/connectors">← Retour à la liste</a></p>
+		<div id="connector-form" data-connector-id={ connectorID }></div>
+	</div>
+	<script src="/static/js/admin_connector_form.js"></script>
+}

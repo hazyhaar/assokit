@@ -71,7 +71,9 @@ func openTestDB(t *testing.T) *sql.DB {
 			password_hash TEXT NOT NULL, display_name TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
-		CREATE TABLE user_roles (user_id TEXT, role_id TEXT, PRIMARY KEY(user_id, role_id));
+		CREATE TABLE grades (id TEXT PRIMARY KEY, name TEXT NOT NULL, system INTEGER NOT NULL DEFAULT 0);
+		INSERT INTO grades(id, name, system) VALUES('sys-admin', 'admin', 1);
+		CREATE TABLE user_grades (user_id TEXT, grade_id TEXT, PRIMARY KEY(user_id, grade_id));
 	`); err != nil {
 		t.Fatalf("schema: %v", err)
 	}

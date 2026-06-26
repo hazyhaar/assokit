@@ -18,25 +18,27 @@ func initProfile(reg *actions.Registry) {
 		ParamsSchema: actions.MustSchema(`{
 			"type":"object",
 			"properties":{
-				"display_name":{"type":"string","maxLength":100},
-				"bio":{"type":"string","maxLength":1000},
-				"website":{"type":"string","format":"uri"}
+				"display_name":{"type":"string","maxLength":100}
 			}
 		}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
 			var p struct {
 				DisplayName string `json:"display_name"`
-				Bio         string `json:"bio"`
-				Website     string `json:"website"`
 			}
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
+			u := middleware.UserFromContext(ctx)
+			if u == nil {
+				return actions.Result{Status: "error", Message: "utilisateur non authentifié"}, nil
+			}
+			// La table users ne porte que display_name comme champ de profil
+			// éditable (pas de bio/website). NULLIF(?, '') préserve la valeur
+			// existante quand le champ n'est pas fourni.
 			_, err := deps.DB.ExecContext(ctx,
-				`UPDATE users SET display_name=COALESCE(NULLIF(?,'''), display_name),
-				 bio=COALESCE(NULLIF(?,''), bio), website=COALESCE(NULLIF(?,''), website)
-				 WHERE id=(SELECT id FROM users LIMIT 1)`,
-				p.DisplayName, p.Bio, p.Website,
+				`UPDATE users SET display_name=COALESCE(NULLIF(?,''), display_name)
+				 WHERE id=?`,
+				p.DisplayName, u.ID,
 			)
 			if err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err

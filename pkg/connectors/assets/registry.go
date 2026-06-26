@@ -15,7 +15,7 @@ type Vault struct {
 	MasterKey []byte // 32 bytes
 }
 
-// NewVault construit un Vault à partir du master key hex (env NPS_MASTER_KEY).
+// NewVault construit un Vault à partir du master key hex (env ASSOKIT_MASTER_KEY).
 // Erreur fatale si key absente / mal formée — rule MASTER-KEY-FATAL-IF-MISSING.
 func NewVault(db *sql.DB, masterKeyHex string) (*Vault, error) {
 	key, err := DecodeMasterKey(masterKeyHex)

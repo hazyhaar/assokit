@@ -139,7 +139,7 @@ func initUsers(reg *actions.Registry) {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
 			_, err := deps.DB.ExecContext(ctx,
-				`UPDATE users SET active=0, deactivation_reason=? WHERE id=?`,
+				`UPDATE users SET is_active=0, deactivation_reason=? WHERE id=?`,
 				p.Reason, p.UID,
 			)
 			if err != nil {
@@ -165,7 +165,7 @@ func initUsers(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			_, err := deps.DB.ExecContext(ctx, `UPDATE users SET active=1 WHERE id=?`, p.UID)
+			_, err := deps.DB.ExecContext(ctx, `UPDATE users SET is_active=1, deactivation_reason='' WHERE id=?`, p.UID)
 			if err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}

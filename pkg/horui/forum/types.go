@@ -6,8 +6,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/hazyhaar/assokit/pkg/horui/tree"
+	tree "github.com/hazyhaar/assokit/internal/nodetree"
 )
+
+// MaxRenderDepth : profondeur max de rendu des fils (anciennement dans forum.templ).
+const MaxRenderDepth = 5
 
 // MaxLoadDepth : profondeur max chargée par BuildThread (au-delà, ChildCount conservé
 // mais Children=nil → ThreadView affiche "Voir la suite du fil"). Aligné sur
@@ -22,7 +25,7 @@ type ThreadNode struct {
 	BodyHTML    string
 	SnippetHTML string
 	AuthorName  string
-	CreatedAt   string // formaté (Format("02/01/2006"))
+	CreatedAt   string // formaté (Format("02/01/2006 à 15:04"))
 	ChildCount  int
 	Children    []ThreadNode
 }
@@ -83,7 +86,7 @@ func nodeToThread(n tree.Node, authorOf func(ctx context.Context, userID string)
 		Slug:      n.Slug,
 		Title:     n.Title,
 		BodyHTML:  n.BodyHTML,
-		CreatedAt: n.CreatedAt.Format("02/01/2006"),
+		CreatedAt: n.CreatedAt.Format("02/01/2006 à 15:04"),
 	}
 	if n.BodyHTML != "" {
 		tn.SnippetHTML = snippet(n.BodyHTML, 180)

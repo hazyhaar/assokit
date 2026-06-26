@@ -16,8 +16,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/config"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	appMiddleware "github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/signupprofile"
 )
 
 func setupAuditTestDB(t *testing.T) *sql.DB {
@@ -29,7 +30,9 @@ func setupAuditTestDB(t *testing.T) *sql.DB {
 	t.Cleanup(func() { db.Close() })
 	if _, err := db.Exec(`
 		CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT, display_name TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-		CREATE TABLE user_roles (user_id TEXT, role_id TEXT, PRIMARY KEY(user_id, role_id));
+		CREATE TABLE grades (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, system INTEGER NOT NULL DEFAULT 0);
+		INSERT INTO grades(id, name, system) VALUES('sys-admin','admin',1),('sys-member','member',1);
+		CREATE TABLE user_grades (user_id TEXT, grade_id TEXT, PRIMARY KEY(user_id, grade_id));
 		CREATE TABLE signups (id TEXT PRIMARY KEY, email TEXT, display_name TEXT, profile TEXT, fields_json TEXT, ip_hash TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 		CREATE TABLE activation_tokens (token TEXT PRIMARY KEY, user_id TEXT, expires_at TEXT, used_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 		CREATE TABLE feedbacks (id TEXT PRIMARY KEY, page_url TEXT, page_title TEXT, message TEXT, ip_hash TEXT, user_agent TEXT, locale TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -47,9 +50,10 @@ func TestSignupFlow_LogsAttemptCreated(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	deps := app.AppDeps{
-		DB:     db,
-		Logger: logger,
-		Config: config.Config{CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
+		DB:      db,
+		Logger:  logger,
+		Config:  config.Config{CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
+		Profils: []signupprofile.Profile{{ID: "adherent", Label: "Adhérent"}},
 	}
 
 	r := chi.NewRouter()
@@ -110,7 +114,7 @@ func TestFeedbackRateLimitLogged(t *testing.T) {
 		req.RemoteAddr = "192.0.2.1:12345"
 		// Widget restreint aux usagers identifiés (M-FEEDBACK-WIDGET-CSS-MISSING).
 		req = req.WithContext(appMiddleware.ContextWithUser(req.Context(),
-			&auth.User{ID: "u-rl", Email: "rl@x.com"}))
+			&identity.User{ID: "u-rl", Email: "rl@x.com"}))
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		return w.Code
@@ -139,9 +143,10 @@ func TestSlogNoIPRawLeak(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	deps := app.AppDeps{
-		DB:     db,
-		Logger: logger,
-		Config: config.Config{CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
+		DB:      db,
+		Logger:  logger,
+		Config:  config.Config{CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
+		Profils: []signupprofile.Profile{{ID: "adherent", Label: "Adhérent"}},
 	}
 
 	rl := appMiddleware.NewRateLimiter()

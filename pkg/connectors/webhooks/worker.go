@@ -12,12 +12,12 @@ import (
 
 // Worker drainer pour webhook_events.
 type Worker struct {
-	Store        *Store
-	Registry     *connectors.Registry
-	Logger       *slog.Logger
-	Tick         time.Duration // défaut 1s
-	BatchSize    int           // défaut 10
-	MaxAttempts  int           // défaut 4
+	Store       *Store
+	Registry    *connectors.Registry
+	Logger      *slog.Logger
+	Tick        time.Duration // défaut 1s
+	BatchSize   int           // défaut 10
+	MaxAttempts int           // défaut 4
 }
 
 func (w *Worker) logger() *slog.Logger {

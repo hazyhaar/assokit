@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Handlers pages : home, statiques (charte/medias), thématiques, participer, search, auth, node viewer.
+// CLAUDE:SUMMARY Handlers pages (vague 2 : renderPageV2 + views.*  pour toutes les pages).
 package handlers
 
 import (
@@ -7,26 +7,39 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
+	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/pages"
-	"github.com/hazyhaar/assokit/pkg/horui/search"
-	"github.com/hazyhaar/assokit/pkg/horui/tree"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/search"
 )
 
 func handlePage(deps app.AppDeps, slug string, s *tree.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if slug == "home" {
-			renderPage(w, r, deps, "Accueil", pages.Home())
+			// Un utilisateur connecté n'a pas besoin de la vitrine d'accueil : il
+			// est envoyé directement au forum.
+			if middleware.UserFromContext(r.Context()) != nil {
+				http.Redirect(w, r, "/forum", http.StatusSeeOther)
+				return
+			}
+			// Une instance peut surcharger la page d'accueil en gravant une
+			// page CMS de slug "home" : si elle existe, elle est servie en
+			// priorité. Sinon, repli sur la vitrine générique views.Home (templux v1).
+			if node, err := s.GetBySlug(r.Context(), "home"); err == nil && node != nil && node.BodyHTML != "" {
+				renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, "", node.BodyHTML))
+				return
+			}
+			renderPageV2(w, r, deps, "Accueil", views.Home())
 			return
 		}
 		node, err := s.GetBySlug(r.Context(), slug)
 		title := pageTitleFromSlug(slug)
 		if err != nil || node == nil {
-			renderPage(w, r, deps, title, pages.StaticPage(title, sectionLabelFromSlug(slug), ""))
+			renderPageV2(w, r, deps, title, views.StaticPage(title, sectionLabelFromSlug(slug), ""))
 			return
 		}
-		renderPage(w, r, deps, node.Title, pages.StaticPage(node.Title, sectionLabelFromSlug(slug), node.BodyHTML))
+		renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, sectionLabelFromSlug(slug), node.BodyHTML))
 	}
 }
 
@@ -39,7 +52,7 @@ func handleThematique(deps app.AppDeps, s *tree.Store) http.HandlerFunc {
 			return
 		}
 		children, _ := s.Children(r.Context(), node.ID)
-		renderPage(w, r, deps, node.Title, pages.Thematique(*node, children))
+		renderPageV2(w, r, deps, node.Title, views.Thematique(*node, children))
 	}
 }
 
@@ -51,23 +64,25 @@ func handleNodeViewer(deps app.AppDeps, s *tree.Store) http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-		renderPage(w, r, deps, node.Title, pages.StaticPage(node.Title, "", node.BodyHTML))
+		renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, "", node.BodyHTML))
 	}
 }
 
 func handleParticiper(deps app.AppDeps) http.HandlerFunc {
-	profils := []pages.ProfileOption{
-		{ID: "adherent", Icon: "🙋", Label: "Adhérent", Subtitle: "Rejoindre l'association"},
-		{ID: "lanceur", Icon: "🛡", Label: "Lanceur d'alerte", Subtitle: "Signaler en sécurité"},
-		{ID: "media", Icon: "📰", Label: "Média / Journaliste", Subtitle: "Se référencer"},
-		{ID: "asso", Icon: "🤝", Label: "Association", Subtitle: "Collectif, ONG"},
-		{ID: "expert", Icon: "⚖️", Label: "Expert", Subtitle: "Avocat, médecin, juriste…"},
-		{ID: "partenaire", Icon: "🌐", Label: "Partenaire", Subtitle: "Collaboration"},
-		{ID: "benevole", Icon: "💪", Label: "Bénévole", Subtitle: "S'impliquer"},
-		{ID: "don", Icon: "💛", Label: "Donateur", Subtitle: "Soutenir"},
-	}
+	// Les cartes proviennent du catalogue injecté à la bordure (deps.Profils),
+	// jamais d'une liste codée en dur. L'icône reste l'Icon du profil (vide par
+	// défaut, donc sans emoji) — la charte proscrit les emoji décoratifs.
 	return func(w http.ResponseWriter, r *http.Request) {
-		renderPage(w, r, deps, "Participer", pages.Participer(profils))
+		profils := make([]views.ProfileOption, 0, len(deps.Profils))
+		for _, p := range deps.Profils {
+			profils = append(profils, views.ProfileOption{
+				ID:       p.ID,
+				Icon:     p.Icon,
+				Label:    p.Label,
+				Subtitle: p.Subtitle,
+			})
+		}
+		renderPageV2(w, r, deps, "Participer", views.Participer(profils))
 	}
 }
 
@@ -76,19 +91,19 @@ func handleSearch(deps app.AppDeps) http.HandlerFunc {
 	store := &tree.Store{DB: deps.DB}
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("q")
-		var results []pages.SearchResult
+		var results []views.SearchResult
 		if q != "" {
 			hits, err := engine.Query(r.Context(), q, 30)
 			if err != nil {
 				deps.Logger.Error("search", "q", q, "err", err)
 			} else {
-				results = make([]pages.SearchResult, 0, len(hits))
+				results = make([]views.SearchResult, 0, len(hits))
 				for _, h := range hits {
 					n, err := store.GetByID(r.Context(), h.NodeID)
 					if err != nil || n == nil {
 						continue
 					}
-					results = append(results, pages.SearchResult{
+					results = append(results, views.SearchResult{
 						Title:   h.Title,
 						Slug:    n.Slug,
 						Snippet: h.Snippet,
@@ -96,41 +111,52 @@ func handleSearch(deps app.AppDeps) http.HandlerFunc {
 				}
 			}
 		}
-		renderPage(w, r, deps, "Recherche", pages.Search(q, results))
+		renderPageV2(w, r, deps, "Recherche", views.PagesSearch(q, results))
 	}
 }
 
 func handleLoginPage(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		renderPage(w, r, deps, "Connexion", pages.Login())
+		renderPageV2(w, r, deps, "Connexion", views.Login(middleware.CSRFToken(r.Context())))
 	}
 }
 
 func handleLoginSubmit(deps app.AppDeps) http.HandlerFunc {
-	authStore := &auth.Store{DB: deps.DB}
+	authStore := &identity.Store{DB: deps.DB}
 	return func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		email := r.FormValue("email")
 		password := r.FormValue("password")
+
+		// Anti-bruteforce : verrou temporaire après trop d'échecs sur ce compte.
+		if locked, retry := globalLoginGuard.Locked(email); locked {
+			middleware.PushFlash(w, "error", "Trop de tentatives. Réessayez plus tard.")
+			deps.Logger.Warn("login_locked_out", "email_hash", middleware.HashEmail(email), "retry_in", retry.String())
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+
 		user, err := authStore.Authenticate(r.Context(), email, password)
 		if err != nil {
+			globalLoginGuard.RecordFailure(email)
 			middleware.PushFlash(w, "error", "Email ou mot de passe incorrect.")
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
-		middleware.SetSessionCookie(w, user.ID, deps.Config.CookieSecret, false)
+		globalLoginGuard.Reset(email)
+		middleware.SetSessionCookie(w, user.ID, deps.Config.CookieSecret, deps.Config.CookieSecure())
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
 
 func handleRegisterPage(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		renderPage(w, r, deps, "Créer un compte", pages.Register())
+		renderPageV2(w, r, deps, "Créer un compte", views.PagesRegister())
 	}
 }
 
 func handleRegisterSubmit(deps app.AppDeps) http.HandlerFunc {
-	authStore := &auth.Store{DB: deps.DB}
+	authStore := &identity.Store{DB: deps.DB}
 	return func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		email := r.FormValue("email")
@@ -142,7 +168,7 @@ func handleRegisterSubmit(deps app.AppDeps) http.HandlerFunc {
 			http.Redirect(w, r, "/register", http.StatusSeeOther)
 			return
 		}
-		middleware.SetSessionCookie(w, user.ID, deps.Config.CookieSecret, false)
+		middleware.SetSessionCookie(w, user.ID, deps.Config.CookieSecret, deps.Config.CookieSecure())
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
@@ -159,30 +185,18 @@ func handleForgotStub(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/forgot", http.StatusMovedPermanently)
 }
 
-func handleMerci(w http.ResponseWriter, r *http.Request) { merciHandlerImpl(w, r) }
-
-var merciHandlerImpl = func(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Merci handler non initialisé", http.StatusInternalServerError)
-}
-
 func makeMerciHandler(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		title := "Merci"
 		message := "Votre demande a bien été enregistrée. Vous recevrez un email de confirmation sous peu."
-		renderPage(w, r, deps, title, pages.Merci(title, message))
+		renderPageV2(w, r, deps, title, views.PagesMerci(title, message))
 	}
-}
-
-func handleNotFound(w http.ResponseWriter, r *http.Request) { notFoundHandlerImpl(w, r) }
-
-var notFoundHandlerImpl = func(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "404", http.StatusNotFound)
 }
 
 func makeNotFoundHandler(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		renderPage(w, r, deps, "404", pages.NotFound())
+		renderPageV2(w, r, deps, "404", views.PagesNotFound())
 	}
 }
 
@@ -196,6 +210,10 @@ func pageTitleFromSlug(slug string) string {
 		return "Médias"
 	case "mentions-legales":
 		return "Mentions légales"
+	case "faq":
+		return "Foire aux questions"
+	case "lexique":
+		return "Lexique"
 	default:
 		return slug
 	}
@@ -206,9 +224,13 @@ func sectionLabelFromSlug(slug string) string {
 	case "charte":
 		return "Nos principes"
 	case "thematiques":
-		return "Nos combats"
+		return "Thématiques"
 	case "medias":
-		return "Apparitions"
+		return "Médias"
+	case "faq":
+		return "Aide"
+	case "lexique":
+		return "Aide"
 	default:
 		return ""
 	}

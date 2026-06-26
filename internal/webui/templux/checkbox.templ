@@ -1,0 +1,27 @@
+// templux checkbox — case à cocher accessible avec label. Vendored depuis pkg/horui/ui.
+//
+// Usage :
+//   @templux.Checkbox("accept", false, "J'accepte les conditions", templ.Attributes{})
+package templux
+
+templ Checkbox(name string, checked bool, label string, attrs templ.Attributes) {
+	<label class="inline-flex items-center gap-space-sm cursor-pointer">
+		if checked {
+			<input
+				type="checkbox"
+				name={ name }
+				checked
+				class="w-4 h-4 rounded-sm border border-border text-accent focus:ring-2 focus:ring-accent"
+				{ attrs... }
+			/>
+		} else {
+			<input
+				type="checkbox"
+				name={ name }
+				class="w-4 h-4 rounded-sm border border-border text-accent focus:ring-2 focus:ring-accent"
+				{ attrs... }
+			/>
+		}
+		<span class="text-sm text-ink">{ label }</span>
+	</label>
+}

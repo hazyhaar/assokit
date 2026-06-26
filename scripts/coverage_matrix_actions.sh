@@ -94,8 +94,14 @@ COVERED=0
 while IFS=$'\t' read -r action_id domain; do
 	[ -z "${action_id}" ] && continue
 	TOTAL=$((TOTAL+1))
-	# Count occurrences dans *_test.go (string literal de l'ID).
-	COUNT=$( { grep -r --include='*_test.go' -F "\"${action_id}\"" "${REPO_ROOT}" 2>/dev/null || true; } | wc -l | tr -d ' ')
+	# Couverture RÉELLE (et non simple mention de string, qui produisait des faux
+	# OK) : on ne compte que les invocations comportementales de l'action via un
+	# helper de lookup du registry — pattern guardian `actionByID(t, "ID")` ou
+	# `findXxxAction(t, "ID")` — suivi d'un `.Run(` dans le test. Une mention en
+	# commentaire ou dans un test de schéma ne compte plus.
+	COUNT=$( { grep -rhE --include='*_test.go' \
+		"(actionByID|find[A-Za-z0-9]*Action|runGuardian)\\([^)]*\"${action_id}\"" \
+		"${REPO_ROOT}" 2>/dev/null || true; } | wc -l | tr -d ' ')
 	COUNT=${COUNT:-0}
 	if [ "${COUNT}" -gt 0 ]; then
 		STATUS="OK"

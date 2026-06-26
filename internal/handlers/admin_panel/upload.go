@@ -18,18 +18,18 @@ import (
 
 const defaultMaxUpload = 5 * 1024 * 1024 // 5 MB par défaut
 
-// brandingDir retourne le répertoire de stockage des fichiers uploadés.
-func brandingDirPath() string {
-	d := os.Getenv("BRANDING_DIR")
-	if d == "" {
-		return "./uploads"
+// brandingDirPath retourne le répertoire de stockage des fichiers uploadés,
+// injecté à la bordure via Config (défaut "./uploads").
+func brandingDirPath(deps app.AppDeps) string {
+	if d := deps.Config.BrandingUploadDir; d != "" {
+		return d
 	}
-	return d
+	return "./uploads"
 }
 
 // AdminPanelUpload est le handler POST /admin/panel/upload-file.
 func AdminPanelUpload(deps app.AppDeps, fields []Field) http.HandlerFunc {
-	return HandleUploadFile(deps, brandingDirPath())
+	return HandleUploadFile(deps, brandingDirPath(deps))
 }
 
 // AdminPanelDeleteFile est le handler POST /admin/panel/delete-file.

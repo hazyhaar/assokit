@@ -67,7 +67,9 @@ func TestCDP_DonationButtonNavigatesToHelloAsso(t *testing.T) {
 	r := chi.NewRouter()
 	r.Use(middleware.Flash)
 	r.Use(middleware.Auth(db, deps.Config.CookieSecret))
-	MountRoutes(r, deps)
+	if err := MountRoutes(r, deps); err != nil {
+		t.Fatalf("MountRoutes: %v", err)
+	}
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 

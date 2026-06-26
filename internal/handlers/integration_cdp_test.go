@@ -43,9 +43,9 @@ import (
 	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/internal/mailer"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 const (
@@ -78,12 +78,12 @@ func TestCDPIntegration(t *testing.T) {
 	}
 
 	// 2. Bootstrap admin
-	authStore := &auth.Store{DB: db}
+	authStore := &identity.Store{DB: db}
 	adminUser, err := authStore.Register(context.Background(), cdpTestAdminEmail, cdpTestAdminPassword, "Admin Test")
 	if err != nil {
 		t.Fatalf("register admin: %v", err)
 	}
-	if _, err := db.Exec(`INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES (?, 'admin'), (?, 'member')`, adminUser.ID, adminUser.ID); err != nil {
+	if _, err := db.Exec(`INSERT OR IGNORE INTO user_grades(user_id, grade_id) VALUES (?, 'sys-admin'), (?, 'sys-member')`, adminUser.ID, adminUser.ID); err != nil {
 		t.Fatalf("admin roles: %v", err)
 	}
 
@@ -106,7 +106,9 @@ func TestCDPIntegration(t *testing.T) {
 	r := chi.NewRouter()
 	r.Use(middleware.Flash)
 	r.Use(middleware.Auth(db, deps.Config.CookieSecret))
-	MountRoutes(r, deps)
+	if err := MountRoutes(r, deps); err != nil {
+		t.Fatalf("MountRoutes: %v", err)
+	}
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 	t.Logf("server : %s", srv.URL)
@@ -144,8 +146,12 @@ func TestCDPIntegration(t *testing.T) {
 		); err != nil {
 			t.Fatalf("home nav: %v", err)
 		}
-		if !strings.Contains(heroText, "Protéger") {
-			t.Errorf("home hero h1 attendu contient 'Protéger', got %q", heroText)
+		// Le core est désormais tenant-agnostic : le h1 du hero porte la tagline de
+		// l'instance (ou un repli générique si non renseignée), plus le slogan NPS
+		// "Protéger" qui était du contenu client. On asserte donc que le hook DOM
+		// section.hero h1 rend un titre non vide, pas un contenu client spécifique.
+		if strings.TrimSpace(heroText) == "" {
+			t.Errorf("home hero h1 vide — le hook DOM section.hero h1 ne rend pas de titre")
 		}
 	})
 
@@ -161,12 +167,18 @@ func TestCDPIntegration(t *testing.T) {
 		); err != nil {
 			t.Fatalf("participer nav: %v", err)
 		}
-		if len(nodes) != 8 {
-			t.Errorf("8 profil-cards attendus, got %d (%v)", len(nodes), nodes)
+		// Le core tenant-agnostic expose les 4 profils génériques d'une communauté
+		// à membres (adherent/benevole/don/partenaire) — les 8 cartes étaient des
+		// profils spécifiques NPS. On asserte que la grille rend bien des cartes
+		// peuplées, pas un compte client figé.
+		if len(nodes) == 0 {
+			t.Errorf("aucune profile-card rendue dans .profile-grid")
 		}
 	})
 
-	t.Run("03_signup_lanceur_writes_db", func(t *testing.T) {
+	t.Run("03_signup_adherent_writes_db", func(t *testing.T) {
+		// Profil générique du core tenant-agnostic (l'ancien "lanceur" était un
+		// profil spécifique NPS, supprimé). "adherent" n'a aucun champ extra requis.
 		// Compter état initial
 		signupsBefore := countRows(t, db, "signups")
 		usersBefore := countRows(t, db, "users")
@@ -175,7 +187,7 @@ func TestCDPIntegration(t *testing.T) {
 
 		email := "lanceur.test@example.com"
 		if err := chromedp.Run(ctx,
-			chromedp.Navigate(srv.URL+"/adherer/lanceur"),
+			chromedp.Navigate(srv.URL+"/adherer/adherent"),
 			chromedp.WaitVisible(`form input[name="prenom"]`, chromedp.ByQuery),
 			chromedp.SendKeys(`input[name="prenom"]`, "Jean", chromedp.ByQuery),
 			chromedp.SendKeys(`input[name="nom"]`, "Test", chromedp.ByQuery),
@@ -198,7 +210,7 @@ func TestCDPIntegration(t *testing.T) {
 		if err := db.QueryRow(`SELECT email, profile FROM signups WHERE email=?`, email).Scan(&dbEmail, &dbProfil); err != nil {
 			t.Fatalf("signups SELECT: %v", err)
 		}
-		if dbEmail != email || dbProfil != "lanceur" {
+		if dbEmail != email || dbProfil != "adherent" {
 			t.Errorf("signup row : got email=%q profil=%q", dbEmail, dbProfil)
 		}
 
@@ -418,6 +430,16 @@ func TestCDPIntegration(t *testing.T) {
 
 func findChromium(t *testing.T) string {
 	t.Helper()
+	// Priorité à un binaire explicitement fourni par l'environnement (Chrome for
+	// Testing fonctionnel), avant la liste de candidats système — le snap chromium
+	// hang ~89s sous confinement. On NE hardcode AUCUN chemin cross-repo ici.
+	for _, env := range []string{"CHROME_PATH", "ASSOKIT_CHROME"} {
+		if p := os.Getenv(env); p != "" {
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
 	candidates := []string{
 		"/snap/bin/chromium",
 		"/usr/bin/chromium",

@@ -15,13 +15,15 @@ type stubConnector struct {
 	name string
 }
 
-func (s *stubConnector) ID() string                                        { return s.id }
-func (s *stubConnector) DisplayName() string                               { return s.name }
-func (s *stubConnector) Description() string                               { return "stub for tests" }
-func (s *stubConnector) ConfigSchema() *jsonschema.Schema                  { return nil }
+func (s *stubConnector) ID() string                                          { return s.id }
+func (s *stubConnector) DisplayName() string                                 { return s.name }
+func (s *stubConnector) Description() string                                 { return "stub for tests" }
+func (s *stubConnector) ConfigSchema() *jsonschema.Schema                    { return nil }
 func (s *stubConnector) Start(ctx context.Context, cfg map[string]any) error { return nil }
-func (s *stubConnector) Stop(ctx context.Context) error                    { return nil }
-func (s *stubConnector) Ping(ctx context.Context) (Health, error)          { return Health{OK: true, Message: "OK"}, nil }
+func (s *stubConnector) Stop(ctx context.Context) error                      { return nil }
+func (s *stubConnector) Ping(ctx context.Context) (Health, error) {
+	return Health{OK: true, Message: "OK"}, nil
+}
 func (s *stubConnector) HandleWebhook(ctx context.Context, eventType string, payload []byte) error {
 	return nil
 }

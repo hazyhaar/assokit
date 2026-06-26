@@ -105,16 +105,16 @@ func TestPageRenderer_NotFoundIfNeitherKVNorFile(t *testing.T) {
 // TestPageRenderer_MentionsLegalesFromKV : legal.* keys → HTML structuré.
 func TestPageRenderer_MentionsLegalesFromKV(t *testing.T) {
 	db := openPageRendererDB(t)
-	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.mentions_editeur', 'Nonpossumus, 1 rue X, Paris')`)            //nolint:errcheck
-	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.mentions_hebergeur', 'OVHcloud Roubaix')`)                     //nolint:errcheck
-	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.contact_dpo', 'dpo@nonpossumus.eu')`)                          //nolint:errcheck
-	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.statuts_pdf', '/uploads/abc-statuts.pdf')`)                    //nolint:errcheck
+	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.mentions_editeur', 'Example Org, 1 rue X, Paris')`) //nolint:errcheck
+	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.mentions_hebergeur', 'OVHcloud Roubaix')`)          //nolint:errcheck
+	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.contact_dpo', 'dpo@example.org')`)                  //nolint:errcheck
+	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.statuts_pdf', '/uploads/abc-statuts.pdf')`)         //nolint:errcheck
 
 	page, err := buildPageData(context.Background(), db, "mentions-legales", "")
 	if err != nil {
 		t.Fatalf("buildPageData: %v", err)
 	}
-	for _, want := range []string{"Éditeur", "Nonpossumus", "Hébergeur", "OVHcloud", "RGPD", "dpo@nonpossumus.eu", "Télécharger les statuts"} {
+	for _, want := range []string{"Éditeur", "Example Org", "Hébergeur", "OVHcloud", "RGPD", "dpo@example.org", "Télécharger les statuts"} {
 		if !strings.Contains(page.BodyHTML, want) {
 			t.Errorf("mention %q absente du HTML : %s", want, page.BodyHTML)
 		}
@@ -125,7 +125,7 @@ func TestPageRenderer_MentionsLegalesFromKV(t *testing.T) {
 func TestPageRenderer_MentionsLegalesEditeurEscaped(t *testing.T) {
 	db := openPageRendererDB(t)
 	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.mentions_editeur', 'Asso <img src=x onerror=alert(1)>')`) //nolint:errcheck
-	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.mentions_hebergeur', 'OVHcloud')`)                       //nolint:errcheck
+	db.Exec(`INSERT INTO branding_kv(key, value) VALUES('legal.mentions_hebergeur', 'OVHcloud')`)                        //nolint:errcheck
 
 	page, err := buildPageData(context.Background(), db, "mentions-legales", "")
 	if err != nil {

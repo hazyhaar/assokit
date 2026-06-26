@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/connectors"
 	"github.com/hazyhaar/assokit/pkg/connectors/assets"
-	"github.com/hazyhaar/assokit/pkg/horui/admin"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
@@ -21,7 +21,7 @@ import (
 //   - GET  /admin/connectors/{id}/schema           → JSON schema (admin)
 //   - POST /admin/connectors/{id}/configure        → soumission JSON values (admin)
 //
-// reg/life/vault peuvent être nil si NPS_MASTER_KEY absent → 503 explicite côté handlers.
+// reg/life/vault peuvent être nil si ASSOKIT_MASTER_KEY absent → 503 explicite côté handlers.
 func MountAdminConnectorsRoutes(r chi.Router, deps app.AppDeps, reg *connectors.Registry, life *connectors.Lifecycle, vault *assets.Vault) {
 	if reg == nil {
 		r.Get("/admin/connectors", connectorsDisabledHandler)
@@ -40,7 +40,7 @@ func connectorsDisabledHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Retry-After", "3600")
 	w.WriteHeader(http.StatusServiceUnavailable)
-	_, _ = w.Write([]byte(`<!doctype html><meta charset="utf-8"><title>Connectors désactivés</title><h1>Connectors désactivés</h1><p>NPS_MASTER_KEY non configurée — Vault indisponible. Contactez l'administrateur serveur.</p>`))
+	_, _ = w.Write([]byte(`<!doctype html><meta charset="utf-8"><title>Connectors désactivés</title><h1>Connectors désactivés</h1><p>ASSOKIT_MASTER_KEY non configurée — Vault indisponible. Contactez l'administrateur serveur.</p>`))
 }
 
 // AdminConnectorsListHTML : page liste minimale (HTML, pas JSON) — un lien par connector.
@@ -92,7 +92,7 @@ func AdminConnectorConfigurePage(deps app.AppDeps, reg *connectors.Registry) htt
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := admin.ConnectorsConfigurePage(c.ID(), c.DisplayName()).Render(r.Context(), w); err != nil {
+		if err := views.ConnectorsConfigurePage(c.ID(), c.DisplayName()).Render(r.Context(), w); err != nil {
 			deps.Logger.Warn("admin_connector_configure_render", "err", err.Error())
 		}
 	}

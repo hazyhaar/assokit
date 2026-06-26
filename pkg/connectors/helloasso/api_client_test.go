@@ -19,7 +19,7 @@ func TestApiClient_GetOrganization(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck
-			"slug": "nonpossumus", "name": "Nonpossumus", "country": "FR",
+			"slug": "nonpossumus", "name": "Example Org", "country": "FR",
 		})
 	}))
 	defer srv.Close()
@@ -29,7 +29,7 @@ func TestApiClient_GetOrganization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetOrganization: %v", err)
 	}
-	if org.Slug != "nonpossumus" || org.Name != "Nonpossumus" {
+	if org.Slug != "nonpossumus" || org.Name != "Example Org" {
 		t.Errorf("org = %+v, attendu nonpossumus", org)
 	}
 }

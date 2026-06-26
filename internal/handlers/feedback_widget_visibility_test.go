@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -15,8 +16,9 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/config"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
+	"github.com/hazyhaar/assokit/pkg/eventsink"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 // TestCSS_FeedbackFabHasPositionFixed : test gardien anti-régression du faux F2.
@@ -85,32 +87,32 @@ func setupFeedbackWidgetTestDB(t *testing.T) *sql.DB {
 }
 
 // TestFeedback_AnonymousPOSTRedirectedToLogin : POST /feedback sans session → 303 /login.
-func TestFeedback_AnonymousPOSTRedirectedToLogin(t *testing.T) {
+// TestFeedback_AnonymousPOSTAccepted : le feedback est un canal de debug présent sur
+// CHAQUE page, y compris les pages anonymes (login, récupération de mot de passe) où
+// l'utilisateur n'est pas connecté et rencontre le plus de friction. Un POST anonyme
+// valide est donc accepté et inséré (le record ne référence aucun utilisateur ;
+// honeypot + rate-limit protègent du spam). Régression auditée 2026-06-13.
+func TestFeedback_AnonymousPOSTAccepted(t *testing.T) {
 	db := setupFeedbackWidgetTestDB(t)
 	deps := app.AppDeps{
 		DB: db, Logger: slog.Default(),
 		Config: config.Config{CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
 	}
 	rl := middleware.NewRateLimiter()
-	body := strings.NewReader("message=hello&page_url=/")
+	body := strings.NewReader("message=Bug+sur+la+page+de+mot+de+passe&page_url=/reset")
 	req := httptest.NewRequest("POST", "/feedback", body)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.RemoteAddr = "192.0.2.9:1234"
 	w := httptest.NewRecorder()
 	handleFeedbackPost(setLoggerNoop(deps), rl)(w, req)
 
-	if w.Code != http.StatusSeeOther {
-		t.Errorf("anonymous POST code = %d, attendu 303 (redirect /login)", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("anonymous POST code = %d, attendu 200 (accepté) body=%s", w.Code, w.Body.String())
 	}
-	loc := w.Header().Get("Location")
-	if !strings.HasPrefix(loc, "/login") {
-		t.Errorf("Location = %q, attendu /login*", loc)
-	}
-
-	// Aucune row INSERT.
 	var n int
 	db.QueryRow(`SELECT COUNT(*) FROM feedbacks`).Scan(&n)
-	if n != 0 {
-		t.Errorf("anonymous POST a créé une row : count=%d", n)
+	if n != 1 {
+		t.Errorf("anonymous POST INSERT count = %d, attendu 1", n)
 	}
 }
 
@@ -128,7 +130,7 @@ func TestFeedback_AuthenticatedPOSTAccepted(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.RemoteAddr = "192.0.2.5:1234"
 	req = req.WithContext(middleware.ContextWithUser(req.Context(),
-		&auth.User{ID: "u-1", Email: "u@x.com"}))
+		&identity.User{ID: "u-1", Email: "u@x.com"}))
 	w := httptest.NewRecorder()
 	handleFeedbackPost(deps, rl)(w, req)
 
@@ -150,3 +152,39 @@ func setLoggerNoop(deps app.AppDeps) app.AppDeps {
 	return deps
 }
 
+// captureSink capture les événements émis (test du debug-channel feedback->bus).
+type captureSink struct{ events []eventsink.Event }
+
+func (c *captureSink) Emit(_ context.Context, e eventsink.Event) error {
+	c.events = append(c.events, e)
+	return nil
+}
+
+// TestFeedback_EmitsEvent : un feedback posté émet feedback.created vers le Sink.
+func TestFeedback_EmitsEvent(t *testing.T) {
+	db := setupFeedbackWidgetTestDB(t)
+	sink := &captureSink{}
+	deps := app.AppDeps{
+		DB: db, Logger: slog.Default(),
+		Config:    config.Config{CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
+		EventSink: sink,
+	}
+	rl := middleware.NewRateLimiter()
+	body := strings.NewReader("message=Bug+sur+la+page&page_url=/forum")
+	req := httptest.NewRequest("POST", "/feedback", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.RemoteAddr = "192.0.2.9:1234"
+	req = req.WithContext(middleware.ContextWithUser(req.Context(), &identity.User{ID: "u-1", Email: "u@x.com"}))
+	w := httptest.NewRecorder()
+	handleFeedbackPost(deps, rl)(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("code = %d", w.Code)
+	}
+	if len(sink.events) != 1 || sink.events[0].Type != "feedback.created" {
+		t.Fatalf("événements émis = %+v, attendu 1x feedback.created", sink.events)
+	}
+	if sink.events[0].Payload["page_url"] != "/forum" {
+		t.Fatalf("payload page_url = %v", sink.events[0].Payload["page_url"])
+	}
+}

@@ -61,7 +61,13 @@ func (s *Store) MarkDuplicate(ctx context.Context, eventID string) error {
 }
 
 // ClaimPending sélectionne et marque processing N events pending dont next_retry_at est passé.
-// Atomique via UPDATE...WHERE id IN (SELECT...).
+//
+// Le claim est rendu atomique PAR EVENT : on liste des candidats puis, pour chacun,
+// l'UPDATE conditionnel `status='pending'` ne réussit (RowsAffected==1) que pour le
+// drainer qui a effectivement transité la ligne. Un second drainer concurrent voit 0
+// ligne affectée et l'event est exclu du résultat — pas de double traitement. (Le
+// SELECT préalable seul ne suffisait pas : entre le SELECT et l'UPDATE, deux drainers
+// pouvaient renvoyer le même event.)
 func (s *Store) ClaimPending(ctx context.Context, limit int) ([]Event, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT id, provider, event_type, payload, signature, attempts, last_error
@@ -74,20 +80,27 @@ func (s *Store) ClaimPending(ctx context.Context, limit int) ([]Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("webhooks.ClaimPending query: %w", err)
 	}
-	var out []Event
+	var candidates []Event
 	for rows.Next() {
 		var e Event
 		if err := rows.Scan(&e.ID, &e.Provider, &e.EventType, &e.Payload, &e.Signature, &e.Attempts, &e.LastError); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		out = append(out, e)
+		candidates = append(candidates, e)
 	}
 	rows.Close()
 
-	for _, e := range out {
-		_, _ = s.DB.ExecContext(ctx,
+	out := make([]Event, 0, len(candidates))
+	for _, e := range candidates {
+		res, err := s.DB.ExecContext(ctx,
 			`UPDATE webhook_events SET status='processing' WHERE id = ? AND status='pending'`, e.ID)
+		if err != nil {
+			return nil, fmt.Errorf("webhooks.ClaimPending claim %s: %w", e.ID, err)
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
+			out = append(out, e)
+		}
 	}
 	return out, nil
 }

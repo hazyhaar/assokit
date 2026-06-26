@@ -18,6 +18,10 @@ type Action struct {
 	Run          func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (Result, error)
 }
 
+// AppDeps réexporte app.AppDeps pour que les consommateurs externes du hook
+// RegisterActions puissent typer leurs closures sans importer internal/app.
+type AppDeps = app.AppDeps
+
 // Result est le résultat d'une action.
 type Result struct {
 	Status  string // "ok"|"error"|"partial"

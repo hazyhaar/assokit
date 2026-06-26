@@ -2,14 +2,15 @@ package actions
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 // MountHTTP monte GET+POST /admin/actions/{action_id} pour chaque action du registry.
@@ -26,29 +27,31 @@ func MountHTTP(router chi.Router, deps app.AppDeps, reg *Registry) {
 func genericFormHandler(action Action) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		var sb strings.Builder
-		fmt.Fprintf(&sb, `<div class="action-form"><h2>%s</h2><p>%s</p>`, action.Title, action.Description)
-		fmt.Fprintf(&sb, `<form method="POST" action="/admin/actions/%s" hx-post="/admin/actions/%s" hx-target="#action-result" hx-swap="innerHTML">`,
-			action.ID, action.ID)
+		_ = actionFormView(action, schemaFields(action.ParamsSchema)).Render(r.Context(), w)
+	}
+}
 
-		if action.ParamsSchema != nil {
-			for propName, propSchema := range action.ParamsSchema.Properties {
-				inputType := "text"
-				if propSchema != nil && len(propSchema.Types) > 0 {
-					switch propSchema.Types[0] {
-					case "integer", "number":
-						inputType = "number"
-					case "boolean":
-						inputType = "checkbox"
-					}
-				}
-				fmt.Fprintf(&sb, `<div><label>%s <input type="%s" name="%s"/></label></div>`, propName, inputType, propName)
+// schemaFields dérive les champs de formulaire du ParamsSchema, triés par nom
+// (ordre stable du rendu).
+func schemaFields(schema *jsonschema.Schema) []formField {
+	if schema == nil {
+		return nil
+	}
+	fields := make([]formField, 0, len(schema.Properties))
+	for name, prop := range schema.Properties {
+		inputType := "text"
+		if prop != nil && len(prop.Types) > 0 {
+			switch prop.Types[0] {
+			case "integer", "number":
+				inputType = "number"
+			case "boolean":
+				inputType = "checkbox"
 			}
 		}
-
-		sb.WriteString(`<button type="submit">Exécuter</button></form><div id="action-result"></div></div>`)
-		io.WriteString(w, sb.String())
+		fields = append(fields, formField{Name: name, InputType: inputType})
 	}
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+	return fields
 }
 
 func actionRunHandler(action Action, deps app.AppDeps) http.HandlerFunc {
@@ -78,11 +81,7 @@ func actionRunHandler(action Action, deps app.AppDeps) http.HandlerFunc {
 
 		if r.Header.Get("HX-Request") != "" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			cls := "ok"
-			if result.Status != "ok" {
-				cls = "error"
-			}
-			fmt.Fprintf(w, `<div class="action-result %s"><strong>%s</strong> — %s</div>`, cls, result.Status, result.Message)
+			_ = actionResultView(result.Status, result.Message).Render(r.Context(), w)
 			return
 		}
 

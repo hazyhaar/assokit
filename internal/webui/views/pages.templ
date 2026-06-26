@@ -1,0 +1,520 @@
+// views/pages.templ — pages generiques et formulaires migres vers templux (vague 2).
+// Types ProfileOption / SearchResult / SignupExtraField definis ici (vague 3 : pkg/horui/pages supprime).
+package views
+
+import (
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	tree "github.com/hazyhaar/nodetree"
+)
+
+// ProfileOption décrit une carte profil sur la page /participer.
+type ProfileOption struct {
+	ID       string
+	Icon     string
+	Label    string
+	Subtitle string
+}
+
+// SearchResult : viewmodel résultat de recherche.
+type SearchResult struct {
+	Title   string
+	Slug    string
+	Snippet string
+}
+
+// SignupExtraField décrit un champ supplémentaire spécifique à un profil.
+type SignupExtraField struct {
+	Name        string
+	Label       string
+	Type        string // text | email | textarea | tel
+	Required    bool
+	Placeholder string
+}
+
+// StaticPage : wrapper pour pages tree-stockees.
+templ StaticPage(title, sectionLabel, bodyHTML string) {
+	<section class="page-static py-space-xl max-w-3xl mx-auto">
+		<div class="flex flex-col gap-space-xs mb-space-lg">
+			if sectionLabel != "" {
+				<div class="text-sm font-medium text-accent">{ sectionLabel }</div>
+			}
+			<h1 class="text-2xl font-semibold text-ink">{ title }</h1>
+		</div>
+		<div class="text-ink">
+			@templ.Raw(bodyHTML)
+		</div>
+	</section>
+}
+
+// Thematique : page thématique avec sous-thèmes.
+templ Thematique(node tree.Node, children []tree.Node) {
+	<section class="py-space-xl max-w-3xl mx-auto">
+		<nav class="text-sm text-ink-muted mb-space-md" aria-label="Fil d'Ariane">
+			<ol class="flex items-center gap-space-xs list-none">
+				<li><a href="/thematiques" class="text-accent">Thématiques</a><span aria-hidden="true"> / </span></li>
+				<li><span aria-current="page">{ node.Title }</span></li>
+			</ol>
+		</nav>
+		<div class="mb-space-lg">
+			<h1 class="text-2xl font-semibold text-ink">{ node.Title }</h1>
+		</div>
+		if node.BodyHTML != "" {
+			<div class="text-ink">@templ.Raw(node.BodyHTML)</div>
+		}
+		if len(children) > 0 {
+			<div class="mt-space-xl flex flex-col gap-space-md">
+				<h2 class="text-xl font-semibold text-ink">Sous-thèmes</h2>
+				<ul class="flex flex-col gap-space-sm list-none">
+					for _, c := range children {
+						<li>
+							<a href={ templ.SafeURL("/thematiques/" + c.Slug) } class="text-accent">{ c.Title }</a>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+	</section>
+}
+
+// Participer : choix profil.
+templ Participer(profils []ProfileOption) {
+	<section class="py-space-xl max-w-3xl mx-auto">
+		<div class="flex flex-col gap-space-xs mb-space-lg text-center">
+			<div class="text-sm font-medium text-accent">Rejoindre { theme.Brand().Name }</div>
+			<h1 class="text-2xl font-semibold text-ink">Quel est votre profil ?</h1>
+			<p class="text-lg text-ink-muted">
+				Choisissez la modalité qui correspond le mieux à votre situation.
+			</p>
+		</div>
+		<div class="profile-grid grid grid-cols-1 sm:flex gap-space-md">
+			for _, p := range profils {
+				<a href={ templ.SafeURL("/adherer/" + p.ID) } class="profile-card bg-surface-raised rounded-lg shadow-sm p-space-lg hover:shadow-md flex flex-col gap-space-xs text-ink">
+					if p.Icon != "" {
+						<div class="text-2xl">{ p.Icon }</div>
+					}
+					<div class="profile-label font-semibold text-ink">{ p.Label }</div>
+					<div class="text-sm text-ink-muted">{ p.Subtitle }</div>
+				</a>
+			}
+		</div>
+	</section>
+}
+
+// SignupForm : formulaire d'inscription pour un profil.
+templ SignupForm(profilID, profilLabel, csrfToken string, extras []SignupExtraField) {
+	<section class="py-space-xl max-w-md mx-auto">
+		<nav class="text-sm text-ink-muted mb-space-md" aria-label="Fil d'Ariane">
+			<ol class="flex items-center gap-space-xs list-none">
+				<li><a href="/participer" class="text-accent">Participer</a><span aria-hidden="true"> / </span></li>
+				<li><span aria-current="page">{ profilLabel }</span></li>
+			</ol>
+		</nav>
+		<div class="flex flex-col gap-space-xs mb-space-lg">
+			<div class="text-sm font-medium text-accent">Adhésion</div>
+			<h1 class="text-2xl font-semibold text-ink">Inscription — { profilLabel }</h1>
+			<p class="text-ink-muted">
+				Renseignez vos coordonnées. Vous recevrez un email de confirmation.
+			</p>
+		</div>
+		<form method="POST" action={ templ.SafeURL("/adherer/" + profilID) } class="flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<input type="text" name="website" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true"/>
+			@templux.FormField("Prénom", "", "", templux.Input("prenom", "", templ.Attributes{"type": "text", "id": "prenom", "required": "required", "autocomplete": "given-name"}))
+			@templux.FormField("Nom", "", "", templux.Input("nom", "", templ.Attributes{"type": "text", "id": "nom", "autocomplete": "family-name"}))
+			@templux.FormField("Email", "", "", templux.Input("email", "", templ.Attributes{"type": "email", "id": "email", "required": "required", "autocomplete": "email"}))
+			for _, f := range extras {
+				if f.Type == "textarea" {
+					<div class="flex flex-col gap-space-xs">
+						<label for={ f.Name } class="text-sm font-medium text-ink">
+							{ f.Label }
+							if f.Required {
+								<span class="text-danger">*</span>
+							}
+						</label>
+						<textarea id={ f.Name } name={ f.Name } rows="4" class="w-full rounded-md border border-border bg-surface p-space-sm text-ink"
+							if f.Required {
+								required
+							}
+							if f.Placeholder != "" {
+								placeholder={ f.Placeholder }
+							}
+						></textarea>
+					</div>
+				} else {
+					@templux.FormField(f.Label, "", "", templux.Input(f.Name, "", signupExtraAttrs(f)))
+				}
+			}
+			<div class="flex flex-col gap-space-xs">
+				<label for="message" class="text-sm font-medium text-ink">Message libre</label>
+				<textarea id="message" name="message" rows="3" placeholder="Quelques mots sur votre démarche (optionnel)" class="w-full rounded-md border border-border bg-surface p-space-sm text-ink"></textarea>
+			</div>
+			@templux.Button("Envoyer ma demande", "primary", templ.Attributes{"type": "submit"})
+		</form>
+	</section>
+}
+
+// Contact : formulaire de contact.
+templ Contact() {
+	<section class="py-space-xl max-w-md mx-auto">
+		<div class="flex flex-col gap-space-xs mb-space-lg">
+			<div class="text-sm font-medium text-accent">Nous écrire</div>
+			<h1 class="text-2xl font-semibold text-ink">Contact</h1>
+			<p class="text-ink-muted">Une question, un projet, une situation à signaler ? Écrivez-nous.</p>
+		</div>
+		<form method="POST" action="/contact" class="flex flex-col gap-space-md">
+			<input type="text" name="website" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true"/>
+			@templux.FormField("Nom", "", "", templux.Input("nom", "", templ.Attributes{"type": "text", "id": "contact-nom", "required": "required"}))
+			@templux.FormField("Email", "", "", templux.Input("email", "", templ.Attributes{"type": "email", "id": "contact-email", "required": "required"}))
+			@templux.FormField("Sujet", "", "", templux.Input("sujet", "", templ.Attributes{"type": "text", "id": "contact-sujet"}))
+			<div class="flex flex-col gap-space-xs">
+				<label for="contact-message" class="text-sm font-medium text-ink">Message <span class="text-danger">*</span></label>
+				<textarea id="contact-message" name="message" rows="8" required class="w-full rounded-md border border-border bg-surface p-space-sm text-ink"></textarea>
+			</div>
+			@templux.Button("Envoyer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+	</section>
+}
+
+// DonateProps regroupe les props de la page /donate.
+type DonateProps struct {
+	DonURL      string
+	CotisURL    string
+	IBAN        string
+	User        *identity.User
+	IsMember    bool
+	IsAdmin     bool
+	AdhereSlug  string
+	Paliers     []int
+	MyDonations []MyDonationView
+}
+
+// MyDonationView : entrée affichée dans bloc "Mes dons".
+type MyDonationView struct {
+	Date     string
+	Amount   string
+	FormType string
+	Status   string
+}
+
+// Donate : page de dons.
+templ Donate(p DonateProps) {
+	<section class="page-donate py-space-xl max-w-3xl mx-auto flex flex-col gap-space-xl">
+		<div class="flex flex-col gap-space-xs">
+			<div class="text-sm font-medium text-accent">Nous soutenir</div>
+			<h1 class="text-2xl font-semibold text-ink">Faire un don</h1>
+			<p class="text-ink-muted">
+				Vos dons financent directement les actions et le fonctionnement de { theme.Brand().Name }.
+			</p>
+		</div>
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg" id="donate-block" data-helloasso-url={ p.DonURL }>
+			if p.DonURL != "" {
+				<div class="flex flex-col sm:flex gap-space-sm items-center">
+					if len(p.Paliers) > 0 {
+						for _, pal := range p.Paliers {
+							@templux.LinkButton(donateItoa(pal)+" €", p.DonURL, "primary", templ.Attributes{"target": "_blank", "rel": "noopener noreferrer"})
+						}
+					}
+					@templux.LinkButton("Montant libre", p.DonURL, "ghost", templ.Attributes{"target": "_blank", "rel": "noopener noreferrer"})
+				</div>
+				<p class="text-sm text-ink-faint mt-space-sm">Le don s'ouvre dans une fenêtre HelloAsso sécurisée.</p>
+			} else {
+				<div class="bg-surface-muted rounded-md p-space-md text-ink">
+					<p>
+						Soutien en cours de configuration.
+						Pour donner dès maintenant, écrivez à
+						<a href={ templ.SafeURL("mailto:" + theme.Brand().ContactEmail) } class="text-accent">{ theme.Brand().ContactEmail }</a>.
+					</p>
+					if p.IBAN != "" {
+						<p class="mt-space-sm"><strong>IBAN :</strong> { p.IBAN }</p>
+					}
+				</div>
+			}
+		</div>
+		if p.User != nil && len(p.MyDonations) > 0 {
+			<div class="flex flex-col gap-space-md">
+				<h2 class="text-xl font-semibold text-ink">Mes dons</h2>
+				<ul class="flex flex-col gap-space-xs list-none">
+					for _, d := range p.MyDonations {
+						<li class="flex items-center justify-between gap-space-sm bg-surface-raised rounded-md p-space-sm">
+							<span class="text-sm text-ink-muted">{ d.Date }</span>
+							<span class="font-medium text-ink">{ d.Amount }</span>
+							<span class="text-sm text-ink-muted">{ d.FormType }</span>
+							@templux.Badge(d.Status, donateStatusTone(d.Status))
+						</li>
+					}
+				</ul>
+			</div>
+		} else if p.User != nil {
+			<div class="flex flex-col gap-space-sm">
+				<h2 class="text-xl font-semibold text-ink">Mes dons</h2>
+				<p class="text-ink-muted">Aucun don encore.</p>
+			</div>
+		}
+		if p.IsAdmin {
+			<div class="flex flex-col gap-space-sm">
+				<h2 class="text-xl font-semibold text-ink">Outils admin</h2>
+				<div class="flex flex-col sm:flex gap-space-sm items-start">
+					@templux.LinkButton("Configurer HelloAsso", "/admin/connectors/helloasso/configure", "secondary", templ.Attributes{})
+					@templux.LinkButton("Voir toutes les donations", "/admin/donations", "secondary", templ.Attributes{})
+				</div>
+			</div>
+		}
+		if p.IsMember {
+			<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm">
+				<h2 class="text-xl font-semibold text-ink">Vous êtes adhérent · ent</h2>
+				<p class="text-ink-muted">Merci de soutenir { theme.Brand().Name }. Votre adhésion est active.</p>
+			</div>
+		} else if p.User == nil {
+			<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm items-start">
+				<h2 class="text-xl font-semibold text-ink">Adhérer</h2>
+				<p class="text-ink-muted">L'adhésion symbolique permet de devenir membre votant.</p>
+				if p.CotisURL != "" {
+					@templux.LinkButton("Adhérer (1 €) →", p.CotisURL, "primary", templ.Attributes{})
+				} else if p.AdhereSlug != "" {
+					@templux.LinkButton("Adhérer →", "/adherer/"+p.AdhereSlug, "primary", templ.Attributes{})
+				} else {
+					@templux.LinkButton("Voir les options d'adhésion →", "/participer", "primary", templ.Attributes{})
+				}
+				<p class="text-sm text-ink-muted"><a href="/login" class="text-accent">Déjà inscrit · e ? Se connecter</a></p>
+			</div>
+		} else {
+			<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm items-start">
+				<h2 class="text-xl font-semibold text-ink">Adhérer</h2>
+				if p.CotisURL != "" {
+					@templux.LinkButton("Adhérer (1 €) →", p.CotisURL, "primary", templ.Attributes{})
+				} else if p.AdhereSlug != "" {
+					@templux.LinkButton("Adhérer →", "/adherer/"+p.AdhereSlug, "primary", templ.Attributes{})
+				} else {
+					@templux.LinkButton("Voir les options d'adhésion →", "/participer", "primary", templ.Attributes{})
+				}
+			</div>
+		}
+	</section>
+}
+
+// PagesForgotPasswordForm : étape 1 du flow reset.
+templ PagesForgotPasswordForm(csrfToken string) {
+	<section class="py-space-xl max-w-md mx-auto">
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<h1 class="text-2xl font-semibold text-ink">Mot de passe oublié</h1>
+			<p class="text-ink-muted">Entrez votre email. Si un compte existe, vous recevrez un lien de réinitialisation valable 1h.</p>
+			<form method="POST" action="/forgot" class="flex flex-col gap-space-md">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				@templux.FormField("Email", "", "", templux.Input("email", "", templ.Attributes{"type": "email", "id": "forgot-email", "required": "required", "autocomplete": "email"}))
+				<div class="flex flex-col sm:flex gap-space-sm items-start">
+					@templux.Button("Envoyer le lien", "primary", templ.Attributes{"type": "submit"})
+					@templux.LinkButton("Annuler", "/login", "ghost", templ.Attributes{})
+				</div>
+			</form>
+		</div>
+	</section>
+}
+
+// PagesResetPasswordForm : étape 2 — saisie nouveau password.
+templ PagesResetPasswordForm(token, csrfToken string) {
+	<section class="py-space-xl max-w-md mx-auto">
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<h1 class="text-2xl font-semibold text-ink">Nouveau mot de passe</h1>
+			<p class="text-ink-muted">Choisissez un nouveau mot de passe (12 caractères minimum).</p>
+			<form method="POST" action="/reset" class="flex flex-col gap-space-md">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				<input type="hidden" name="token" value={ token }/>
+				@passwordEyeField("Nouveau mot de passe", "password", "reset-password")
+				@passwordEyeField("Confirmer le mot de passe", "password_confirm", "reset-password-confirm")
+				@templux.Button("Définir le nouveau mot de passe", "primary", templ.Attributes{"type": "submit"})
+			</form>
+			@togglePasswordScript()
+		</div>
+	</section>
+}
+
+// passwordEyeField : champ mot de passe avec bouton œil pour révéler/masquer la
+// saisie. Cible tactile généreuse (44px) pour l'accessibilité (saisie difficile,
+// tremblements). Le bouton bascule le type du champ ciblé par son id.
+templ passwordEyeField(label, name, id string) {
+	<div class="flex flex-col gap-space-xs">
+		<label for={ id } class="text-sm font-medium text-ink">{ label }</label>
+		<div class="relative flex items-center">
+			<input
+				type="password"
+				name={ name }
+				id={ id }
+				required
+				minlength="12"
+				autocomplete="new-password"
+				class="w-full rounded-md border border-border bg-surface text-ink pl-space-md pr-12 py-space-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+			/>
+			<button
+				type="button"
+				aria-label="Afficher ou masquer le mot de passe"
+				aria-pressed="false"
+				data-toggle-pw={ id }
+				class="absolute right-1 inset-y-0 my-auto h-11 w-11 flex items-center justify-center text-ink-muted hover:text-ink focus:outline-none focus:ring-2 focus:ring-accent rounded-md"
+			>
+				<svg class="eye-open" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+				<svg class="eye-closed" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+			</button>
+		</div>
+	</div>
+}
+
+// togglePasswordScript : fonction JS de bascule visibilité, incluse une fois par page.
+templ togglePasswordScript() {
+	<script>
+		document.addEventListener('click', function (e) {
+			var btn = e.target.closest('[data-toggle-pw]');
+			if (!btn) return;
+			var input = document.getElementById(btn.getAttribute('data-toggle-pw'));
+			if (!input) return;
+			var reveal = input.type === 'password';
+			input.type = reveal ? 'text' : 'password';
+			btn.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+			var open = btn.querySelector('.eye-open');
+			var closed = btn.querySelector('.eye-closed');
+			if (open) open.hidden = reveal;
+			if (closed) closed.hidden = !reveal;
+		});
+	</script>
+}
+
+// PagesRegister : page création de compte (redirection vers profils).
+templ PagesRegister() {
+	<section class="py-space-xl max-w-md mx-auto">
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md items-start">
+			<h1 class="text-2xl font-semibold text-ink">Créer un compte</h1>
+			<p class="text-ink-muted">
+				La création de compte se fait via une adhésion à l'association.
+				Choisissez votre profil pour commencer.
+			</p>
+			@templux.LinkButton("Choisir mon profil", "/participer", "primary", templ.Attributes{})
+		</div>
+	</section>
+}
+
+// PagesSearch : page de recherche.
+templ PagesSearch(query string, hits []SearchResult) {
+	<section class="py-space-xl max-w-3xl mx-auto flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Recherche</h1>
+		<form method="GET" action="/search" class="search-bar flex gap-space-sm items-center" role="search">
+			<input
+				type="search"
+				name="q"
+				value={ query }
+				placeholder="Rechercher dans le site…"
+				aria-label="Recherche"
+				autofocus
+				class="w-full rounded-md border border-border bg-surface p-space-sm text-ink"
+			/>
+			@templux.Button("Rechercher", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if query != "" {
+			<div class="flex flex-col gap-space-md">
+				if len(hits) == 0 {
+					<p class="text-ink-muted">Aucun résultat pour <strong>{ query }</strong>.</p>
+				} else {
+					<p class="text-sm text-ink-muted">{ pagesPluralize(len(hits), "résultat", "résultats") } pour <strong>{ query }</strong></p>
+					<ul class="flex flex-col gap-space-md list-none">
+						for _, h := range hits {
+							<li class="flex flex-col gap-space-xs">
+								<a href={ templ.SafeURL("/n/" + h.Slug) } class="font-semibold text-accent">{ h.Title }</a>
+								if h.Snippet != "" {
+									<div class="text-sm text-ink-muted">@templ.Raw(h.Snippet)</div>
+								}
+							</li>
+						}
+					</ul>
+				}
+			</div>
+		}
+	</section>
+}
+
+// PagesMerci : confirmation générique.
+templ PagesMerci(title, message string) {
+	<section class="page-merci py-space-2xl max-w-md mx-auto">
+		<div class="merci-card bg-surface-raised rounded-lg shadow-sm p-space-xl flex flex-col gap-space-md items-center text-center">
+			<h1 class="text-2xl font-semibold text-ink">{ title }</h1>
+			<p class="text-ink-muted">{ message }</p>
+			@templux.LinkButton("Retour à l'accueil", "/", "primary", templ.Attributes{})
+		</div>
+	</section>
+}
+
+// PagesNotFound : 404.
+templ PagesNotFound() {
+	<section class="page-error py-space-2xl max-w-md mx-auto">
+		<div class="error-card bg-surface-raised rounded-lg shadow-sm p-space-xl flex flex-col gap-space-md items-center text-center">
+			<div class="error-code text-3xl font-semibold text-ink-faint">404</div>
+			<h1 class="text-2xl font-semibold text-ink">Page introuvable</h1>
+			<p class="text-ink-muted">La page demandée n'existe pas ou a été déplacée.</p>
+			@templux.LinkButton("Retour à l'accueil", "/", "primary", templ.Attributes{})
+		</div>
+	</section>
+}
+
+func signupExtraAttrs(f SignupExtraField) templ.Attributes {
+	t := "text"
+	switch f.Type {
+	case "email":
+		t = "email"
+	case "tel":
+		t = "tel"
+	}
+	a := templ.Attributes{"type": t, "id": f.Name}
+	if f.Required {
+		a["required"] = "required"
+	}
+	if f.Placeholder != "" {
+		a["placeholder"] = f.Placeholder
+	}
+	return a
+}
+
+func donateStatusTone(status string) string {
+	switch status {
+	case "paid":
+		return "success"
+	case "refunded":
+		return "warning"
+	case "pending":
+		return "info"
+	default:
+		return "neutral"
+	}
+}
+
+func donateItoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	buf := [20]byte{}
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(buf[i:])
+}
+
+func pagesPluralize(n int, sing, plur string) string {
+	if n == 1 {
+		return "1 " + sing
+	}
+	b := make([]byte, 0, 10)
+	if n == 0 {
+		return "0 " + plur
+	}
+	tmp := n
+	var digits []byte
+	for tmp > 0 {
+		digits = append(digits, byte('0'+tmp%10))
+		tmp /= 10
+	}
+	for i := len(digits) - 1; i >= 0; i-- {
+		b = append(b, digits[i])
+	}
+	return string(b) + " " + plur
+}

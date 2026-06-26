@@ -6,8 +6,20 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 )
+
+// rbacService retourne le Service RBAC applicatif partagé (deps.RBAC) — celui qui
+// sert Can(), donc le seul dont l'invalidation de cache compte. Fallback sur un
+// Service transitoire si deps.RBAC est nil (montage de test minimal) : le recalcul
+// des permissions effectives en base reste correct, seule l'invalidation du cache
+// vivant manque alors (acceptable hors prod).
+func rbacService(deps app.AppDeps) *rbac.Service {
+	if deps.RBAC != nil {
+		return deps.RBAC
+	}
+	return &rbac.Service{Store: &rbac.Store{DB: deps.DB}, Cache: &rbac.Cache{}}
+}
 
 func initRBAC(reg *actions.Registry) {
 	reg.Add(actions.Action{ //nolint:errcheck
@@ -83,8 +95,7 @@ func initRBAC(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			store := &rbac.Store{DB: deps.DB}
-			if err := store.GrantPerm(ctx, p.GradeID, p.PermID); err != nil {
+			if err := rbacService(deps).GrantPerm(ctx, p.GradeID, p.PermID); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
 			return actions.Result{Status: "ok", Message: "Permission accordée."}, nil
@@ -111,8 +122,7 @@ func initRBAC(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			store := &rbac.Store{DB: deps.DB}
-			if err := store.RevokePerm(ctx, p.GradeID, p.PermID); err != nil {
+			if err := rbacService(deps).RevokePerm(ctx, p.GradeID, p.PermID); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
 			return actions.Result{Status: "ok", Message: "Permission révoquée."}, nil
@@ -139,8 +149,7 @@ func initRBAC(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			store := &rbac.Store{DB: deps.DB}
-			if err := store.AddInherit(ctx, p.GradeID, p.ParentID); err != nil {
+			if err := rbacService(deps).AddInherit(ctx, p.GradeID, p.ParentID); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
 			return actions.Result{Status: "ok", Message: "Héritage ajouté."}, nil
@@ -167,8 +176,7 @@ func initRBAC(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
-			store := &rbac.Store{DB: deps.DB}
-			if err := store.RemoveInherit(ctx, p.GradeID, p.ParentID); err != nil {
+			if err := rbacService(deps).RemoveInherit(ctx, p.GradeID, p.ParentID); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
 			}
 			return actions.Result{Status: "ok", Message: "Héritage supprimé."}, nil

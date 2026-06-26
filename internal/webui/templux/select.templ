@@ -1,0 +1,24 @@
+// templux select — liste déroulante avec options typées. Vendored depuis pkg/horui/ui.
+package templux
+
+// SelectOption représente une option du composant Select.
+type SelectOption struct {
+	Value string
+	Label string
+}
+
+templ Select(name string, options []SelectOption, selected string, attrs templ.Attributes) {
+	<select
+		name={ name }
+		class="block w-full rounded-md border border-border bg-surface text-ink px-space-md py-space-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+		{ attrs... }
+	>
+		for _, opt := range options {
+			if opt.Value == selected {
+				<option value={ opt.Value } selected>{ opt.Label }</option>
+			} else {
+				<option value={ opt.Value }>{ opt.Label }</option>
+			}
+		}
+	</select>
+}

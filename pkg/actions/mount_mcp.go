@@ -9,10 +9,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/uid"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -56,12 +56,39 @@ func invokeMCPAction(ctx context.Context, deps app.AppDeps, action Action, argsJ
 		userID = u.ID
 	}
 
+	// Application des scopes OAuth : le RBAC seul ne suffit pas. Un token consenti
+	// à un scope minimal ne doit pas exécuter toute action que le RBAC du compte
+	// permet, sinon le consentement OAuth est sans effet. N'applique que si le
+	// contexte provient d'une requête OAuth (clé de scopes présente).
+	if scopes, viaOAuth := ScopesFromContext(ctx); viaOAuth && !ScopeAllowsAction(scopes, action.ID) {
+		logger.Warn("mcp_tool_denied_scope",
+			"req_id", reqID, "user_id", userID,
+			"action", action.ID, "scopes", scopes)
+		insertInvocation(ctx, deps.DB, action.ID, nil, "denied", 0, "scope insuffisant: "+action.ID)
+		return mcp.NewToolResultError("scope insuffisant pour " + action.ID), nil
+	}
+
 	if !perms.Has(ctx, action.RequiredPerm) {
 		logger.Warn("mcp_tool_denied_perm",
 			"req_id", reqID, "user_id", userID,
 			"action", action.ID, "missing_perm", action.RequiredPerm)
 		insertInvocation(ctx, deps.DB, action.ID, nil, "denied", 0, "permission refusée: "+action.RequiredPerm)
 		return mcp.NewToolResultError("permission refusée: " + action.RequiredPerm), nil
+	}
+
+	// Valider les paramètres contre ParamsSchema, à l'identique du chemin HTTP :
+	// les contraintes annoncées au LLM (enum, minLength, required…) doivent être
+	// opposées sur les deux surfaces, sans quoi le contrat MCP est mensonger.
+	if action.ParamsSchema != nil {
+		var v any
+		if err := json.Unmarshal(argsJSON, &v); err != nil {
+			insertInvocation(ctx, deps.DB, action.ID, nil, "error", 0, "JSON invalide: "+err.Error())
+			return mcp.NewToolResultError("JSON invalide: " + err.Error()), nil
+		}
+		if err := action.ParamsSchema.Validate(v); err != nil {
+			insertInvocation(ctx, deps.DB, action.ID, nil, "error", 0, "validation: "+err.Error())
+			return mcp.NewToolResultError("paramètres invalides: " + err.Error()), nil
+		}
 	}
 
 	paramsHash := hashParams(argsJSON)
@@ -106,7 +133,7 @@ func insertInvocation(ctx context.Context, db *sql.DB, actionID string, paramsHa
 		actorID = u.ID
 	}
 
-	id := uuid.New().String()
+	id := uid.New()
 	db.ExecContext(ctx,
 		`INSERT INTO mcp_invocations(id, action_id, actor_id, params_hash, result_status, duration_ms, error_msg)
 		 VALUES(?,?,?,?,?,?,?)`,

@@ -1,0 +1,152 @@
+// views/admin_feedbacks.templ — vues admin feedbacks migrees vers templux (vague 2).
+package views
+
+import (
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/admin"
+)
+
+// FeedbackListPage rend la liste paginée des feedbacks.
+templ FeedbackListPage(rows []admin.FeedbackRow, pag admin.PaginationInfo, filter admin.FeedbackFilter) {
+	<div class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Feedbacks</h1>
+		<form method="get" action="/admin/feedbacks" class="flex flex-col gap-space-md sm:flex sm:flex-row sm:items-end">
+			@templux.FormField("Statut", "", "", fbSelectStatus(filter))
+			@templux.FormField("Recherche", "", "", templux.Input("search", filter.Search, templ.Attributes{"type": "search", "placeholder": "message, URL…"}))
+			@templux.Button("Filtrer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		<p class="text-sm text-ink-muted">{ fbIntToStr(pag.Total) } résultat(s)</p>
+		<table class="w-full text-sm">
+			<thead>
+				<tr>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Créé</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">URL</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Message</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, fb := range rows {
+					@FeedbackListRow(fb)
+				}
+				if len(rows) == 0 {
+					<tr><td colspan="5" class="px-space-md py-space-sm border-b border-border text-left text-ink-muted">Aucun feedback.</td></tr>
+				}
+			</tbody>
+		</table>
+		<nav class="flex items-center gap-space-md">
+			if pag.HasPrev {
+				<a class="text-accent" href={ templ.SafeURL("/admin/feedbacks?" + pag.BaseQuery + "page=" + fbIntToStr(pag.PrevPage)) }>&laquo; Précédent</a>
+			}
+			<span class="text-sm text-ink-muted">Page { fbIntToStr(pag.Page) }</span>
+			if pag.HasNext {
+				<a class="text-accent" href={ templ.SafeURL("/admin/feedbacks?" + pag.BaseQuery + "page=" + fbIntToStr(pag.NextPage)) }>Suivant &raquo;</a>
+			}
+		</nav>
+	</div>
+}
+
+templ fbSelectStatus(filter admin.FeedbackFilter) {
+	<select name="status" onchange="this.form.submit()" class="w-full px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm">
+		<option value="" selected?={ filter.Status == "" }>Tous</option>
+		<option value="pending" selected?={ filter.Status == "pending" }>En attente</option>
+		<option value="triaged" selected?={ filter.Status == "triaged" }>Traité</option>
+		<option value="closed" selected?={ filter.Status == "closed" }>Fermé</option>
+		<option value="spam" selected?={ filter.Status == "spam" }>Spam</option>
+	</select>
+}
+
+// FeedbackListRow rend une ligne (réutilisé pour HTMX swap).
+templ FeedbackListRow(fb admin.FeedbackRow) {
+	<tr id={ "fb-row-" + fb.ID }>
+		<td class="px-space-md py-space-sm border-b border-border text-left">{ fb.CreatedAt }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left"><a class="text-accent" href={ templ.SafeURL(fb.PageURL) } target="_blank" rel="noopener">{ fb.PageURL }</a></td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">{ fb.MessageSnip }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">
+			@templux.Badge(fb.Status, fbStatusBadgeTone(fb.Status))
+		</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">
+			<a class="text-accent" href={ templ.SafeURL("/admin/feedbacks/" + fb.ID) }>Détail</a>
+		</td>
+	</tr>
+}
+
+// FeedbackDetailPage rend la page de détail d'un feedback.
+templ FeedbackDetailPage(fb admin.FeedbackDetail, csrfToken string) {
+	<div class="flex flex-col gap-space-lg max-w-2xl">
+		<h1 class="text-2xl font-semibold text-ink">Feedback</h1>
+		<a class="text-accent" href="/admin/feedbacks">&larr; Retour à la liste</a>
+		<dl class="bg-surface-raised rounded-lg shadow-sm p-space-lg grid grid-cols-2 gap-space-sm text-sm">
+			<dt class="text-ink-muted">Créé</dt><dd class="text-ink">{ fb.CreatedAt }</dd>
+			<dt class="text-ink-muted">URL</dt><dd class="text-ink"><a class="text-accent" href={ templ.SafeURL(fb.PageURL) } target="_blank" rel="noopener">{ fb.PageURL }</a></dd>
+			<dt class="text-ink-muted">Page</dt><dd class="text-ink">{ fb.PageTitle }</dd>
+			<dt class="text-ink-muted">Statut</dt>
+			<dd class="text-ink">@templux.Badge(fb.Status, fbStatusBadgeTone(fb.Status))</dd>
+			<dt class="text-ink-muted">User-Agent</dt><dd class="text-ink">{ fb.UserAgent }</dd>
+			<dt class="text-ink-muted">Locale</dt><dd class="text-ink">{ fb.Locale }</dd>
+			<dt class="text-ink-muted">IP (partiel)</dt><dd class="text-ink">…{ fb.IPHashSnip }</dd>
+			if fb.TriagedBy != "" {
+				<dt class="text-ink-muted">Traité par</dt><dd class="text-ink">{ fb.TriagedBy }</dd>
+				<dt class="text-ink-muted">Traité le</dt><dd class="text-ink">{ fb.TriagedAt }</dd>
+			}
+		</dl>
+		<blockquote class="bg-surface-muted rounded-md p-space-md text-ink border border-border">{ fb.Message }</blockquote>
+		<form
+			method="post"
+			action={ templ.SafeURL("/admin/feedbacks/" + fb.ID + "/triage") }
+			hx-post={ "/admin/feedbacks/" + fb.ID + "/triage" }
+			hx-target={ "#fb-row-" + fb.ID }
+			hx-swap="outerHTML"
+			class="flex flex-col gap-space-md"
+		>
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			@templux.FormField("Note admin", "", "", fbTriageNote(fb))
+			<div class="flex flex-col gap-space-sm sm:flex sm:flex-row">
+				@templux.Button("Traité", "primary", templ.Attributes{"type": "submit", "name": "status", "value": "triaged"})
+				@templux.Button("Fermé", "secondary", templ.Attributes{"type": "submit", "name": "status", "value": "closed"})
+				@templux.Button("Spam", "danger", templ.Attributes{"type": "submit", "name": "status", "value": "spam"})
+				@templux.Button("Remettre en attente", "ghost", templ.Attributes{"type": "submit", "name": "status", "value": "pending"})
+			</div>
+		</form>
+	</div>
+}
+
+templ fbTriageNote(fb admin.FeedbackDetail) {
+	<textarea name="admin_note" rows="3" placeholder="Note interne…" class="w-full px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm">{ fb.AdminNote }</textarea>
+}
+
+func fbStatusBadgeTone(status string) string {
+	switch status {
+	case "pending":
+		return "warning"
+	case "triaged":
+		return "info"
+	case "closed":
+		return "success"
+	case "spam":
+		return "danger"
+	default:
+		return "neutral"
+	}
+}
+
+func fbIntToStr(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	b := make([]byte, 0, 10)
+	if n < 0 {
+		b = append(b, '-')
+		n = -n
+	}
+	var digits []byte
+	for n > 0 {
+		digits = append(digits, byte('0'+n%10))
+		n /= 10
+	}
+	for i := len(digits) - 1; i >= 0; i-- {
+		b = append(b, digits[i])
+	}
+	return string(b)
+}

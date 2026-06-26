@@ -8,10 +8,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/hazyhaar/assokit/pkg/uid"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/components"
+	"github.com/hazyhaar/assokit/internal/webui/components"
+	"github.com/hazyhaar/assokit/pkg/eventsink"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
@@ -35,10 +36,12 @@ func handleFeedbackForm(deps app.AppDeps) http.HandlerFunc {
 // l'utilisateur doit être loggué pour avoir le droit d'envoyer (anti-spam).
 func handleFeedbackPost(deps app.AppDeps, rl *middleware.RateLimiter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if u := middleware.UserFromContext(r.Context()); u == nil {
-			http.Redirect(w, r, "/login?return_url=/", http.StatusSeeOther)
-			return
-		}
+		// Feedback ANONYME autorisé : c'est un canal de debug présent sur chaque page,
+		// y compris les pages d'authentification (login, récupération de mot de passe)
+		// où l'utilisateur n'est précisément pas connecté et où il rencontre le plus de
+		// friction. Le record feedback ne référence aucun utilisateur ; honeypot +
+		// rate-limit par ip_hash protègent du spam. (Audité 2026-06-13 : la garde
+		// u==nil masquait le feedback exactement là où il est le plus utile.)
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "Formulaire invalide", http.StatusBadRequest)
 			return
@@ -96,7 +99,7 @@ func handleFeedbackPost(deps app.AppDeps, rl *middleware.RateLimiter) http.Handl
 			locale = locale[:50]
 		}
 
-		id := uuid.New().String()
+		id := uid.New()
 		_, err := deps.DB.ExecContext(ctx,
 			`INSERT INTO feedbacks(id, page_url, page_title, message, ip_hash, user_agent, locale)
 			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -118,6 +121,24 @@ func handleFeedbackPost(deps app.AppDeps, rl *middleware.RateLimiter) http.Handl
 			"page_url", pageURL,
 			"ip_hash_prefix", ipHashShort,
 		)
+
+		// Debug-channel LLM-centric : émet l'événement vers le Sink (webhook
+		// générique ou bus ledger horos55 selon l'injection bordure). Best-effort,
+		// ne bloque jamais la réponse. URL + titre de page = contexte de debug ;
+		// le screenshot viendra enrichir le payload ultérieurement.
+		if deps.EventSink != nil {
+			if err := deps.EventSink.Emit(ctx, eventsink.Event{
+				Type: "feedback.created",
+				Payload: map[string]any{
+					"feedback_id": id,
+					"page_url":    pageURL,
+					"page_title":  pageTitle,
+					"message":     message,
+				},
+			}); err != nil {
+				deps.Logger.Warn("feedback_event_emit_failed", "req_id", reqID, "err", err.Error())
+			}
+		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		components.FeedbackSuccess().Render(r.Context(), w) //nolint:errcheck

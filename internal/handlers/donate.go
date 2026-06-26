@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Handler /soutenir : popup HelloAsso CSP-compatible + Mes dons + admin tools (M-ASSOKIT-SPRINT3-S3).
+// CLAUDE:SUMMARY Handler /soutenir (vague 2 : renderPageV2 + views.Donate).
 package handlers
 
 import (
@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/pages"
 )
 
 const donateAdhereSlug = "don"
@@ -28,13 +28,13 @@ func handleDonatePage(deps app.AppDeps) http.HandlerFunc {
 		isAdmin := user != nil && slices.Contains(user.Roles, "admin")
 
 		paliers := loadPaliers(r.Context(), deps.DB)
-		myDonations := []pages.MyDonationView{}
+		myDonations := []views.MyDonationView{}
 		if user != nil {
 			myDonations = loadMyDonations(r.Context(), deps.DB, user.ID)
 		}
 
-		renderPage(w, r, deps, "Soutenir",
-			pages.DonateRich(pages.DonateProps{
+		renderPageV2(w, r, deps, "Soutenir",
+			views.Donate(views.DonateProps{
 				DonURL:      deps.Config.HelloassoDonURL,
 				CotisURL:    deps.Config.HelloassoCotisationURL,
 				IBAN:        deps.Config.BankIBAN,
@@ -75,7 +75,7 @@ func loadPaliers(ctx context.Context, db *sql.DB) []int {
 }
 
 // loadMyDonations retourne les donations de userID (max 50, ordre paid_at desc).
-func loadMyDonations(ctx context.Context, db *sql.DB, userID string) []pages.MyDonationView {
+func loadMyDonations(ctx context.Context, db *sql.DB, userID string) []views.MyDonationView {
 	if db == nil || userID == "" {
 		return nil
 	}
@@ -91,14 +91,14 @@ func loadMyDonations(ctx context.Context, db *sql.DB, userID string) []pages.MyD
 		return nil
 	}
 	defer rows.Close()
-	var out []pages.MyDonationView
+	var out []views.MyDonationView
 	for rows.Next() {
 		var amount int64
 		var currency, formType, status, when string
 		if err := rows.Scan(&amount, &currency, &formType, &status, &when); err != nil {
 			continue
 		}
-		out = append(out, pages.MyDonationView{
+		out = append(out, views.MyDonationView{
 			Date:     formatDate(when),
 			Amount:   formatAmount(amount, currency),
 			FormType: formType,

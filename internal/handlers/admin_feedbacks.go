@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/admin"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
@@ -22,6 +24,22 @@ func requireAdmin(next http.Handler) http.Handler {
 		u := middleware.UserFromContext(r.Context())
 		if u == nil || !slices.Contains(u.Roles, "admin") {
 			http.Error(w, "Accès refusé", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requireAuth est un middleware de niveau route qui exige un utilisateur
+// authentifié (sans condition de rôle). Il suit le même patron que requireAdmin :
+// l'utilisateur courant est lu depuis le contexte (injecté par middleware.Auth) ;
+// en son absence, la requête est redirigée vers la page de connexion en
+// préservant la cible d'origine. Il sert les routes membres comme
+// /account/parcelles.
+func requireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if middleware.UserFromContext(r.Context()) == nil {
+			http.Redirect(w, r, "/login?redirect_uri="+url.QueryEscape(r.URL.Path), http.StatusFound)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -123,7 +141,7 @@ func handleAdminFeedbackList(deps app.AppDeps) http.HandlerFunc {
 		filter := admin.FeedbackFilter{Status: filterStatus, Search: filterSearch}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := admin.FeedbackListPage(fbRows, pag, filter).Render(r.Context(), w); err != nil {
+		if err := views.FeedbackListPage(fbRows, pag, filter).Render(r.Context(), w); err != nil {
 			deps.Logger.Error("admin feedbacks render", "err", err)
 		}
 	}
@@ -160,7 +178,7 @@ func handleAdminFeedbackDetail(deps app.AppDeps) http.HandlerFunc {
 
 		csrfToken := middleware.CSRFToken(r.Context())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := admin.FeedbackDetailPage(fb, csrfToken).Render(r.Context(), w); err != nil {
+		if err := views.FeedbackDetailPage(fb, csrfToken).Render(r.Context(), w); err != nil {
 			deps.Logger.Error("admin feedback detail render", "err", err)
 		}
 	}
@@ -221,7 +239,7 @@ func handleAdminFeedbackTriage(deps app.AppDeps) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := admin.FeedbackListRow(fb).Render(r.Context(), w); err != nil {
+		if err := views.FeedbackListRow(fb).Render(r.Context(), w); err != nil {
 			deps.Logger.Error("admin feedback triage render", "err", err)
 		}
 	}

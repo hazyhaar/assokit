@@ -47,7 +47,7 @@ func (c *Connector) Description() string {
 const configSchemaJSON = `{
 	"type":"object",
 	"properties":{
-		"organization_slug":{"type":"string","minLength":1,"description":"Slug HelloAsso (ex: nonpossumus)"},
+		"organization_slug":{"type":"string","minLength":1,"description":"Slug HelloAsso (ex: mon-asso)"},
 		"sandbox":{"type":"boolean","description":"true=api.helloasso-sandbox.com, false=api.helloasso.com"},
 		"client_id":{"type":"string","minLength":1,"description":"Client ID OAuth2 (back-office HelloAsso)"},
 		"client_secret":{"type":"string","format":"password","description":"Secret OAuth2 (chiffré via Vault)"}
@@ -60,8 +60,8 @@ var schemaCompiled *jsonschema.Schema
 
 func init() {
 	c := jsonschema.NewCompiler()
-	if err := c.AddResource("https://nonpossumus/connectors/helloasso", strings.NewReader(configSchemaJSON)); err == nil {
-		s, err := c.Compile("https://nonpossumus/connectors/helloasso")
+	if err := c.AddResource("https://assokit/connectors/helloasso", strings.NewReader(configSchemaJSON)); err == nil {
+		s, err := c.Compile("https://assokit/connectors/helloasso")
 		if err == nil {
 			schemaCompiled = s
 		}

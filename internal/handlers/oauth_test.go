@@ -14,9 +14,9 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/internal/oauth"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 
 	_ "modernc.org/sqlite"
@@ -36,7 +36,7 @@ func newOAuthTestDeps(t *testing.T) (app.AppDeps, *oauth.Storage) {
 
 func seedOAuthUser(t *testing.T, deps app.AppDeps) string {
 	t.Helper()
-	authStore := &auth.Store{DB: deps.DB}
+	authStore := &identity.Store{DB: deps.DB}
 	u, err := authStore.Register(context.Background(), "oauth@test.fr", "pass123", "OAuth User")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
@@ -101,7 +101,7 @@ func TestOAuthConsent_ShowsPageIfLoggedIn(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/oauth2/consent?id="+ar.GetID(), nil)
-	u := &auth.User{ID: userID, Roles: []string{"member"}}
+	u := &identity.User{ID: userID, Roles: []string{"member"}}
 	req = req.WithContext(middleware.ContextWithUser(req.Context(), u))
 
 	w := httptest.NewRecorder()
@@ -139,7 +139,7 @@ func TestOAuthConsentPost_AllowRedirectsToCallback(t *testing.T) {
 	form := url.Values{"id": {ar.GetID()}, "decision": {"allow"}}
 	req := httptest.NewRequest(http.MethodPost, "/oauth2/consent", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	u := &auth.User{ID: userID, Roles: []string{"member"}}
+	u := &identity.User{ID: userID, Roles: []string{"member"}}
 	req = req.WithContext(middleware.ContextWithUser(req.Context(), u))
 
 	w := httptest.NewRecorder()
@@ -181,7 +181,7 @@ func TestOAuthConsentPost_DenyRedirectsWithError(t *testing.T) {
 	form := url.Values{"id": {ar.GetID()}, "decision": {"deny"}}
 	req := httptest.NewRequest(http.MethodPost, "/oauth2/consent", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	u := &auth.User{ID: userID, Roles: []string{"member"}}
+	u := &identity.User{ID: userID, Roles: []string{"member"}}
 	req = req.WithContext(middleware.ContextWithUser(req.Context(), u))
 
 	w := httptest.NewRecorder()

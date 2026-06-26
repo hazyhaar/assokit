@@ -1,0 +1,53 @@
+// views/oauth_consent.templ — page de consentement OAuth migree vers templux (vague 2).
+package views
+
+import "github.com/hazyhaar/assokit/internal/webui/templux"
+
+// OAuthConsentProps : données rendues sur la page /oauth2/consent.
+type OAuthConsentProps struct {
+	ClientName    string
+	AuthRequestID string
+	CSRFToken     string
+	ScopesGranted []string
+	RedirectURI   string
+	State         string
+}
+
+// OAuthConsent : page de consentement OAuth.
+templ OAuthConsent(p OAuthConsentProps) {
+	<section class="max-w-2xl mx-auto flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">{ p.ClientName } demande accès à votre compte</h1>
+		<p class="text-ink-muted">
+			L'application <strong>{ p.ClientName }</strong> souhaite faire des actions à votre place.
+			Vérifiez ce qu'elle pourra faire avant d'autoriser.
+		</p>
+		<div class="flex flex-col gap-space-sm">
+			<h2 class="text-xl font-semibold text-ink">Elle pourra :</h2>
+			<ul class="flex flex-col gap-space-xs text-success">
+				for _, label := range p.ScopesGranted {
+					<li>✓ { label }</li>
+				}
+			</ul>
+		</div>
+		<div class="flex flex-col gap-space-sm">
+			<h2 class="text-xl font-semibold text-ink">Elle ne pourra PAS :</h2>
+			<ul class="flex flex-col gap-space-xs text-ink-muted">
+				<li>✗ Voir votre mot de passe (vous n'en avez pas — connexion par email seulement)</li>
+				<li>✗ Modifier les comptes des autres membres (sauf si autorisé ci-dessus)</li>
+				<li>✗ Faire des dons en votre nom (sauf si autorisé ci-dessus)</li>
+				<li>✗ Supprimer votre compte (sauf si autorisé ci-dessus)</li>
+			</ul>
+		</div>
+		<form method="POST" action="/oauth2/consent" class="flex items-center gap-space-sm">
+			<input type="hidden" name="_csrf" value={ p.CSRFToken }/>
+			<input type="hidden" name="auth_request_id" value={ p.AuthRequestID }/>
+			<input type="hidden" name="redirect_uri" value={ p.RedirectURI }/>
+			<input type="hidden" name="state" value={ p.State }/>
+			@templux.Button("Autoriser", "primary", templ.Attributes{"type": "submit", "name": "decision", "value": "approve"})
+			@templux.Button("Refuser", "ghost", templ.Attributes{"type": "submit", "name": "decision", "value": "deny"})
+		</form>
+		<p class="text-xs text-ink-faint">
+			Vous pourrez révoquer cette autorisation à tout moment via vos paramètres de compte.
+		</p>
+	</section>
+}

@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,9 +14,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
+	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/tree"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/signupprofile"
 )
 
 func newTestDB(t *testing.T) *sql.DB {
@@ -32,38 +35,51 @@ func newTestDB(t *testing.T) *sql.DB {
 
 func seedRoles(t *testing.T, db *sql.DB) {
 	t.Helper()
-	for _, r := range []struct{ id, label string }{
-		{"admin", "Administrateur"}, {"moderator", "Modérateur"},
-		{"member", "Membre"}, {"public", "Public"},
+	// RBAC migré : les rôles sont des grades (grades.name). Seed des grades système.
+	for _, g := range []struct{ id, name string }{
+		{"sys-admin", "admin"}, {"sys-moderator", "moderator"},
+		{"sys-member", "member"}, {"sys-guest", "guest"},
 	} {
-		if _, err := db.Exec(`INSERT INTO roles(id,label) VALUES(?,?) ON CONFLICT DO NOTHING`, r.id, r.label); err != nil {
-			t.Fatalf("seed role %s: %v", r.id, err)
+		if _, err := db.Exec(`INSERT INTO grades(id,name,system) VALUES(?,?,1) ON CONFLICT DO NOTHING`, g.id, g.name); err != nil {
+			t.Fatalf("seed grade %s: %v", g.id, err)
 		}
 	}
 }
 
-// TestSignup_CreateMember_TxRollbackOnError vérifie que la TX est rollback complète
-// quand user_roles échoue (FK violation : rôle 'member' absent).
+// TestSignup_CreateMember_TxRollbackOnError vérifie que la TX est rollback
+// complète quand l'INSERT user échoue. On déclenche l'erreur via un email en
+// doublon (UNIQUE violation sur users) : le premier createMember réussit, le
+// second doit échouer ET ne laisser aucune ligne signup orpheline.
 func TestSignup_CreateMember_TxRollbackOnError(t *testing.T) {
 	db := newTestDB(t)
-	// Intentionnellement sans seedRoles → 'member' n'existe pas → FK violation sur user_roles
+	seedRoles(t, db)
 	ctx := context.Background()
 
-	_, err := createMember(ctx, db, "test@example.com", "Test User", "adherent", "{}", "127.0.0.1", []byte("secret"))
+	// Premier membre : succès.
+	if _, err := createMember(ctx, db, "dup@example.com", "First", signupprofile.Profile{ID: "adherent"}, "{}", "127.0.0.1", []byte("secret")); err != nil {
+		t.Fatalf("premier createMember devrait réussir : %v", err)
+	}
+
+	var signupsBefore int
+	db.QueryRow(`SELECT COUNT(*) FROM signups`).Scan(&signupsBefore)
+
+	// Second membre, même email : UNIQUE violation sur users → la TX entière rollback.
+	_, err := createMember(ctx, db, "dup@example.com", "Second", signupprofile.Profile{ID: "adherent"}, "{}", "127.0.0.1", []byte("secret"))
 	if err == nil {
-		t.Fatal("createMember devrait retourner une erreur (FK violation sur user_roles)")
+		t.Fatal("second createMember devrait échouer (email dupliqué)")
 	}
 
 	var userCount int
 	db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&userCount)
-	if userCount != 0 {
-		t.Errorf("TX rollback attendu : users doit être vide, got %d", userCount)
+	if userCount != 1 {
+		t.Errorf("TX rollback attendu : 1 seul user, got %d", userCount)
 	}
 
-	var signupCount int
-	db.QueryRow(`SELECT COUNT(*) FROM signups`).Scan(&signupCount)
-	if signupCount != 0 {
-		t.Errorf("TX rollback attendu : signups doit être vide, got %d", signupCount)
+	// La ligne signup du second appel ne doit pas avoir survécu au rollback.
+	var signupsAfter int
+	db.QueryRow(`SELECT COUNT(*) FROM signups`).Scan(&signupsAfter)
+	if signupsAfter != signupsBefore {
+		t.Errorf("TX rollback attendu : signups inchangé (%d), got %d", signupsBefore, signupsAfter)
 	}
 }
 
@@ -96,10 +112,25 @@ func TestForum_Reply_RejectsAtMaxDepth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create lvl2: %v", err)
 	}
-	_ = lvl2ID
+	lvl3ID, err := treeStore.Create(ctx, tree.Node{
+		Slug: "lvl3-test", Type: "post", Title: "Level 3",
+		ParentID: newNullString(lvl2ID),
+	})
+	if err != nil {
+		t.Fatalf("create lvl3: %v", err)
+	}
+	lvl4ID, err := treeStore.Create(ctx, tree.Node{
+		Slug: "lvl4-test", Type: "post", Title: "Level 4",
+		ParentID: newNullString(lvl3ID),
+	})
+	if err != nil {
+		t.Fatalf("create lvl4: %v", err)
+	}
+	_ = lvl4ID
 
-	// Vérifier que depth = ForumMaxDepth-1
-	parentNode, err := treeStore.GetBySlug(ctx, "lvl2-test")
+	// Vérifier que depth = ForumMaxDepth-1 (la station ajoute le niveau branche :
+	// racine 0 -> catégorie 1 -> question 2 -> branche 3 -> message 4, plafond de réponse à 4).
+	parentNode, err := treeStore.GetBySlug(ctx, "lvl4-test")
 	if err != nil {
 		t.Fatalf("GetBySlug: %v", err)
 	}
@@ -107,15 +138,15 @@ func TestForum_Reply_RejectsAtMaxDepth(t *testing.T) {
 		t.Fatalf("depth attendu %d got %d", ForumMaxDepth-1, parentNode.Depth)
 	}
 
-	deps := app.AppDeps{DB: db}
+	deps := app.AppDeps{DB: db, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	handler := handleForumReply(deps)
 
 	// Injecter l'utilisateur et le paramètre chi {slug}
-	user := &auth.User{ID: "user-test", Email: "u@test.com", Roles: []string{"member"}}
+	user := &identity.User{ID: "user-test", Email: "u@test.com", Roles: []string{"member"}}
 	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("slug", "lvl2-test")
+	rctx.URLParams.Add("slug", "lvl4-test")
 
-	r := httptest.NewRequest(http.MethodPost, "/forum/lvl2-test/reply", nil)
+	r := httptest.NewRequest(http.MethodPost, "/forum/lvl4-test/reply", nil)
 	r = r.WithContext(middleware.ContextWithUser(r.Context(), user))
 	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
 

@@ -98,7 +98,7 @@ func initFeedback(reg *actions.Registry) {
 			"type":"object","required":["id","status"],
 			"properties":{
 				"id":{"type":"string","minLength":1},
-				"status":{"type":"string","enum":["processed","archived"]},
+				"status":{"type":"string","enum":["triaged","closed","spam","processed","archived"]},
 				"note":{"type":"string"}
 			}
 		}`),
@@ -111,9 +111,20 @@ func initFeedback(reg *actions.Registry) {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, nil
 			}
+			// Le CHECK de feedbacks n'admet que pending/triaged/closed/spam.
+			// On normalise les alias historiques (processed/archived) vers les
+			// statuts canoniques pour ne jamais violer la contrainte.
+			status := p.Status
+			switch status {
+			case "processed":
+				status = "triaged"
+			case "archived":
+				status = "closed"
+			}
 			_, err := deps.DB.ExecContext(ctx,
-				`UPDATE feedbacks SET status=?, triage_note=? WHERE id=?`,
-				p.Status, p.Note, p.ID,
+				`UPDATE feedbacks SET status=?, admin_note=?,
+				 triaged_at=CURRENT_TIMESTAMP WHERE id=?`,
+				status, p.Note, p.ID,
 			)
 			if err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err

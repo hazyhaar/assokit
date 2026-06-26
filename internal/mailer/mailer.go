@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/hazyhaar/assokit/pkg/uid"
 )
 
 // Mailer gère l'envoi d'emails. Deux backends supportés :
@@ -45,7 +45,7 @@ type OutboxMsg struct {
 
 // Enqueue insère un email en status=pending dans email_outbox.
 func (m *Mailer) Enqueue(ctx context.Context, to, subject, bodyText, bodyHTML string) error {
-	id := uuid.New().String()
+	id := uid.New()
 	_, err := m.DB.ExecContext(ctx,
 		`INSERT INTO email_outbox(id, to_addr, subject, body_text, body_html, status, attempts)
 		 VALUES(?,?,?,?,?,'pending',0)`,

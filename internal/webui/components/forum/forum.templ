@@ -1,0 +1,379 @@
+// components/forum — composants de feature propres au forum.
+// Aucun bloc d'interface identifiable du forum ne reste inline dans views/forum.templ.
+package forum
+
+import (
+	"strconv"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+)
+
+// ForumUnreadDot : indicateur visuel de nouveauté — petit disque coloré (accent).
+// Utilisé dans les items de liste catégorie, question et branche.
+templ ForumUnreadDot() {
+	<span
+		class="shrink-0 inline-block w-2 h-2 rounded-pill bg-accent"
+		title="Nouveaux messages"
+		aria-label="Nouveaux messages"
+	></span>
+}
+
+// ForumUnreadBadge : pastille de comptage de nouveautés (ex. nb questions non lues
+// dans une catégorie). Wrappée dans un title pour l'accessibilité.
+templ ForumUnreadBadge(count int) {
+	<span title="Questions avec du nouveau">
+		@templux.Badge(strconv.Itoa(count), "success")
+	</span>
+}
+
+// ForumPanelBody : corps d'un panneau scrollable avec padding standard.
+// id : identifiant HTMX cible (ex. "forum-col-questions"). Peut être vide.
+templ ForumPanelBody(id string) {
+	<div
+		id={ id }
+		data-panel-body
+		class="flex-1 overflow-y-auto p-space-sm"
+	>
+		{ children... }
+	</div>
+}
+
+// ForumPanelBodyGrid : corps de panneau avec disposition en colonne espacée.
+// Utilisé pour la colonne Catégories qui a un flex-col gap-space-xs interne.
+templ ForumPanelBodyGrid(id string) {
+	<div
+		id={ id }
+		data-panel-body
+		class="flex-1 overflow-y-auto p-space-sm flex flex-col gap-space-xs"
+	>
+		{ children... }
+	</div>
+}
+
+// ForumColumnEmpty : état vide textuel d'un panneau (message centré).
+templ ForumColumnEmpty(msg string) {
+	<div class="h-full flex items-center justify-center text-center text-sm text-ink-faint p-space-lg">{ msg }</div>
+}
+
+// ForumColumnHint : message discret dans un panneau non encore sélectionné.
+// Différent de ForumColumnEmpty : pas de centering h-full, style muted.
+templ ForumColumnHint(msg string) {
+	<p class="text-sm text-ink-muted p-space-sm">{ msg }</p>
+}
+
+// ForumItemCard : carte unifiée pour catégories, questions et branches.
+// Remplace les anciens ForumCategoryItem, ForumQuestionItem, ForumBranchItem.
+// slug        : slug du nœud (pour la route hxGet).
+// title       : titre à afficher en gras.
+// meta        : ligne de métadonnée « Créé par X, le DD/MM/YYYY » (vide = absent).
+// snippet     : extrait de corps HTML (optionnel, affiché en petit).
+// counter     : compteur d'enfants (0 = non affiché).
+// counterUnit : unité au singulier (ex. "question", "réponse", "branche").
+// hasUnread   : true → ajoute la pulsation d'animation + indicateur.
+// hxGet       : URL GET HTMX déclenchée au clic.
+// hxTarget    : cible HTMX du swap (ex. "#forum-col-questions").
+templ ForumItemCard(slug, title, meta, snippet string, counter int, counterUnit string, hasUnread bool, hxGet, hxTarget string) {
+	<button
+		type="button"
+		class={ "text-left w-full flex flex-col gap-space-xs rounded-md px-space-sm py-space-sm text-ink hover:bg-surface-muted transition cursor-pointer border border-border bg-surface-raised hover:border-accent hover:shadow-sm", templ.KV("forum-item--unread", hasUnread) }
+		hx-get={ hxGet }
+		hx-target={ hxTarget }
+		hx-swap="innerHTML"
+	>
+		<span class="flex items-center gap-space-xs">
+			if hasUnread {
+				@ForumUnreadDot()
+			}
+			<span class="font-semibold text-sm">{ title }</span>
+		</span>
+		if snippet != "" {
+			<span class="text-xs text-ink-muted">@templ.Raw(snippet)</span>
+		}
+		if counter > 0 {
+			<span class="text-xs text-ink-faint">{ forumCounterLabel(counter, counterUnit) }</span>
+		}
+		if meta != "" {
+			<span class="text-xs text-ink-faint">{ meta }</span>
+		}
+	</button>
+}
+
+// ForumColumnHeader : en-tête d'un panneau avec actions contextuelles.
+// title        : libellé fixe du panneau (ex. « CATÉGORIES », titre de la catégorie…).
+// createLabel  : libellé du bouton de création (vide = pas de bouton).
+// createGet    : endpoint HTMX GET (non vide → bouton hx-get ; prioritaire sur createHref).
+// createHref   : URL de lien simple (utilisé si createGet est vide).
+// createTarget : cible HTMX pour createGet.
+// selectedSlug : slug de l'item sélectionné (dont les enfants sont affichés dans le panneau
+//                suivant). Non vide → affiche les actions Renommer et Supprimer.
+// editTarget   : cible HTMX pour les réponses rename/delete.
+templ ForumColumnHeader(title, createLabel, createGet, createHref, createTarget, selectedSlug, editTarget string) {
+	<div class="px-space-sm py-space-xs bg-surface-muted border-b border-border flex flex-col gap-space-xs">
+		<div class="flex items-center justify-between gap-space-sm">
+			<span class="text-xs font-semibold text-ink-faint uppercase tracking-wide">{ title }</span>
+			if createLabel != "" {
+				if createGet != "" {
+					<button
+						type="button"
+						class="shrink-0 text-xs font-medium text-accent hover:text-ink transition cursor-pointer"
+						hx-get={ createGet }
+						hx-target={ createTarget }
+						hx-swap="innerHTML"
+					>{ createLabel }</button>
+				} else if createHref != "" {
+					<a
+						href={ templ.SafeURL(createHref) }
+						class="shrink-0 text-xs font-medium text-accent hover:text-ink transition"
+					>{ createLabel }</a>
+				}
+			}
+		</div>
+		if selectedSlug != "" {
+			<details>
+				<summary class="list-none cursor-pointer text-xs text-ink-faint hover:text-ink-muted transition flex items-center gap-1">
+					<span>Actions</span>
+					<span aria-hidden="true">▾</span>
+				</summary>
+				<div class="pt-space-xs border-t border-border mt-space-xs flex flex-col gap-space-xs">
+					<form
+						hx-post={ "/forum/" + selectedSlug + "/rename" }
+						hx-target={ editTarget }
+						hx-swap="innerHTML"
+						class="flex gap-space-xs items-center"
+					>
+						<input
+							type="text"
+							name="title"
+							required
+							maxlength="180"
+							placeholder="Nouveau titre…"
+							class="text-xs flex-1 border border-border rounded-sm px-space-xs py-px bg-surface focus:outline-none focus:ring-1 focus:ring-accent"
+						/>
+						<button
+							type="submit"
+							class="shrink-0 text-xs font-medium text-accent hover:text-ink transition cursor-pointer"
+						>Renommer</button>
+					</form>
+					<form
+						hx-post={ "/forum/" + selectedSlug + "/delete" }
+						hx-target={ editTarget }
+						hx-swap="innerHTML"
+						hx-confirm="Supprimer cet élément supprime aussi tous ses sous-éléments. Continuer ?"
+					>
+						<button
+							type="submit"
+							class="text-xs font-medium text-danger hover:text-danger/80 transition cursor-pointer"
+						>Supprimer</button>
+					</form>
+				</div>
+			</details>
+		}
+	</div>
+}
+
+// ForumStationBreadcrumb : fil d'Ariane compact pour la station forum.
+// Remplace le PageHeader (titre + bouton) pour occuper l'espace minimal.
+templ ForumStationBreadcrumb() {
+	<nav aria-label="Fil d'Ariane" class="py-space-xs">
+		<ol class="flex flex-wrap items-center gap-1 text-sm text-ink-muted list-none">
+			<li>
+				<span class="text-ink-muted">Communauté</span>
+				<span aria-hidden="true" class="mx-1 text-border">›</span>
+			</li>
+			<li>
+				<a href="/forum" class="text-ink font-medium hover:text-accent transition">Forum</a>
+			</li>
+		</ol>
+	</nav>
+}
+
+// ForumBreadcrumb : fil d'Ariane générique à deux niveaux (retour Forum + page courante).
+// Utilisé dans les pages de fil plein-écran (/forum/{slug}).
+templ ForumBreadcrumb(currentTitle string) {
+	<nav aria-label="Fil d'Ariane">
+		<ol class="flex flex-wrap items-center gap-1 text-sm text-ink-muted list-none">
+			<li>
+				<a href="/forum" class="text-accent">Forum</a>
+				<span aria-hidden="true" class="text-border"> / </span>
+			</li>
+			<li><span aria-current="page" class="text-ink font-medium">{ currentTitle }</span></li>
+		</ol>
+	</nav>
+}
+
+// ForumSeparator : séparateur horizontal fin entre sections du panneau de détail.
+templ ForumSeparator() {
+	<div class="border-t border-border"></div>
+}
+
+// ForumArticle : article principal d'un fil (question ou nœud de thread).
+// bgVariant : "sunken" (défaut, entête pleine page) ou "raised" (imbriqué).
+// markReadSlug : si non vide, émet un trigger HTMX hx-trigger="load" pour marquer lu.
+// large : true → h1/text-2xl (page entière) ; false → h2/text-xl (panneau imbriqué).
+templ ForumArticle(title, timestamp, bodyHTML, bgVariant, markReadSlug string, large bool) {
+	<article class={ forumArticleClass(bgVariant) }>
+		if markReadSlug != "" {
+			<div hx-post={ "/forum/" + markReadSlug + "/read" } hx-trigger="load" hx-swap="none"></div>
+		}
+		if large {
+			<h1 class="text-2xl font-semibold text-ink">{ title }</h1>
+		} else {
+			<h2 class="text-xl font-semibold text-ink">{ title }</h2>
+		}
+		<div class="text-sm text-ink-faint"><time>{ timestamp }</time></div>
+		if bodyHTML != "" {
+			<div class="text-ink">@templ.Raw(bodyHTML)</div>
+		}
+	</article>
+}
+
+func forumArticleClass(bgVariant string) string {
+	base := "flex flex-col gap-space-sm border border-border rounded-lg p-space-lg"
+	if bgVariant == "raised" {
+		return base + " bg-surface-raised"
+	}
+	return base + " bg-surface-sunken"
+}
+
+// ForumThreadArticle : article d'une réponse imbriquée dans un fil.
+// Contient titre, auteur, horodatage, corps et enfants (nesting).
+templ ForumThreadArticle(title, authorName, timestamp, bodyHTML string, depth int) {
+	<article
+		class="bg-surface-raised border border-border rounded-lg p-space-md flex flex-col gap-space-xs"
+		data-depth={ strconv.Itoa(depth) }
+	>
+		<header class="flex items-center justify-between text-sm text-ink-faint">
+			<span class="text-ink-muted font-medium">
+				if authorName != "" {
+					{ authorName }
+				} else {
+					<em>Anonyme</em>
+				}
+			</span>
+			<time>{ timestamp }</time>
+		</header>
+		<h4 class="font-semibold text-ink">{ title }</h4>
+		if bodyHTML != "" {
+			<div class="text-ink text-sm">@templ.Raw(bodyHTML)</div>
+		}
+		{ children... }
+	</article>
+}
+
+// ForumNestingIndent : conteneur d'indentation pour les réponses imbriquées.
+templ ForumNestingIndent() {
+	<div class="pl-space-lg border-l border-border flex flex-col gap-space-sm mt-space-sm">
+		{ children... }
+	</div>
+}
+
+// ForumReplyForm : formulaire de réponse à un fil (variant POST classique, sans HTMX
+// — utilisé dans la page plein-écran /forum/{slug}).
+templ ForumReplyForm(parentSlug string, csrfToken string) {
+	<form
+		class="reply-form bg-surface-raised border border-border rounded-lg p-space-lg flex flex-col gap-space-md"
+		method="POST"
+		action={ templ.SafeURL("/forum/" + parentSlug + "/reply") }
+	>
+		<input type="hidden" name="_csrf" value={ csrfToken }/>
+		<h3 class="text-xl font-semibold text-ink">Répondre</h3>
+		@templux.FormField("Titre", "", "", templux.Input("title", "", templ.Attributes{"id": "reply-title", "type": "text", "required": "required", "maxlength": "200"}))
+		@templux.FormField("Message", "", "", templux.Textarea("body", "", 6, templ.Attributes{"id": "reply-body", "required": "required"}))
+		@templux.Button("Publier", "primary", templ.Attributes{"type": "submit"})
+	</form>
+}
+
+// ForumHTMXReplyForm : formulaire de réponse HTMX (panneau détail).
+// Ré-injecte le panneau de détail à l'envoi.
+templ ForumHTMXReplyForm(parentSlug string, csrfToken string) {
+	<form
+		class="flex flex-col gap-space-sm mt-space-sm border-t border-border pt-space-md"
+		hx-post={ "/forum/" + parentSlug + "/reply" }
+		hx-target="#forum-col-detail"
+		hx-swap="innerHTML"
+		hx-encoding="multipart/form-data"
+	>
+		<input type="hidden" name="_csrf" value={ csrfToken }/>
+		@templux.Textarea("body", "", 3, templ.Attributes{"data-forum-reply-text": "1", "placeholder": "Écrire un message… (Ctrl+V pour coller une capture)"})
+		<div data-forum-reply-previews class="flex flex-wrap gap-space-xs"></div>
+		<div class="flex items-center justify-between gap-space-sm">
+			@forumFileLabel()
+			@templux.Button("Envoyer", "primary", templ.Attributes{"type": "submit"})
+		</div>
+	</form>
+}
+
+// forumFileLabel : label d'ajout de pièce jointe.
+templ forumFileLabel() {
+	<label class="inline-flex items-center gap-space-xs text-sm text-accent cursor-pointer hover:text-ink transition">
+		<span aria-hidden="true">📎</span>
+		<span>Joindre un fichier</span>
+		<input
+			type="file"
+			name="attachments"
+			multiple
+			accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
+			data-forum-reply-files
+			class="hidden"
+		/>
+	</label>
+}
+
+// ForumLoginPrompt : message d'invitation à se connecter pour participer.
+templ ForumLoginPrompt() {
+	<p class="text-sm text-ink-muted mt-space-sm">
+		Pour participer à l'échange,
+		<a href="/login" class="text-accent">connectez-vous</a>
+		ou
+		<a href="/participer" class="text-accent">adhérez</a>.
+	</p>
+}
+
+// ForumLoginPromptBlock : variante bloc (sans inline — pour ForumThread plein écran).
+templ ForumLoginPromptBlock() {
+	<div class="text-ink-muted">
+		<p>Pour répondre, <a href="/login" class="text-accent">connectez-vous</a> ou <a href="/participer" class="text-accent">adhérez</a>.</p>
+	</div>
+}
+
+// ForumFullBleedSection : section pleine largeur échappant au conteneur centré du shell.
+templ ForumFullBleedSection() {
+	<section class="w-screen ml-[calc(50%-50vw)] px-space-md flex flex-col gap-space-sm">
+		{ children... }
+	</section>
+}
+
+// ForumFormHeader : en-tête normalisé des formulaires de création dans le panneau de détail.
+// Factorisation des blocs h2 + p identiques dans ForumNewBranchForm et ForumNewQuestionForm.
+templ ForumFormHeader(title, subtitle string) {
+	<h2 class="text-xl font-semibold text-ink">{ title }</h2>
+	<p class="text-sm text-ink-muted">{ subtitle }</p>
+}
+
+// forumCounterLabel : n + unité au singulier/pluriel simple (suffixe -s).
+// Retourne "" si n <= 0.
+func forumCounterLabel(n int, unit string) string {
+	if n <= 0 {
+		return ""
+	}
+	if n == 1 {
+		return strconv.Itoa(n) + " " + unit
+	}
+	return strconv.Itoa(n) + " " + unit + "s"
+}
+
+// forumRepliesLabel : singulier/pluriel de « réponse ».
+func forumRepliesLabel(n int) string {
+	if n == 1 {
+		return "réponse"
+	}
+	return "réponses"
+}
+
+// forumQuestionsLabel : singulier/pluriel de « question ».
+func forumQuestionsLabel(n int) string {
+	if n == 1 {
+		return "question"
+	}
+	return "questions"
+}

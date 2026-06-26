@@ -1,0 +1,63 @@
+// Formulaire admin générique d'une action (GET /admin/actions/{id}) et fragment
+// de résultat (POST), rendus via les composants templux vendored.
+package actions
+
+import "github.com/hazyhaar/assokit/internal/webui/templux"
+
+// formField décrit un champ d'entrée dérivé du ParamsSchema d'une action.
+type formField struct {
+	Name      string
+	InputType string // "text" | "number" | "checkbox"
+}
+
+// actionFormView rend le formulaire d'exécution d'une action (HTMX result-swap).
+templ actionFormView(a Action, fields []formField) {
+	<div class="flex flex-col gap-space-md">
+		<h2 class="text-xl font-semibold text-ink">{ a.Title }</h2>
+		if a.Description != "" {
+			<p class="text-ink-muted">{ a.Description }</p>
+		}
+		<form
+			method="POST"
+			action={ templ.SafeURL("/admin/actions/" + a.ID) }
+			hx-post={ "/admin/actions/" + a.ID }
+			hx-target="#action-result"
+			hx-swap="innerHTML"
+			class="flex flex-col gap-space-md"
+		>
+			for _, f := range fields {
+				if f.InputType == "checkbox" {
+					@templux.Checkbox(f.Name, false, f.Name, templ.Attributes{})
+				} else {
+					@templux.FormField(f.Name, "", "", actionInput(f))
+				}
+			}
+			@templux.Button("Exécuter", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		<div id="action-result"></div>
+	</div>
+}
+
+// actionInput rend l'input d'un champ non-booléen (type text ou number).
+templ actionInput(f formField) {
+	@templux.Input(f.Name, "", templ.Attributes{"type": f.InputType})
+}
+
+// actionResultView rend le bandeau de résultat d'une exécution (réponse HTMX).
+templ actionResultView(status string, message string) {
+	@templux.Alert(resultSeverity(status), resultText(status, message))
+}
+
+func resultSeverity(status string) string {
+	if status == "ok" {
+		return "success"
+	}
+	return "danger"
+}
+
+func resultText(status, message string) string {
+	if message == "" {
+		return status
+	}
+	return status + " — " + message
+}

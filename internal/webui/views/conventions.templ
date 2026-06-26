@@ -1,0 +1,153 @@
+// views/conventions.templ — conventions de pâturage AFP (vendoring templux, gabarit parcelles).
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/convention"
+	"github.com/hazyhaar/assokit/pkg/parcelle"
+)
+
+// ConventionsAdminPage : formulaire guidé de création + table des conventions (admin).
+templ ConventionsAdminPage(list []convention.Convention, parcs []parcelle.Parcelle, csrfToken string) {
+	<section id="admin-conventions" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Conventions de pâturage</h1>
+		<form method="POST" action="/admin/conventions" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<h2 class="text-xl font-semibold text-ink">Créer une convention</h2>
+			<p class="text-ink-muted text-sm">Indiquer le membre preneur, la durée, puis cocher les parcelles mises à disposition. Le contenu des clauses est assemblé à la génération.</p>
+			@templux.FormField("Identifiant du membre preneur", "", "", templux.Input("preneur_id", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Durée (mois)", "", "", templux.Input("duree_mois", "60", templ.Attributes{"type": "number", "min": "1"}))
+			<fieldset class="flex flex-col gap-space-sm">
+				<legend class="text-sm font-medium text-ink">Parcelles mises à disposition</legend>
+				if len(parcs) == 0 {
+					<p class="text-ink-muted text-sm">Aucune parcelle enregistrée. Enregistrer d'abord des parcelles au registre parcellaire.</p>
+				} else {
+					for _, p := range parcs {
+						<label class="flex items-center gap-space-sm text-sm">
+							<input type="checkbox" name="parcelle_id" value={ p.ID }/>
+							<span>{ conventionParcelleRef(p) }</span>
+						</label>
+					}
+				}
+			</fieldset>
+			@templux.Button("Créer la convention", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune convention enregistrée.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Preneur</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Parcelles</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Durée</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left"></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, c := range list {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ c.PreneurID }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ conventionParcellesCount(c) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ conventionDuree(c.DureeMois) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ c.Statut }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">
+								<div class="flex items-center gap-space-sm">
+									<a class="text-link underline" href={ templ.SafeURL("/admin/conventions/" + c.ID + "/genere") }>Générer</a>
+									if c.Statut != "revoquee" {
+										<form method="POST" action={ templ.SafeURL("/admin/conventions/" + c.ID + "/revoke") }>
+											<input type="hidden" name="_csrf" value={ csrfToken }/>
+											@templux.Button("Révoquer", "secondary", templ.Attributes{"type": "submit"})
+										</form>
+									}
+								</div>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// ConventionDocumentPage : document de convention imprimable (impression navigateur = PDF).
+templ ConventionDocumentPage(c convention.Convention, clauses []convention.Clause) {
+	<article id="convention-document" class="flex flex-col gap-space-lg max-w-prose mx-auto">
+		<header class="flex flex-col gap-space-sm">
+			<h1 class="text-2xl font-semibold text-ink">Convention de pâturage</h1>
+			<p class="text-ink-muted text-sm">Membre preneur : { c.PreneurID } · Durée : { conventionDuree(c.DureeMois) } · Statut : { c.Statut }</p>
+		</header>
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-xl font-semibold text-ink">Parcelles mises à disposition</h2>
+			if len(c.Parcelles) == 0 {
+				<p class="text-ink-muted">Aucune parcelle rattachée.</p>
+			} else {
+				<ul class="list-disc pl-space-lg">
+					for _, pid := range c.Parcelles {
+						<li>{ pid }</li>
+					}
+				</ul>
+			}
+		</section>
+		<section class="flex flex-col gap-space-md">
+			<h2 class="text-xl font-semibold text-ink">Clauses</h2>
+			if len(clauses) == 0 {
+				<p class="text-ink-muted">Aucune clause disponible : aucun fournisseur de clauses n'est branché sur cette instance.</p>
+			} else {
+				for _, cl := range clauses {
+					<div class="flex flex-col gap-space-sm">
+						<h3 class="text-lg font-medium text-ink">{ cl.Titre }</h3>
+						<p class="whitespace-pre-line">{ cl.Texte }</p>
+						if cl.Source != "" {
+							<p class="text-ink-muted text-xs">Source : { cl.Source }</p>
+						}
+					</div>
+				}
+			}
+		</section>
+	</article>
+}
+
+// MyConventionsPage : conventions dont l'utilisateur courant est preneur.
+templ MyConventionsPage(list []convention.Convention) {
+	<section id="my-conventions" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Mes conventions</h1>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune convention rattachée à votre compte.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Parcelles</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Durée</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, c := range list {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ conventionParcellesCount(c) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ conventionDuree(c.DureeMois) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ c.Statut }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+func conventionParcelleRef(p parcelle.Parcelle) string {
+	return fmt.Sprintf("%s · %s · %s (%d m²)", p.CommuneCode, p.Section, p.NumeroParcelle, p.SurfaceM2)
+}
+
+func conventionParcellesCount(c convention.Convention) string {
+	return fmt.Sprintf("%d parcelle(s)", len(c.Parcelles))
+}
+
+func conventionDuree(mois int) string {
+	return fmt.Sprintf("%d mois", mois)
+}

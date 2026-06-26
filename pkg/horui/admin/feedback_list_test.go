@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -19,11 +18,12 @@ func TestIntToStr(t *testing.T) {
 	}
 }
 
-func TestStatusBadgeClass(t *testing.T) {
+func TestStatusBadgeTone(t *testing.T) {
+	valid := map[string]bool{"info": true, "success": true, "warning": true, "danger": true, "neutral": true}
 	for _, s := range []string{"pending", "triaged", "closed", "spam"} {
-		cls := statusBadgeClass(s)
-		if !strings.HasPrefix(cls, "badge") {
-			t.Errorf("statusBadgeClass(%q) = %q, should start with 'badge'", s, cls)
+		tone := statusBadgeTone(s)
+		if !valid[tone] {
+			t.Errorf("statusBadgeTone(%q) = %q, tone templux invalide", s, tone)
 		}
 	}
 }

@@ -21,9 +21,9 @@ const (
 
 // Errors sentinelles.
 var (
-	ErrMasterKeyMissing = errors.New("connectors/assets: NPS_MASTER_KEY env absent")
-	ErrMasterKeyLength  = errors.New("connectors/assets: NPS_MASTER_KEY doit faire 64 chars hex (32 bytes)")
-	ErrMasterKeyInvalid = errors.New("connectors/assets: NPS_MASTER_KEY n'est pas un hex valide")
+	ErrMasterKeyMissing = errors.New("connectors/assets: ASSOKIT_MASTER_KEY env absent")
+	ErrMasterKeyLength  = errors.New("connectors/assets: ASSOKIT_MASTER_KEY doit faire 64 chars hex (32 bytes)")
+	ErrMasterKeyInvalid = errors.New("connectors/assets: ASSOKIT_MASTER_KEY n'est pas un hex valide")
 )
 
 // DecodeMasterKey décode un master key hex 64-char vers []byte 32-byte.

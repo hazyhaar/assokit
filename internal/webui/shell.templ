@@ -1,0 +1,113 @@
+// shell.templ — coquille applicative assokit en composants templux vendored.
+// Remplace layout.Base de pkg/horui/layout pour les vues migrees en vague 1+.
+// Les vues horui non migrees continuent d'utiliser layout.Base (vague 2+).
+package webui
+
+import (
+	"slices"
+
+	"github.com/hazyhaar/assokit/internal/webui/components"
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
+)
+
+// Shell est la coquille server-rendered complete (html/head/body + header + footer).
+// content = corps de la <main>, injecte dans le layout papier-ochre preset-assokit.
+templ Shell(title string, content templ.Component) {
+	<!DOCTYPE html>
+	<html lang={ theme.Brand().Locale }>
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } — { theme.Brand().Name }</title>
+			<meta name="description" content={ theme.Brand().Tagline }/>
+			<meta property="og:title" content={ title }/>
+			<meta property="og:type" content="website"/>
+			<link rel="icon" href={ "/static/" + theme.Brand().FaviconPath }/>
+			@templ.Raw(theme.CSSVars())
+			<link rel="stylesheet" href="/static/css/templux/base.css"/>
+			<link rel="stylesheet" href="/static/css/templux/preset-assokit.css"/>
+			<link rel="stylesheet" href="/static/css/templux/templux.css"/>
+			<script src="/static/js/htmx.min.js" defer></script>
+			<script src="/static/js/csrf.js" defer></script>
+			<script src="/static/js/helloasso_popup.js" defer></script>
+			<script src="/static/js/forum.js" defer></script>
+		</head>
+		<body hx-boost="true">
+			@shellHeader()
+			<main class="max-w-5xl mx-auto px-space-lg py-space-xl flex flex-col gap-space-md">
+				@shellFlash()
+				@content
+			</main>
+			@shellFooter()
+			if !theme.Brand().Feedback.Disabled {
+				@components.FeedbackWidget(middleware.PageURIFromContext(ctx), title)
+			}
+		</body>
+	</html>
+}
+
+templ shellHeader() {
+	<header class="border-b border-border bg-surface-raised">
+		<div class="max-w-5xl mx-auto flex items-center justify-between gap-space-lg px-space-lg py-space-md">
+			<a href="/" class="flex items-center gap-space-sm no-underline">
+				if theme.Brand().LogoPath != "" {
+					<img src={ "/static/" + theme.Brand().LogoPath } alt={ theme.Brand().Name } class="h-8"/>
+				} else {
+					<span class="text-xl font-semibold text-ink">{ theme.Brand().Name }</span>
+				}
+			</a>
+			<nav class="hidden sm:flex" aria-label="Navigation principale">
+				<ul class="flex items-center gap-space-lg list-none m-0 p-0">
+					for _, item := range theme.Brand().Nav {
+						<li><a href={ templ.SafeURL(item.Slug) } class="text-ink-muted hover:text-accent no-underline">{ item.Label }</a></li>
+					}
+				</ul>
+			</nav>
+			<div class="user-menu flex items-center gap-space-sm">
+				if u := middleware.UserFromContext(ctx); u != nil {
+					if slices.Contains(u.Roles, "admin") {
+						@templux.LinkButton("Gestion", "/admin", "ghost", templ.Attributes{})
+					}
+					<span class="user-name text-sm text-ink-muted">{ u.DisplayName }</span>
+					@templux.LinkButton(theme.T("button.logout", "Déconnexion"), "/logout", "ghost", templ.Attributes{})
+				} else {
+					@templux.LinkButton("Se connecter", "/login", "primary", templ.Attributes{})
+				}
+			</div>
+		</div>
+	</header>
+}
+
+templ shellFooter() {
+	<footer class="border-t border-border bg-surface-muted mt-space-3xl">
+		<div class="max-w-5xl mx-auto flex flex-col gap-space-sm px-space-lg py-space-xl text-sm text-ink-muted">
+			<p class="font-semibold text-ink">{ theme.Brand().Name }</p>
+			<nav class="flex flex-wrap items-center gap-space-md" aria-label="Liens légaux">
+				for _, line := range theme.Brand().Footer.Lines {
+					<span>{ line }</span>
+				}
+				<a href="/charte" class="text-accent no-underline">{ theme.T("link.charte", "Charte") }</a>
+				<a href="/faq" class="text-accent no-underline">{ theme.T("link.faq", "FAQ") }</a>
+					<a href="/lexique" class="text-accent no-underline">{ theme.T("link.lexique", "Lexique") }</a>
+					<a href="/contact" class="text-accent no-underline">{ theme.T("link.contact", "Contact") }</a>
+				<a href="/mentions-legales" class="text-accent no-underline">{ theme.T("link.legal", "Mentions légales") }</a>
+			</nav>
+		</div>
+	</footer>
+}
+
+templ shellFlash() {
+	for _, msg := range middleware.PopFlash(ctx) {
+		@templux.Alert(flashSeverity(msg.Level), msg.Message)
+	}
+}
+
+// flashSeverity mappe un niveau de flash applicatif vers la severite Alert templux.
+func flashSeverity(level string) string {
+	if level == "error" {
+		return "danger"
+	}
+	return level
+}

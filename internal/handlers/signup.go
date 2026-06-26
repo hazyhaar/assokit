@@ -15,12 +15,24 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
+	"github.com/hazyhaar/assokit/pkg/eventsink"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/pages"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
+	"github.com/hazyhaar/assokit/pkg/signupprofile"
+	"github.com/hazyhaar/assokit/pkg/uid"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// siteName retourne le nom de l'instance (branding courant), fallback "Assokit".
+// Utilisé dans les sujets d'emails — le core reste générique, le nom vient du branding.
+func siteName() string {
+	if n := theme.Brand().Name; n != "" {
+		return n
+	}
+	return "Assokit"
+}
 
 // safeTokenPrefix retourne les 8 premiers chars du token pour les logs (jamais le token complet).
 func safeTokenPrefix(token string) string {
@@ -30,91 +42,38 @@ func safeTokenPrefix(token string) string {
 	return token[:8]
 }
 
-// Profils signup valides (extraits du HTML L'administrateur assokit.org).
-var validProfils = map[string]bool{
-	"adherent":   true,
-	"lanceur":    true,
-	"media":      true,
-	"asso":       true,
-	"expert":     true,
-	"partenaire": true,
-	"benevole":   true,
-	"don":        true,
-}
-
 // handleSignupForm affiche le formulaire pour un profil donné.
 func handleSignupForm(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		profil := chi.URLParam(r, "profil")
-		if !validProfils[profil] {
+		profilID := chi.URLParam(r, "profil")
+		profile, ok := signupprofile.Find(deps.Profils, profilID)
+		if !ok {
 			http.NotFound(w, r)
 			return
 		}
-		extras := signupExtraFields(profil)
-		renderPage(w, r, deps,
-			"Inscription — "+profilLabel(profil),
-			pages.SignupForm(profil, profilLabel(profil), extras))
+		extras := signupExtraFields(profile)
+		csrfToken := middleware.CSRFToken(r.Context())
+		renderPageV2(w, r, deps,
+			"Inscription — "+profile.Label,
+			views.SignupForm(profile.ID, profile.Label, csrfToken, extras))
 	}
 }
 
-// profilLabel : libellé humain pour un id profil.
-func profilLabel(p string) string {
-	switch p {
-	case "adherent":
-		return "Adhérent"
-	case "lanceur":
-		return "Lanceur d'alerte"
-	case "media":
-		return "Média / Journaliste"
-	case "asso":
-		return "Association"
-	case "expert":
-		return "Expert"
-	case "partenaire":
-		return "Partenaire"
-	case "benevole":
-		return "Bénévole"
-	case "don":
-		return "Donateur"
-	default:
-		return p
-	}
-}
-
-// signupExtraFields : champs supplémentaires conditionnels par profil.
-func signupExtraFields(p string) []pages.SignupExtraField {
-	switch p {
-	case "lanceur":
-		return []pages.SignupExtraField{
-			{Name: "secteur", Label: "Secteur concerné", Type: "text", Placeholder: "santé, finance, environnement…"},
-			{Name: "urgence", Label: "Niveau d'urgence", Type: "text", Placeholder: "élevé / moyen / bas"},
-		}
-	case "media":
-		return []pages.SignupExtraField{
-			{Name: "nom_media", Label: "Nom du média", Type: "text", Required: true},
-			{Name: "type_media", Label: "Type", Type: "text"},
-		}
-	case "asso":
-		return []pages.SignupExtraField{
-			{Name: "asso_nom", Label: "Nom de l'association", Type: "text", Required: true},
-			{Name: "asso_role", Label: "Votre rôle", Type: "text"},
-		}
-	case "expert":
-		return []pages.SignupExtraField{
-			{Name: "specialite", Label: "Spécialité", Type: "text", Required: true},
-			{Name: "barreau", Label: "Barreau / ordre / institution", Type: "text"},
-		}
-	case "partenaire":
-		return []pages.SignupExtraField{
-			{Name: "structure", Label: "Structure / organisation", Type: "text", Required: true},
-		}
-	case "don":
-		return []pages.SignupExtraField{
-			{Name: "telephone", Label: "Téléphone", Type: "tel"},
-		}
-	default:
+// signupExtraFields traduit les champs extra du catalogue vers la vue du formulaire.
+func signupExtraFields(p signupprofile.Profile) []views.SignupExtraField {
+	if len(p.Extra) == 0 {
 		return nil
 	}
+	out := make([]views.SignupExtraField, 0, len(p.Extra))
+	for _, f := range p.Extra {
+		out = append(out, views.SignupExtraField{
+			Name:     f.Name,
+			Label:    f.Label,
+			Type:     f.Type,
+			Required: f.Required,
+		})
+	}
+	return out
 }
 
 // handleSignupSubmit traite la soumission du formulaire signup.
@@ -122,7 +81,8 @@ func signupExtraFields(p string) []pages.SignupExtraField {
 func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		profil := chi.URLParam(r, "profil")
-		if !validProfils[profil] {
+		profile, ok := signupprofile.Find(deps.Profils, profil)
+		if !ok {
 			http.NotFound(w, r)
 			return
 		}
@@ -146,7 +106,7 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 		}
 
 		// Collecte champs conditionnels selon profil
-		fieldsJSON := collectFields(r, profil)
+		fieldsJSON := collectFields(r, profile)
 
 		ctx := r.Context()
 		reqID := middleware.RequestIDFromContext(ctx)
@@ -159,7 +119,7 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 		)
 
 		// TX atomique : signups + users + user_roles + activation_tokens
-		token, err := createMember(ctx, deps.DB, email, displayName, profil, fieldsJSON, r.RemoteAddr, deps.Config.CookieSecret)
+		token, err := createMember(ctx, deps.DB, email, displayName, profile, fieldsJSON, r.RemoteAddr, deps.Config.CookieSecret)
 		if err != nil {
 			stage := "create_member"
 			if strings.Contains(err.Error(), "UNIQUE") {
@@ -180,7 +140,7 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 					if deps.Mailer != nil && existingToken != "" {
 						activationURL := deps.Config.BaseURL + "/activate/" + existingToken
 						deps.Mailer.Enqueue(ctx, email, //nolint:errcheck
-							"NONPOSSUMUS — votre lien d'activation (renvoi)",
+							siteName()+" — votre lien d'activation (renvoi)",
 							"Cliquez sur ce lien pour activer votre compte : "+activationURL,
 							"<p>Cliquez <a href=\""+activationURL+"\">ici</a> pour activer votre compte (valable 7 jours).</p>",
 						)
@@ -216,15 +176,29 @@ func handleSignupSubmit(deps app.AppDeps) http.HandlerFunc {
 			activationURL := deps.Config.BaseURL + "/activate/" + token
 			// Emails best-effort : l'outbox garantit la livraison, l'erreur d'Enqueue ne doit pas bloquer la réponse HTTP.
 			deps.Mailer.Enqueue(ctx, email, //nolint:errcheck
-				"Bienvenue sur NONPOSSUMUS — activez votre compte",
+				"Bienvenue sur "+siteName()+" — activez votre compte",
 				"Cliquez sur ce lien pour activer votre compte : "+activationURL,
 				"<p>Cliquez <a href=\""+activationURL+"\">ici</a> pour activer votre compte (valable 7 jours).</p>",
 			)
 			deps.Mailer.Enqueue(ctx, deps.Config.AdminEmail, //nolint:errcheck
-				"[NPS] Nouvelle inscription : "+profil+" — "+email,
+				"["+siteName()+"] Nouvelle inscription : "+profil+" — "+email,
 				fmt.Sprintf("Profil: %s\nEmail: %s\nNom: %s\nChamps: %s", profil, email, displayName, fieldsJSON),
 				fmt.Sprintf("<b>Profil:</b> %s<br><b>Email:</b> %s<br><b>Nom:</b> %s", profil, email, displayName),
 			)
+		}
+
+		// Émet member.signup vers le Sink (webhook générique / bus pôle). Best-effort.
+		if deps.EventSink != nil {
+			if err := deps.EventSink.Emit(ctx, eventsink.Event{
+				Type: "member.signup",
+				Payload: map[string]any{
+					"profile":      profil,
+					"email":        email,
+					"display_name": displayName,
+				},
+			}); err != nil {
+				deps.Logger.Warn("signup_event_emit_failed", "req_id", reqID, "err", err.Error())
+			}
 		}
 
 		http.Redirect(w, r, "/merci", http.StatusSeeOther)
@@ -254,7 +228,7 @@ func lookupExistingSignup(ctx context.Context, db *sql.DB, email string) (token 
 
 // createMember crée user + role member + activation token dans une TX atomique.
 // Retourne le token d'activation ou une erreur.
-func createMember(ctx context.Context, db *sql.DB, email, displayName, profil, fieldsJSON, remoteAddr string, cookieSecret []byte) (string, error) {
+func createMember(ctx context.Context, db *sql.DB, email, displayName string, profile signupprofile.Profile, fieldsJSON, remoteAddr string, cookieSecret []byte) (string, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("createMember begin: %w", err)
@@ -272,10 +246,10 @@ func createMember(ctx context.Context, db *sql.DB, email, displayName, profil, f
 	ipHash := hex.EncodeToString(h.Sum(nil))
 
 	// INSERT signup
-	signupID := uuid.New().String()
+	signupID := uid.New()
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO signups(id, email, display_name, profile, fields_json, ip_hash) VALUES(?,?,?,?,?,?)`,
-		signupID, email, displayName, profil, fieldsJSON, ipHash,
+		signupID, email, displayName, profile.ID, fieldsJSON, ipHash,
 	); err != nil {
 		return "", fmt.Errorf("createMember signup: %w", err)
 	}
@@ -288,7 +262,7 @@ func createMember(ctx context.Context, db *sql.DB, email, displayName, profil, f
 		return "", fmt.Errorf("createMember bcrypt: %w", err)
 	}
 
-	userID := uuid.New().String()
+	userID := uid.New()
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO users(id, email, password_hash, display_name) VALUES(?,?,?,?)`,
 		userID, email, string(hash), displayName,
@@ -297,9 +271,9 @@ func createMember(ctx context.Context, db *sql.DB, email, displayName, profil, f
 	}
 
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO user_roles(user_id, role_id) VALUES(?,?)`, userID, "member",
+		`INSERT INTO user_grades(user_id, grade_id) VALUES(?,?) ON CONFLICT DO NOTHING`, userID, profile.Grade(),
 	); err != nil {
-		return "", fmt.Errorf("createMember role: %w", err)
+		return "", fmt.Errorf("createMember grade: %w", err)
 	}
 
 	// Magic link token valable 7 jours
@@ -359,42 +333,18 @@ func handleActivate(deps app.AppDeps) http.HandlerFunc {
 			"user_id", userID,
 		)
 
-		middleware.SetSessionCookie(w, userID, deps.Config.CookieSecret, false)
+		middleware.SetSessionCookie(w, userID, deps.Config.CookieSecret, deps.Config.CookieSecure())
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
 
-// collectFields construit un JSON avec les champs conditionnels selon le profil.
-func collectFields(r *http.Request, profil string) string {
+// collectFields construit un JSON avec les champs extra du profil (catalogue) et
+// les champs communs à tous les profils. Générique : aucune liste de champs codée
+// en dur par profil — le catalogue injecté à la bordure définit les extras.
+func collectFields(r *http.Request, profile signupprofile.Profile) string {
 	fields := map[string]string{}
-	switch profil {
-	case "adherent":
-		fields["cotisation"] = r.FormValue("cotisation")
-		fields["paiement"] = r.FormValue("paiement")
-	case "lanceur":
-		fields["pays"] = r.FormValue("pays")
-		fields["secteur"] = r.FormValue("secteur")
-		fields["urgence"] = r.FormValue("urgence")
-	case "media":
-		fields["nom_media"] = r.FormValue("nom_media")
-		fields["type_media"] = r.FormValue("type_media")
-		fields["url_media"] = r.FormValue("url_media")
-	case "asso":
-		fields["nom_asso"] = r.FormValue("nom_asso")
-		fields["type_asso"] = r.FormValue("type_asso")
-		fields["url_asso"] = r.FormValue("url_asso")
-	case "expert":
-		fields["specialite"] = r.FormValue("specialite")
-		fields["barreau"] = r.FormValue("barreau")
-	case "partenaire":
-		fields["nom_partenaire"] = r.FormValue("nom_partenaire")
-		fields["proposition"] = r.FormValue("proposition_partenaire")
-	case "benevole":
-		fields["dispo"] = r.FormValue("dispo_benevole")
-		fields["domaine"] = r.FormValue("domaine_benevole")
-	case "don":
-		fields["montant"] = r.FormValue("montant_don")
-		fields["paiement"] = r.FormValue("paiement_don")
+	for _, f := range profile.Extra {
+		fields[f.Name] = r.FormValue(f.Name)
 	}
 	fields["message"] = r.FormValue("message")
 	fields["source"] = r.FormValue("source")

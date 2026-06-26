@@ -1,0 +1,55 @@
+# Silo « yachts » — exemple générique de vertical marketplace.
+# Ajouter un vertical = ajouter un fichier ici, zéro code applicatif.
+
+id          = "yachts"
+label       = "Bateaux à vendre"
+description = "Annonces de bateaux d'occasion et neufs — exemple de catalogue"
+
+# Attributs facettables : chaque entrée déclare une colonne GENERATED dans listings.
+# json_path : chemin json_extract depuis la colonne attrs.
+# kind      : "text" → colonne TEXT GENERATED, "real" → colonne REAL GENERATED.
+# indexed   : true → CREATE INDEX sur la colonne générée.
+[[attrs]]
+name      = "marque"
+json_path = "$.marque"
+kind      = "text"
+indexed   = true
+
+[[attrs]]
+name      = "type_coque"
+json_path = "$.type_coque"
+kind      = "text"
+indexed   = true
+
+[[attrs]]
+name      = "longueur_m"
+json_path = "$.longueur_m"
+kind      = "real"
+indexed   = true
+
+[[attrs]]
+name      = "annee"
+json_path = "$.annee"
+kind      = "real"
+indexed   = true
+
+# Ranges disponibles pour filtrage (min/max sur colonnes GENERATED).
+[[ranges]]
+attr = "longueur_m"
+
+[[ranges]]
+attr = "annee"
+
+[[ranges]]
+attr = "price"
+
+# Modèle de revenu marketplace pour ce silo.
+# payment_mode : "commission" | "subscription"
+# commission_bps : points de base (1 bps = 0,01 %). Ex. 250 bps = 2,50 %.
+#   Utilisé uniquement si payment_mode = "commission".
+# subscription_cents : montant en centimes de la cotisation dealer par période.
+#   Utilisé uniquement si payment_mode = "subscription".
+[billing]
+payment_mode        = "commission"
+commission_bps      = 250
+subscription_cents  = 0

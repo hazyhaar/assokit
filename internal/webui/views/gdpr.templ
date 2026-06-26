@@ -1,0 +1,39 @@
+// views/gdpr.templ — page publique de politique de données (couche RGPD transverse).
+// Le contenu est rendu depuis le catalogue de conservation (const Go gdpr.RetentionCatalog),
+// source unique : aucune table de configuration, aucun placeholder.
+package views
+
+import "github.com/hazyhaar/assokit/pkg/gdpr"
+
+// DataPolicyPage présente, pour chaque catégorie de données, sa finalité et sa
+// durée de conservation. Les valeurs proviennent des const Go.
+templ DataPolicyPage(categories []gdpr.RetentionCategory) {
+	<section id="donnees-personnelles" class="py-space-xl max-w-3xl mx-auto flex flex-col gap-space-lg">
+		<div class="flex flex-col gap-space-xs">
+			<h1 class="text-2xl font-semibold text-ink">Données personnelles</h1>
+			<p class="text-ink-muted">
+				Cette page décrit, pour chaque catégorie de données traitées, la finalité du
+				traitement et la durée de conservation. Tout accès aux données nominatives est
+				journalisé. Un membre peut exporter ses propres données depuis son espace.
+			</p>
+		</div>
+		<table class="w-full text-sm">
+			<thead>
+				<tr>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Catégorie</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Finalité</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Conservation</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, c := range categories {
+					<tr>
+						<td class="px-space-md py-space-sm border-b border-border text-left font-medium text-ink">{ c.Label }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ c.Purpose }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ c.Retention }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</section>
+}

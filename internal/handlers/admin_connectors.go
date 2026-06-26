@@ -99,6 +99,7 @@ func AdminConnectorSchema(deps app.AppDeps, reg *connectors.Registry) http.Handl
 // Sépare les champs en :
 //   - secrets (format:password OU x-secret:true) → Vault.Set
 //   - config non-sensible → connectors.config_json
+//
 // Active enabled=1 si tous les champs required sont présents.
 func AdminConnectorConfigure(deps app.AppDeps, reg *connectors.Registry, vault *assets.Vault) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +140,13 @@ func AdminConnectorConfigure(deps app.AppDeps, reg *connectors.Registry, vault *
 			deps.Logger.Warn("connector_secret_keys_extract_failed",
 				"connector", id, "err", err.Error())
 		}
+		// Séparer secrets et config non-sensible SANS écrire encore au Vault :
+		// connector_credentials porte une FK vers connectors(id), donc la ligne
+		// parente connectors DOIT exister avant d'y stocker un secret. (Avec les FK
+		// désactivées — bug d'origine — l'ordre inverse passait silencieusement ;
+		// les pragmas FK activés l'exposent, audit 2026-06-13.)
 		nonSecret := make(map[string]any)
+		pendingSecrets := make(map[string]string)
 		for k, v := range values {
 			if slices.Contains(secretKeys, k) {
 				if vault == nil {
@@ -151,17 +158,13 @@ func AdminConnectorConfigure(deps app.AppDeps, reg *connectors.Registry, vault *
 					http.Error(w, fmt.Sprintf("secret %q doit être string", k), http.StatusBadRequest)
 					return
 				}
-				if err := vault.Set(r.Context(), id, k, str, u.ID); err != nil {
-					deps.Logger.Error("connector_secret_set_failed",
-						"connector", id, "key", k, "err", err.Error())
-					http.Error(w, "vault set failed", http.StatusInternalServerError)
-					return
-				}
+				pendingSecrets[k] = str
 			} else {
 				nonSecret[k] = v
 			}
 		}
 
+		// 1. Ligne parente connectors d'abord (satisfait la FK des credentials).
 		cfgJSON, _ := json.Marshal(nonSecret)
 		if _, err := deps.DB.ExecContext(r.Context(), `
 			INSERT INTO connectors(id, enabled, config_json, configured_at, configured_by)
@@ -176,6 +179,16 @@ func AdminConnectorConfigure(deps app.AppDeps, reg *connectors.Registry, vault *
 				"connector", id, "err", err.Error())
 			http.Error(w, "db error", http.StatusInternalServerError)
 			return
+		}
+
+		// 2. Secrets au Vault ensuite (la FK vers connectors est désormais satisfaite).
+		for k, str := range pendingSecrets {
+			if err := vault.Set(r.Context(), id, k, str, u.ID); err != nil {
+				deps.Logger.Error("connector_secret_set_failed",
+					"connector", id, "key", k, "err", err.Error())
+				http.Error(w, "vault set failed", http.StatusInternalServerError)
+				return
+			}
 		}
 
 		deps.Logger.Info("connector_configured",
@@ -202,8 +215,8 @@ func extractSecretKeys(c connectors.Connector) ([]string, error) {
 	}
 	var parsed struct {
 		Properties map[string]struct {
-			Format   string `json:"format"`
-			XSecret  bool   `json:"x-secret"`
+			Format  string `json:"format"`
+			XSecret bool   `json:"x-secret"`
 		} `json:"properties"`
 	}
 	if err := json.Unmarshal(raw, &parsed); err != nil {

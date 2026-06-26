@@ -1,0 +1,55 @@
+// views/corpus.templ — consultation du corpus juridique AFP (vendoring templux).
+// Recherche brute sourcée : chaque résultat affiche son contenu, son score de
+// pertinence et son ancrage de provenance (chunk id, et citation/url si dispo).
+// État vide assumé : aucun résultat n'affiche un message neutre, jamais d'invention.
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/corpus"
+)
+
+// CorpusConsultPage : formulaire de requête + résultats sourcés du corpus juridique.
+// searched indique qu'une recherche a été soumise (distingue « aucune requête » de
+// « requête sans résultat »).
+templ CorpusConsultPage(query string, searched bool, hits []corpus.Hit) {
+	<section id="corpus-consult" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Consultation du corpus juridique</h1>
+		<p class="text-ink-muted text-sm">Rechercher un extrait dans le corpus de droit applicable aux associations foncières pastorales. Les résultats sont des extraits sourcés du corpus ; ils ne constituent pas un avis juridique.</p>
+		<form method="GET" action="/account/corpus" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			@templux.FormField("Recherche", "", "Ex. : redevance, droit de délaissement, enquête publique", templux.Input("q", query, templ.Attributes{"type": "text", "required": "required"}))
+			@templux.Button("Rechercher", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if searched {
+			if len(hits) == 0 {
+				<p class="text-ink-muted">Aucun extrait du corpus ne correspond à cette recherche.</p>
+			} else {
+				<div class="flex flex-col gap-space-md">
+					<p class="text-ink-muted text-sm">{ corpusResultCount(hits) }</p>
+					for _, h := range hits {
+						<article class="bg-surface-raised rounded-lg shadow-sm p-space-md flex flex-col gap-space-sm">
+							<p class="whitespace-pre-line text-ink">{ h.Content }</p>
+							<div class="flex flex-wrap items-center gap-space-md text-xs text-ink-muted">
+								<span>Pertinence : { corpusScore(h.Score) }</span>
+								<span>Référence : { h.Ref }</span>
+								if h.Source != "" {
+									<span>Source : { h.Source }</span>
+								}
+							</div>
+						</article>
+					}
+				</div>
+			}
+		}
+	</section>
+}
+
+func corpusResultCount(hits []corpus.Hit) string {
+	return fmt.Sprintf("%d extrait(s) trouvé(s)", len(hits))
+}
+
+func corpusScore(score float64) string {
+	return fmt.Sprintf("%.3f", score)
+}

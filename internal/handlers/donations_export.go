@@ -112,7 +112,7 @@ func writeFilteredCSVRows(ctx context.Context, db *sql.DB, f DonationListFilters
 			d.donor_name, d.donor_email, d.helloasso_form_type,
 			d.amount_cents, d.currency, d.payment_status,
 			COALESCE(d.user_id, ''), COALESCE(u.email, ''),
-			CASE WHEN EXISTS (SELECT 1 FROM user_roles WHERE user_id = d.user_id AND role_id = 'member') THEN 1 ELSE 0 END,
+			CASE WHEN EXISTS (SELECT 1 FROM user_grades ug JOIN grades g ON g.id = ug.grade_id WHERE ug.user_id = d.user_id AND g.name = 'member') THEN 1 ELSE 0 END,
 			d.helloasso_payment_id
 		FROM donations d
 		LEFT JOIN users u ON u.id = d.user_id

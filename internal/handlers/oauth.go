@@ -6,16 +6,15 @@ import (
 	"database/sql"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/hazyhaar/assokit/internal/app"
 	intoauth "github.com/hazyhaar/assokit/internal/oauth"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/rbac"
+	"github.com/hazyhaar/assokit/pkg/uid"
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 )
@@ -26,7 +25,7 @@ func mountOAuthRoutes(r chi.Router, deps app.AppDeps, oauthProvider http.Handler
 	r.Get("/oauth2/consent", handleOAuthConsent(deps, store))
 	r.Post("/oauth2/consent", handleOAuthConsentPost(deps, store))
 
-	if os.Getenv("GOOGLE_CLIENT_ID") != "" {
+	if deps.Config.GoogleClientID != "" {
 		mountGoogleLogin(r, deps, store)
 	}
 }
@@ -137,8 +136,8 @@ func effectivePermissions(ctx context.Context, db *sql.DB, userID string) []stri
 
 func mountGoogleLogin(r chi.Router, deps app.AppDeps, store *intoauth.Storage) {
 	issuer := "https://accounts.google.com"
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	clientID := deps.Config.GoogleClientID
+	clientSecret := deps.Config.GoogleClientSecret
 	callbackURL := deps.Config.BaseURL + "/auth/google/callback"
 	scopes := []string{oidc.ScopeOpenID, oidc.ScopeEmail, oidc.ScopeProfile}
 
@@ -204,8 +203,7 @@ func handleGoogleCallback(deps app.AppDeps, store *intoauth.Storage, rpp rp.Rely
 			"email_hash", emailHash,
 		)
 
-		secure := strings.HasPrefix(deps.Config.BaseURL, "https://")
-		middleware.SetSessionCookie(w, userID, deps.Config.CookieSecret, secure)
+		middleware.SetSessionCookie(w, userID, deps.Config.CookieSecret, deps.Config.CookieSecure())
 		http.Redirect(w, r, "/", http.StatusFound)
 	}
 }
@@ -218,9 +216,9 @@ func findOrCreateSocialUser(ctx context.Context, deps app.AppDeps, provider, ext
 	}
 
 	if userID == "" {
-		authStore := &auth.Store{DB: deps.DB}
+		authStore := &identity.Store{DB: deps.DB}
 		u, err := authStore.Register(ctx, email, "", email)
-		if err != nil && err != auth.ErrEmailTaken {
+		if err != nil && err != identity.ErrEmailTaken {
 			return "", err
 		}
 		if u != nil {
@@ -237,7 +235,7 @@ func findOrCreateSocialUser(ctx context.Context, deps app.AppDeps, provider, ext
 	if userID != "" {
 		deps.DB.ExecContext(ctx, //nolint:errcheck
 			`INSERT OR IGNORE INTO oauth_external_links(id, user_id, provider, external_id, email) VALUES(?,?,?,?,?)`,
-			uuid.NewString(), userID, provider, externalID, email)
+			uid.New(), userID, provider, externalID, email)
 	}
 
 	return userID, nil

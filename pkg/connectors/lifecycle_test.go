@@ -16,12 +16,12 @@ import (
 
 // trackingConnector compte Start/Stop/Ping pour assertions.
 type trackingConnector struct {
-	id        string
-	starts    atomic.Int32
-	stops     atomic.Int32
-	pings     atomic.Int32
-	startErr  error
-	pingErr   error
+	id         string
+	starts     atomic.Int32
+	stops      atomic.Int32
+	pings      atomic.Int32
+	startErr   error
+	pingErr    error
 	pingHealth Health
 }
 

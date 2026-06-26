@@ -1,0 +1,65 @@
+/*
+ * templux/tokens/theme-bridge.css — pont @theme Tailwind 4.
+ *
+ * RAISON D'ÊTRE. Les composants templux (`components/*.templ`) sont écrits en
+ * classes utilitaires Tailwind (`bg-accent`, `px-space-md`, `rounded-md`). Or
+ * Tailwind 4 ne génère ces utilitaires QUE pour les tokens déclarés dans un
+ * bloc `@theme` (namespaces `--color-*`, `--spacing-*`, `--radius-*`, …). Les
+ * tokens sémantiques de `base.css` sont en `:root` classique (`--accent`,
+ * `--surface`) : Tailwind les ignore. Résultat historique : aucun utilitaire
+ * custom n'était généré, les composants rendaient du HTML non stylé, et chaque
+ * pôle (horos55, assokit) re-fabriquait sa propre couche CSS → drift.
+ *
+ * CE FICHIER boucle le pipeline sans toucher `base.css` ni les presets :
+ *  - COULEURS et ESPACEMENTS : pont via `var()` vers les tokens `:root`. Les
+ *    presets (papier-ochre, assokit, …) overrident `--accent` & co, et la
+ *    valeur se propage aux utilitaires au runtime. UN SEUL CSS généré couvre
+ *    donc TOUS les presets.
+ *  - RAYON / OMBRE / POLICE : valeurs littérales. Leurs noms (`--radius-md`…)
+ *    collisionnent avec les namespaces Tailwind, donc un pont `var()` serait
+ *    auto-référent. Ces familles ne changent jamais selon le preset : les
+ *    figer ici est sûr. Garder synchronisé avec `base.css` si modifié.
+ *
+ * Source de vérité des VALEURS : `base.css` (couleurs/espacements) + ce fichier
+ * (rayon/ombre/police). Les composants n'utilisent jamais de valeur physique.
+ */
+@theme {
+  /* Couleurs — pont var() vers base.css (thématisées par preset) */
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-on-accent: var(--ink-on-accent);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  /* Espacement — pont var() vers base.css (échelle 4px) */
+  --spacing-space-xs: var(--space-xs);
+  --spacing-space-sm: var(--space-sm);
+  --spacing-space-md: var(--space-md);
+  --spacing-space-lg: var(--space-lg);
+  --spacing-space-xl: var(--space-xl);
+  --spacing-space-2xl: var(--space-2xl);
+  --spacing-space-3xl: var(--space-3xl);
+
+  /* Rayon / ombre / police — littéraux (collision de namespace). Garder
+     synchronisé avec base.css. */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-pill: 9999px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}

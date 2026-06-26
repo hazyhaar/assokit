@@ -1,0 +1,16 @@
+// templux input — champ texte avec bordure et focus issus des tokens.
+//
+// Usage :
+//   @Input("email", "", templ.Attributes{"type": "email", "placeholder": "you@example.com", "hx-post": "/check"})
+
+package templux
+
+
+templ Input(name string, value string, attrs templ.Attributes) {
+	<input
+		name={ name }
+		value={ value }
+		class="block w-full rounded-md border border-border bg-surface text-ink px-space-md py-space-sm text-sm placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+		{ attrs... }
+	/>
+}

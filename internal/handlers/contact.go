@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Handler /contact : GET form + POST submit (mailer + flash redirect /merci).
+// CLAUDE:SUMMARY Handler /contact (vague 2 : renderPageV2 + views.Contact).
 package handlers
 
 import (
@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/pages"
 )
 
 func handleContactPage(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		renderPage(w, r, deps, "Contact", pages.Contact())
+		renderPageV2(w, r, deps, "Contact", views.Contact())
 	}
 }
 

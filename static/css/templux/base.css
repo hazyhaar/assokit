@@ -1,0 +1,75 @@
+/*
+ * templux/tokens/base.css — design tokens sémantiques v1.
+ *
+ * Toutes les variables sont définies sur :root. Un preset (papier-ochre,
+ * dark, minimal, neutral) override ces variables sans toucher au reste.
+ *
+ * Convention : sémantique d'usage, pas physique. `--surface` plutôt que
+ * `--gray-100`. Les composants templ n'utilisent JAMAIS de valeur physique
+ * (couleur hex, px brut) hors de ce fichier.
+ */
+
+:root {
+  /* Surfaces */
+  --surface:        #ffffff;
+  --surface-muted:  #f4f4f4;
+  --surface-raised: #ffffff;
+  --surface-sunken: #ececec;
+
+  /* Texte */
+  --ink:            #111111;
+  --ink-muted:      #555555;
+  --ink-faint:      #888888;
+  --ink-on-accent:  #ffffff;
+
+  /* Accent et états */
+  --accent:         #1a73e8;
+  --accent-hover:   #155fc0;
+  --success:        #1f9d55;
+  --warning:        #c97a00;
+  --danger:         #c1272d;
+  --info:           #2f6fa8;
+
+  /* Bordures */
+  --border:         #d9d9d9;
+  --border-strong:  #b3b3b3;
+  --border-focus:   var(--accent);
+
+  /* Radius */
+  --radius-sm:      2px;
+  --radius-md:      4px;
+  --radius-lg:      8px;
+  --radius-pill:    9999px;
+
+  /* Espacement (échelle 4px) */
+  --space-xs:       4px;
+  --space-sm:       8px;
+  --space-md:       12px;
+  --space-lg:       16px;
+  --space-xl:       24px;
+  --space-2xl:      32px;
+  --space-3xl:      48px;
+
+  /* Typographie */
+  --font-sans:      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-size-xs:   12px;
+  --font-size-sm:   14px;
+  --font-size-md:   16px;
+  --font-size-lg:   20px;
+  --font-size-xl:   24px;
+  --font-size-2xl:  32px;
+  --line-height:    1.5;
+
+  /* Élévation (shadows) */
+  --shadow-sm:      0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:      0 2px 6px rgba(0,0,0,0.08);
+  --shadow-lg:      0 8px 24px rgba(0,0,0,0.12);
+
+  /* Couches z-index */
+  --z-base:         1;
+  --z-overlay:      100;
+  --z-modal:        200;
+  --z-toast:        300;
+  --z-tooltip:      400;
+}

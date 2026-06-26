@@ -1,0 +1,399 @@
+// views/listing.templ — front-office marketplace verticale (instance yachts).
+// Server-rendered templux + HTMX. Aucun HTML maison, aucune classe CSS maison :
+// uniquement composants templux vendored + utilitaires Tailwind/tokens.
+package views
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/listing"
+)
+
+// FacetGroup décrit une facette textuelle prête à afficher : un attribut, son
+// libellé, et la liste de ses valeurs avec compteurs (issus de FacetCounts).
+type FacetGroup struct {
+	Attr     string
+	Label    string
+	Values   []FacetValue
+	Selected string
+}
+
+// FacetValue est une valeur de facette avec son compteur de listings.
+type FacetValue struct {
+	Value string
+	Count int
+}
+
+// RangeInput représente un filtre min/max d'un attribut numérique (longueur, année, prix).
+type RangeInput struct {
+	Attr  string
+	Label string
+	Unit  string
+	Min   string // valeur courante du formulaire (chaîne pour préserver l'input vide)
+	Max   string
+}
+
+// IndexData regroupe tout ce dont la page index a besoin.
+type IndexData struct {
+	SiloLabel   string
+	SiloDesc    string
+	Query       string
+	Sort        string
+	Facets      []FacetGroup
+	Ranges      []RangeInput
+	Listings    []listing.Listing
+	Total       int
+	Limit       int
+	Offset      int
+}
+
+var sortOptions = []templux.SelectOption{
+	{Value: "recent", Label: "Plus récentes"},
+	{Value: "price_asc", Label: "Prix croissant"},
+	{Value: "price_desc", Label: "Prix décroissant"},
+	{Value: "length_desc", Label: "Longueur (grandes d'abord)"},
+	{Value: "year_desc", Label: "Année (récentes d'abord)"},
+}
+
+// ListingIndexPage : barre de recherche + sidebar de facettes + grille de cartes.
+// Le formulaire pilote la liste en HTMX (result-swap sur #listing-results).
+templ ListingIndexPage(d IndexData) {
+	<section class="flex flex-col gap-space-lg">
+		<header class="flex flex-col gap-space-xs">
+			<h1 class="text-2xl font-semibold text-ink">{ d.SiloLabel }</h1>
+			if d.SiloDesc != "" {
+				<p class="text-sm text-ink-muted">{ d.SiloDesc }</p>
+			}
+		</header>
+		<div class="grid grid-cols-1 md:grid-cols-4 gap-space-lg">
+			<aside class="md:col-span-1">
+				@filterForm(d)
+			</aside>
+			@ListingResults(d)
+		</div>
+	</section>
+}
+
+// filterForm : recherche texte + tri + facettes textuelles + ranges. Tout
+// changement déclenche un GET HTMX qui re-rend uniquement #listing-results.
+templ filterForm(d IndexData) {
+	<form
+		hx-get="/annonces/fragment"
+		hx-target="#listing-results"
+		hx-swap="outerHTML"
+		hx-push-url="false"
+		class="flex flex-col gap-space-md bg-surface-raised rounded-lg shadow-sm p-space-lg"
+	>
+		@templux.FormField("Recherche", "", "",
+			templux.Input("q", d.Query, templ.Attributes{"type": "search", "placeholder": "marque, modèle…"}))
+		@templux.FormField("Trier par", "", "",
+			templux.Select("sort", sortOptions, d.Sort, templ.Attributes{}))
+		for _, fg := range d.Facets {
+			<fieldset class="flex flex-col gap-space-xs border-0 p-0 m-0">
+				<legend class="text-sm font-medium text-ink">{ fg.Label }</legend>
+				@templux.Select(fg.Attr, facetSelectOptions(fg), fg.Selected, templ.Attributes{})
+			</fieldset>
+		}
+		for _, rg := range d.Ranges {
+			<fieldset class="flex flex-col gap-space-xs border-0 p-0 m-0">
+				<legend class="text-sm font-medium text-ink">{ rg.Label }</legend>
+				<div class="flex items-center gap-space-sm">
+					@templux.Input(rg.Attr+"_min", rg.Min, templ.Attributes{"type": "number", "step": "any", "placeholder": "min", "aria-label": rg.Label + " minimum"})
+					<span class="text-ink-faint">—</span>
+					@templux.Input(rg.Attr+"_max", rg.Max, templ.Attributes{"type": "number", "step": "any", "placeholder": "max", "aria-label": rg.Label + " maximum"})
+				</div>
+			</fieldset>
+		}
+		@templux.Button("Filtrer", "primary", templ.Attributes{"type": "submit"})
+		@templux.LinkButton("Réinitialiser", "/annonces", "ghost", templ.Attributes{})
+	</form>
+}
+
+// ListingResults : compteur + grille de cartes + pagination. C'est le fragment
+// échangé par HTMX (outerHTML sur #listing-results).
+templ ListingResults(d IndexData) {
+	<div id="listing-results" class="md:col-span-3 flex flex-col gap-space-md">
+		<p class="text-sm text-ink-muted">{ resultCountLabel(d.Total) }</p>
+		if len(d.Listings) == 0 {
+			@templux.Alert("info", "Aucune annonce ne correspond à ces critères.")
+		} else {
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-md">
+				for _, l := range d.Listings {
+					@listingCard(l)
+				}
+			</div>
+			@pagination(d)
+		}
+	</div>
+}
+
+// listingCard : carte d'annonce. Photo = cadre vide assumé si absente (pas de
+// fausse image). Titre = "année marque modèle" dérivé des attrs.
+templ listingCard(l listing.Listing) {
+	<a href={ templ.SafeURL("/annonces/" + l.ID) } class="no-underline block" data-testid="listing-card" data-marque={ attrStr(l, "marque") } data-longueur={ attrStr(l, "longueur_m") }>
+		<div class="bg-surface-raised rounded-lg shadow-sm overflow-hidden border border-border hover:shadow-md transition-shadow">
+			@photoFrame(l)
+			<div class="p-space-md flex flex-col gap-space-xs">
+				<h3 class="text-base font-semibold text-ink">{ cardTitle(l) }</h3>
+				<p class="text-lg font-semibold text-accent">{ formatPrice(l.PriceCents) }</p>
+				<dl class="flex flex-wrap gap-x-space-md gap-y-space-xs text-xs text-ink-muted m-0">
+					if v := attrStr(l, "longueur_m"); v != "" {
+						<div><dt class="inline">Longueur</dt><dd class="inline ml-space-xs">{ v } m</dd></div>
+					}
+					if v := attrStr(l, "annee"); v != "" {
+						<div><dt class="inline">Année</dt><dd class="inline ml-space-xs">{ v }</dd></div>
+					}
+					if v := attrStr(l, "lieu"); v != "" {
+						<div><dt class="inline">Lieu</dt><dd class="inline ml-space-xs">{ v }</dd></div>
+					}
+				</dl>
+				if v := attrStr(l, "vendeur"); v != "" {
+					<p class="text-xs text-ink-faint">{ v }</p>
+				}
+			</div>
+		</div>
+	</a>
+}
+
+// photoFrame : cadre neutre vide (placeholder assumé) tant qu'aucune image
+// réelle n'est attachée. Jamais de fausse photo.
+templ photoFrame(l listing.Listing) {
+	if src := attrStr(l, "photo"); src != "" {
+		<img src={ src } alt={ cardTitle(l) } class="w-full aspect-[4/3] object-cover"/>
+	} else {
+		<div class="w-full aspect-[4/3] bg-surface-muted border-b border-border flex items-center justify-center">
+			<span class="text-xs text-ink-faint">Photo à venir</span>
+		</div>
+	}
+}
+
+// pagination : prev/next via HTMX en réutilisant le formulaire (offsets).
+templ pagination(d IndexData) {
+	<nav class="flex items-center justify-between" aria-label="Pagination">
+		if d.Offset > 0 {
+			@templux.LinkButton("Précédent", pageURL(d, d.Offset-d.Limit), "secondary", templ.Attributes{})
+		} else {
+			<span></span>
+		}
+		<span class="text-xs text-ink-muted">{ pageLabel(d) }</span>
+		if d.Offset+d.Limit < d.Total {
+			@templux.LinkButton("Suivant", pageURL(d, d.Offset+d.Limit), "secondary", templ.Attributes{})
+		} else {
+			<span></span>
+		}
+	</nav>
+}
+
+// DetailData regroupe l'annonce et la liste ordonnée des specs à afficher.
+type DetailData struct {
+	Listing listing.Listing
+	Specs   []SpecRow
+}
+
+// SpecRow est une ligne de spécification (libellé + valeur formatée).
+type SpecRow struct {
+	Label string
+	Value string
+}
+
+// ListingDetailPage : galerie/photo + specs structurées + description + vendeur.
+templ ListingDetailPage(d DetailData) {
+	<article class="flex flex-col gap-space-lg" data-testid="detail-page">
+		<a href="/annonces" class="text-sm text-accent no-underline">&larr; Retour aux annonces</a>
+		<header class="flex flex-col gap-space-xs">
+			<h1 class="text-2xl font-semibold text-ink">{ cardTitle(d.Listing) }</h1>
+			<p class="text-xl font-semibold text-accent">{ formatPrice(d.Listing.PriceCents) }</p>
+		</header>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-space-lg">
+			<div class="rounded-lg overflow-hidden">
+				@photoFrame(d.Listing)
+			</div>
+			<div class="flex flex-col gap-space-md">
+				@templux.Card("Caractéristiques", specsBody(d.Specs))
+				if v := attrStr(d.Listing, "vendeur"); v != "" {
+					@templux.Card("Vendeur", sellerBody(d.Listing))
+				}
+			</div>
+		</div>
+		if d.Listing.Body != "" {
+			@templux.Card("Description", descriptionBody(d.Listing.Body))
+		}
+	</article>
+}
+
+templ specsBody(specs []SpecRow) {
+	if len(specs) == 0 {
+		<p class="text-ink-muted">Aucune caractéristique renseignée.</p>
+	} else {
+		<dl class="grid grid-cols-2 gap-x-space-md gap-y-space-sm m-0">
+			for _, s := range specs {
+				<dt class="text-ink-muted">{ s.Label }</dt>
+				<dd class="text-ink m-0">{ s.Value }</dd>
+			}
+		</dl>
+	}
+}
+
+templ sellerBody(l listing.Listing) {
+	<div class="flex flex-col gap-space-xs">
+		<p class="text-ink m-0">{ attrStr(l, "vendeur") }</p>
+		if v := attrStr(l, "lieu"); v != "" {
+			<p class="text-ink-muted text-xs m-0">{ v }</p>
+		}
+	</div>
+}
+
+templ descriptionBody(body string) {
+	<p class="text-ink whitespace-pre-line m-0">{ body }</p>
+}
+
+// --- helpers (Go pur, testables, hors templ) ---
+
+func facetSelectOptions(fg FacetGroup) []templux.SelectOption {
+	opts := []templux.SelectOption{{Value: "", Label: "Toutes"}}
+	for _, v := range fg.Values {
+		opts = append(opts, templux.SelectOption{
+			Value: v.Value,
+			Label: fmt.Sprintf("%s (%d)", v.Value, v.Count),
+		})
+	}
+	return opts
+}
+
+func cardTitle(l listing.Listing) string {
+	annee := attrStr(l, "annee")
+	marque := attrStr(l, "marque")
+	modele := attrStr(l, "modele")
+	parts := make([]string, 0, 3)
+	for _, p := range []string{annee, marque, modele} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	if len(parts) == 0 {
+		return l.Title
+	}
+	out := parts[0]
+	for _, p := range parts[1:] {
+		out += " " + p
+	}
+	return out
+}
+
+// attrStr lit un attribut en chaîne. Les nombres JSON (float64) sont rendus sans
+// décimale superflue (2024 et non 2024.0 ; 13.5 conservé).
+func attrStr(l listing.Listing, key string) string {
+	v, ok := l.Attrs[key]
+	if !ok || v == nil {
+		return ""
+	}
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case int64:
+		return strconv.FormatInt(t, 10)
+	default:
+		return fmt.Sprintf("%v", t)
+	}
+}
+
+// AttrDisplay rend un attribut pour affichage, en suffixant l'unité usuelle
+// (m pour la longueur). Exporté pour la bordure (handlers de l'instance).
+func AttrDisplay(l listing.Listing, key string) string {
+	s := attrStr(l, key)
+	if s == "" {
+		return ""
+	}
+	if key == "longueur_m" {
+		return s + " m"
+	}
+	return s
+}
+
+// AttrFloat lit un attribut numérique en float64 (0 si absent/non numérique).
+// Exporté pour le tri côté bordure.
+func AttrFloat(l listing.Listing, key string) float64 {
+	v, ok := l.Attrs[key]
+	if !ok || v == nil {
+		return 0
+	}
+	switch t := v.(type) {
+	case float64:
+		return t
+	case int64:
+		return float64(t)
+	case string:
+		f, _ := strconv.ParseFloat(t, 64)
+		return f
+	default:
+		return 0
+	}
+}
+
+func formatPrice(cents int64) string {
+	if cents <= 0 {
+		return "Prix sur demande"
+	}
+	euros := cents / 100
+	// séparateur de milliers par espace fine
+	s := strconv.FormatInt(euros, 10)
+	var out []byte
+	n := len(s)
+	for i, c := range []byte(s) {
+		if i > 0 && (n-i)%3 == 0 {
+			out = append(out, ' ')
+		}
+		out = append(out, c)
+	}
+	return string(out) + " €"
+}
+
+func resultCountLabel(total int) string {
+	if total == 1 {
+		return "1 annonce"
+	}
+	return strconv.Itoa(total) + " annonces"
+}
+
+func pageLabel(d IndexData) string {
+	if d.Total == 0 {
+		return ""
+	}
+	start := d.Offset + 1
+	end := d.Offset + d.Limit
+	if end > d.Total {
+		end = d.Total
+	}
+	return fmt.Sprintf("%d–%d sur %d", start, end, d.Total)
+}
+
+func pageURL(d IndexData, offset int) string {
+	if offset < 0 {
+		offset = 0
+	}
+	u := "/annonces?offset=" + strconv.Itoa(offset)
+	if d.Query != "" {
+		u += "&q=" + d.Query
+	}
+	if d.Sort != "" {
+		u += "&sort=" + d.Sort
+	}
+	for _, fg := range d.Facets {
+		if fg.Selected != "" {
+			u += "&" + fg.Attr + "=" + fg.Selected
+		}
+	}
+	for _, rg := range d.Ranges {
+		if rg.Min != "" {
+			u += "&" + rg.Attr + "_min=" + rg.Min
+		}
+		if rg.Max != "" {
+			u += "&" + rg.Attr + "_max=" + rg.Max
+		}
+	}
+	return u
+}

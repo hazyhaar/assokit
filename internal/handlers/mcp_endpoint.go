@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -16,15 +18,13 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/actions/seeds"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
+	"github.com/hazyhaar/assokit/pkg/connectors/assets"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	svcrbac "github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	svcrbac "github.com/hazyhaar/assokit/pkg/rbac"
 	"github.com/mark3labs/mcp-go/server"
 )
-
-// mcpScopesKey est la clé de contexte pour les scopes OAuth du token Bearer courant.
-type mcpScopesKey struct{}
 
 var (
 	errInvalidToken = errors.New("token invalide ou révoqué")
@@ -78,6 +78,12 @@ func newBruteForceGuard() *bearerBruteForceGuard {
 	return &bearerBruteForceGuard{buckets: make(map[string]*failBucket)}
 }
 
+// bruteForceMaxBuckets borne la taille de la map : chaque IP distincte crée un
+// bucket. Sans borne, un attaquant variant son IP (XFF spoof, IPv6 /64) ferait
+// croître la map indéfiniment → épuisement mémoire. Au seuil, on purge les
+// fenêtres expirées (lazy GC) avant d'insérer.
+const bruteForceMaxBuckets = 10000
+
 // RecordFailure enregistre un échec pour l'IP et retourne true si rate-limited.
 func (g *bearerBruteForceGuard) RecordFailure(ip string) bool {
 	g.mu.Lock()
@@ -86,11 +92,24 @@ func (g *bearerBruteForceGuard) RecordFailure(ip string) bool {
 	now := time.Now()
 	b, ok := g.buckets[ip]
 	if !ok || now.After(b.windowEnd) {
+		if !ok && len(g.buckets) >= bruteForceMaxBuckets {
+			g.purgeExpiredLocked(now)
+		}
 		g.buckets[ip] = &failBucket{count: 1, windowEnd: now.Add(time.Minute)}
 		return false
 	}
 	b.count++
 	return b.count > 10
+}
+
+// purgeExpiredLocked supprime les buckets dont la fenêtre est expirée.
+// Appelant doit détenir g.mu.
+func (g *bearerBruteForceGuard) purgeExpiredLocked(now time.Time) {
+	for k, b := range g.buckets {
+		if now.After(b.windowEnd) {
+			delete(g.buckets, k)
+		}
+	}
 }
 
 var globalBruteForce = newBruteForceGuard()
@@ -115,7 +134,7 @@ func oauthBearerMiddleware(db *sql.DB, rbacSvc *svcrbac.Service, deps app.AppDep
 				return
 			}
 
-			ip := realIP(r)
+			ip := clientIP(r, deps.Config.TrustProxyHeaders)
 			ipHashShort := middleware.HashIP(ip, deps.Config.CookieSecret)
 			info, err := validateBearerToken(ctx, db, token)
 			if err != nil {
@@ -141,9 +160,9 @@ func oauthBearerMiddleware(db *sql.DB, rbacSvc *svcrbac.Service, deps app.AppDep
 			ctx = perms.ContextWithService(ctx, rbacSvc)
 			ctx = perms.ContextWithUserID(ctx, info.UserID)
 			// Injecter user pour middleware.UserFromContext (audit MCP)
-			ctx = middleware.ContextWithUser(ctx, &auth.User{ID: info.UserID})
-			// Injecter scopes OAuth
-			ctx = context.WithValue(ctx, mcpScopesKey{}, info.Scopes)
+			ctx = middleware.ContextWithUser(ctx, &identity.User{ID: info.UserID})
+			// Injecter scopes OAuth (clé portée par pkg/actions, lue par l'enforcement MCP).
+			ctx = actions.ContextWithScopes(ctx, info.Scopes)
 
 			deps.Logger.Info("mcp_bearer_validated",
 				"req_id", reqID,
@@ -164,28 +183,68 @@ func extractBearer(r *http.Request) string {
 	return ""
 }
 
-func realIP(r *http.Request) string {
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
-	}
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		return strings.SplitN(ip, ",", 2)[0]
-	}
-	return r.RemoteAddr
-}
+// IP cliente extraite via clientIP() (handlers) — honore XFF/X-Real-IP
+// uniquement si TrustProxyHeaders, sinon RemoteAddr.
 
 // mountMCPEndpoint monte l'endpoint /mcp sur le router chi.
 // Il crée un server MCP, bind toutes les actions, applique le middleware OAuth.
-func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service) {
+// vault est optionnel (nil = pas de LiveKit) : si non-nil, InitSalonVisio est appelé.
+func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service, registerActions func(*actions.Registry) error, vault *assets.Vault) error {
 	reg := actions.NewRegistry()
 	seeds.InitAll(reg)
+	seeds.InitSalonVisio(reg, vault)
 
-	// Seeder les perms RBAC depuis le registry (idempotent)
+	// Hook bordure : un consommateur (ex. un produit tiers) injecte ses actions
+	// métier dans le MÊME registre que les seeds core → route HTTP + outil MCP
+	// + seed de permission RBAC automatiques (LLM-parity). Fail-loud : un ID en
+	// doublon (collision avec une action core) remonte une erreur au boot.
+	if registerActions != nil {
+		if err := registerActions(reg); err != nil {
+			return fmt.Errorf("mountMCPEndpoint: register extra actions: %w", err)
+		}
+	}
+
+	// Seeder les perms RBAC depuis le registry (idempotent), les accorder au
+	// grade système admin, puis recomputer les permissions effectives des admins.
+	// Sans ce dernier maillon, user_effective_permissions reste vide et Can()
+	// renvoie false → 403 sur /admin/actions/{id} malgré le grade admin.
 	go func() {
 		ctx := context.Background()
+		log := deps.Logger
+		if log == nil {
+			log = slog.Default()
+		}
 		store := &svcrbac.Store{DB: deps.DB}
 		for _, a := range reg.All() {
-			store.EnsurePermission(ctx, a.RequiredPerm, a.Description) //nolint:errcheck
+			permID, err := store.EnsurePermission(ctx, a.RequiredPerm, a.Description)
+			if err != nil {
+				log.Error("rbac_seed_ensure_permission", "perm", a.RequiredPerm, "err", err.Error())
+				continue
+			}
+			if err := store.GrantPerm(ctx, "sys-admin", permID); err != nil {
+				log.Error("rbac_seed_grant_perm", "perm", a.RequiredPerm, "err", err.Error())
+			}
+		}
+		if rbacSvc != nil {
+			rows, err := deps.DB.QueryContext(ctx,
+				`SELECT user_id FROM user_grades WHERE grade_id = 'sys-admin'`)
+			if err != nil {
+				log.Error("rbac_seed_list_sysadmins", "err", err.Error())
+				return
+			}
+			var ids []string
+			for rows.Next() {
+				var id string
+				if rows.Scan(&id) == nil {
+					ids = append(ids, id)
+				}
+			}
+			rows.Close()
+			for _, id := range ids {
+				if err := rbacSvc.Recompute(ctx, id); err != nil {
+					log.Error("rbac_seed_recompute", "user_id", id, "err", err.Error())
+				}
+			}
 		}
 	}()
 
@@ -193,6 +252,16 @@ func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service) 
 		server.WithToolCapabilities(true),
 	)
 	actions.MountMCP(mcpSrv, deps, reg)
+
+	// Parité HTTP : chaque action (core + injectée via le hook) obtient aussi
+	// GET+POST /admin/actions/{id} — formulaire + exécution — derrière l'auth
+	// admin RBAC (requireRBACAdmin) et la permission atomique de l'action
+	// (perms.Required dans MountHTTP, qui exige le middleware RBAC actif).
+	r.Group(func(r chi.Router) {
+		r.Use(requireRBACAdmin(rbacSvc))
+		r.Use(middleware.RBAC(rbacSvc))
+		actions.MountHTTP(r, deps, reg)
+	})
 
 	httpSrv := server.NewStreamableHTTPServer(mcpSrv)
 
@@ -228,10 +297,13 @@ func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service) 
 			"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post"},
 		})
 	})
+
+	return nil
 }
 
-// ScopesFromContext retourne les scopes OAuth depuis le contexte.
+// ScopesFromContext retourne les scopes OAuth depuis le contexte (vue simple,
+// délègue à pkg/actions qui porte la clé canonique).
 func ScopesFromContext(ctx context.Context) []string {
-	scopes, _ := ctx.Value(mcpScopesKey{}).([]string)
+	scopes, _ := actions.ScopesFromContext(ctx)
 	return scopes
 }

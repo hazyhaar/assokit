@@ -1,52 +1,75 @@
-// CLAUDE:SUMMARY OAuth 2.1 provider factory : NewProvider + NewOpenIDProvider via zitadel/oidc/v3/op (M-ASSOKIT-OAUTH-1).
+// CLAUDE:SUMMARY Shim internal/oauth → pkg/oauth : adapte l'ancienne signature (rbac.Store) vers les interfaces UserProvider+IDGenerator (M-ASSOKIT-OAUTH-1).
+// Ce paquet est conservé pour la rétro-compatibilité interne assokit. Les consommateurs externes utilisent pkg/oauth directement.
 package oauth
 
 import (
-	"crypto/sha256"
+	"context"
 	"database/sql"
-	"log/slog"
+	"fmt"
 	"net/http"
-	"os"
-	"strings"
 
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
-	"github.com/zitadel/oidc/v3/pkg/op"
+	pkgoauth "github.com/hazyhaar/assokit/pkg/oauth"
+	"github.com/hazyhaar/assokit/pkg/rbac"
+	"github.com/hazyhaar/assokit/pkg/uid"
 )
 
-// NewProvider crée le Provider OIDC avec le Storage SQLite HS256.
-// issuer doit être l'URL publique de l'instance (ex: "https://nps.example.com").
-// signingKey est la clé secrète (COOKIE_SECRET ou OAUTH_SIGNING_KEY).
-func NewProvider(db *sql.DB, issuer string, signingKey []byte, rbacStore *rbac.Store) (http.Handler, *Storage, error) {
-	if os.Getenv("OAUTH_SIGNING_KEY") == "" {
-		slog.Warn("OAUTH_SIGNING_KEY absent — tokens OAuth invalidés au restart, utiliser COOKIE_SECRET comme fallback")
+// Storage est un alias du Storage public pour la rétro-compatibilité.
+type Storage = pkgoauth.Storage
+
+// uidGen implémente pkgoauth.IDGenerator via uid.New().
+type uidGen struct{}
+
+func (uidGen) NewID() string { return uid.New() }
+
+// rbacUserProvider implémente pkgoauth.UserProvider sur la table users + user_effective_permissions.
+type rbacUserProvider struct {
+	db        *sql.DB
+	rbacStore *rbac.Store
+}
+
+func (p *rbacUserProvider) GetUser(ctx context.Context, id string) (*pkgoauth.UserInfo, error) {
+	row := p.db.QueryRowContext(ctx, `SELECT id, email, display_name FROM users WHERE id = ?`, id)
+	var u pkgoauth.UserInfo
+	if err := row.Scan(&u.ID, &u.Email, &u.DisplayName); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("rbacUserProvider.GetUser: %w", err)
 	}
+	return &u, nil
+}
 
-	store := New(db, signingKey, rbacStore)
-
-	// CryptoKey [32]byte pour l'AES interne du provider (chiffrement token bearer).
-	sum := sha256.Sum256(signingKey)
-	var cryptoKey [32]byte
-	copy(cryptoKey[:], sum[:])
-
-	cfg := &op.Config{
-		CryptoKey:             cryptoKey,
-		GrantTypeRefreshToken: true,
-		AuthMethodPost:        true,
-		CodeMethodS256:        true,
-		SupportedScopes: []string{
-			"openid", "profile", "email", "offline_access",
-		},
+func (p *rbacUserProvider) ListPermissions(ctx context.Context, userID string) ([]string, error) {
+	if p.rbacStore == nil {
+		return nil, nil
 	}
-
-	opts := []op.Option{}
-	if os.Getenv("OAUTH_ALLOW_INSECURE") == "true" || strings.HasPrefix(issuer, "http://") {
-		opts = append(opts, op.WithAllowInsecure())
-	}
-
-	provider, err := op.NewOpenIDProvider(issuer, cfg, store, opts...)
+	rows, err := p.db.QueryContext(ctx,
+		`SELECT p.name FROM user_effective_permissions uep
+		 JOIN permissions p ON p.id = uep.permission_id
+		 WHERE uep.user_id = ?`, userID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+	defer rows.Close()
+	var perms []string
+	for rows.Next() {
+		var perm string
+		rows.Scan(&perm) //nolint:errcheck
+		perms = append(perms, perm)
+	}
+	return perms, rows.Err()
+}
 
-	return provider, store, nil
+// New crée un Storage OAuth avec l'ancienne signature (rétro-compatibilité assokit).
+// rbacStore peut être nil (permissions non injectées dans les claims).
+func New(db *sql.DB, signingKeyBytes []byte, rbacStore *rbac.Store) *Storage {
+	up := &rbacUserProvider{db: db, rbacStore: rbacStore}
+	return pkgoauth.New(db, signingKeyBytes, up, uidGen{})
+}
+
+// NewProvider crée le Provider OIDC avec l'ancienne signature (rétro-compatibilité assokit).
+// rbacStore peut être nil.
+func NewProvider(db *sql.DB, issuer string, signingKey []byte, allowInsecure bool, rbacStore *rbac.Store) (http.Handler, *Storage, error) {
+	up := &rbacUserProvider{db: db, rbacStore: rbacStore}
+	return pkgoauth.NewProvider(db, issuer, signingKey, allowInsecure, up, uidGen{})
 }

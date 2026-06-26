@@ -123,7 +123,7 @@ func TestVault_RotateAbsentReturnsError(t *testing.T) {
 func TestVault_ListReturnsKeyNamesWithoutValues(t *testing.T) {
 	db := openVaultDB(t)
 	v, _ := NewVault(db, validHexKey)
-	v.Set(context.Background(), "helloasso", "client_id", "ID", "admin")     //nolint:errcheck
+	v.Set(context.Background(), "helloasso", "client_id", "ID", "admin")      //nolint:errcheck
 	v.Set(context.Background(), "helloasso", "client_secret", "SEC", "admin") //nolint:errcheck
 
 	keys, err := v.List(context.Background(), "helloasso")
@@ -150,9 +150,9 @@ func TestVault_PlaintextNeverLogged(t *testing.T) {
 	slog.SetDefault(logger)
 
 	const secret = "BORIS_SUPER_SECRET_42"
-	v.Set(context.Background(), "helloasso", "k", secret, "admin")            //nolint:errcheck
+	v.Set(context.Background(), "helloasso", "k", secret, "admin")                     //nolint:errcheck
 	v.Use(context.Background(), "helloasso", "k", func(_ string) error { return nil }) //nolint:errcheck
-	v.Rotate(context.Background(), "helloasso", "k", secret+"_v2", "admin")   //nolint:errcheck
+	v.Rotate(context.Background(), "helloasso", "k", secret+"_v2", "admin")            //nolint:errcheck
 
 	if strings.Contains(buf.String(), secret) {
 		t.Errorf("slog leaké le plaintext : %q dans %s", secret, buf.String())

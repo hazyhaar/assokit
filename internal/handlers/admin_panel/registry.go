@@ -71,7 +71,7 @@ func V0Fields() []Field {
 
 		// QUI-SOMMES-NOUS (V0.1)
 		{Key: "quisommesnous.histoire", Section: "quisommesnous", Order: 1, Label: "Histoire de l'association", Hint: "Comment et pourquoi l'asso a été créée. 1 paragraphe lisible.", Kind: "longtext", Required: true},
-		{Key: "quisommesnous.mission_1", Section: "quisommesnous", Order: 2, Label: "Mission principale 1", Hint: "1 ligne, ex 'Soutenir les lanceurs d'alerte'", Kind: "text", Required: true},
+		{Key: "quisommesnous.mission_1", Section: "quisommesnous", Order: 2, Label: "Mission principale 1", Hint: "1 ligne, ex 'Animer la vie de la communauté'", Kind: "text", Required: true},
 		{Key: "quisommesnous.mission_2", Section: "quisommesnous", Order: 3, Label: "Mission principale 2 (optionnel)", Kind: "text"},
 		{Key: "quisommesnous.mission_3", Section: "quisommesnous", Order: 4, Label: "Mission principale 3 (optionnel)", Kind: "text"},
 		{Key: "quisommesnous.president_bio", Section: "quisommesnous", Order: 5, Label: "Bio du président (optionnel)", Hint: "Court paragraphe affiché sur /a-propos", Kind: "longtext"},

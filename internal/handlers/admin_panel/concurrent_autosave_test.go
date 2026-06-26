@@ -19,8 +19,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
 	adminpanel "github.com/hazyhaar/assokit/internal/handlers/admin_panel"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 func newConcurrentDeps(t *testing.T) app.AppDeps {
@@ -55,7 +55,7 @@ func newSaveFieldReq(key, value string) *http.Request {
 	form.Set("value", value)
 	req := httptest.NewRequest(http.MethodPost, "/admin/panel/save-field", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	u := &auth.User{ID: "admin-test", Email: "admin@test.com", Roles: []string{"admin"}}
+	u := &identity.User{ID: "admin-test", Email: "admin@test.com", Roles: []string{"admin"}}
 	return req.WithContext(middleware.ContextWithUser(req.Context(), u))
 }
 

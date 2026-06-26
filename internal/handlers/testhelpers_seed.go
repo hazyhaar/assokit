@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/hazyhaar/assokit/pkg/horui/tree"
+	tree "github.com/hazyhaar/assokit/internal/nodetree"
 )
 
 // SeedNodes insère les nœuds nécessaires aux tests CDP.
@@ -37,6 +37,14 @@ func SeedNodes(db *sql.DB) error {
 		return err
 	}
 	for _, role := range []string{"admin", "member"} {
+		// node_permissions.role_id REFERENCES roles(id) : la row roles doit
+		// exister avant l'insert (sinon FOREIGN KEY constraint failed).
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO roles(id, label) VALUES(?,?) ON CONFLICT(id) DO NOTHING`,
+			role, role,
+		); err != nil {
+			return err
+		}
 		if _, err := db.ExecContext(ctx,
 			`INSERT INTO node_permissions(node_id, role_id, permission) VALUES(?,?,?)
 			 ON CONFLICT DO NOTHING`,

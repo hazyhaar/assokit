@@ -1,0 +1,213 @@
+// views/admin_rbac.templ — vues admin RBAC migrees vers templux (vague 2).
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	adminrbac "github.com/hazyhaar/assokit/pkg/horui/admin/rbac"
+)
+
+// RbacAuditListPage : liste paginée de l'audit RBAC.
+templ RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination, filter adminrbac.AuditFilter) {
+	<div id="rbac-audit" class="flex flex-col gap-space-lg">
+		<h2 class="text-xl font-semibold text-ink">Audit RBAC</h2>
+		<form method="GET" action="/admin/rbac/audit" class="flex flex-col gap-space-sm sm:flex sm:flex-row sm:items-end">
+			@templux.FormField("Action", "", "", templux.Input("action", filter.Action, templ.Attributes{"type": "text", "placeholder": "Action (ex: grade_created)"}))
+			@templux.FormField("ActorID", "", "", templux.Input("actor_id", filter.ActorID, templ.Attributes{"type": "text", "placeholder": "ActorID"}))
+			@templux.Button("Filtrer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		<table class="w-full text-sm">
+			<thead>
+				<tr>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Date</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Action</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Acteur</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Cible</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Détail</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, a := range rows {
+					<tr>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.CreatedAt }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.Action }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.ActorID }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.TargetID }</td>
+						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.Detail }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<nav class="flex items-center gap-space-md">
+			if pag.HasPrev {
+				<a class="text-accent" href={ templ.SafeURL(fmt.Sprintf("/admin/rbac/audit?page=%d", pag.PrevPage)) }>← Préc</a>
+			}
+			<span class="text-sm text-ink-muted">Page { fmt.Sprintf("%d", pag.Page) } / { fmt.Sprintf("%d", (pag.Total+49)/50) }</span>
+			if pag.HasNext {
+				<a class="text-accent" href={ templ.SafeURL(fmt.Sprintf("/admin/rbac/audit?page=%d", pag.NextPage)) }>Suiv →</a>
+			}
+		</nav>
+	</div>
+}
+
+// RbacGradeListPage : liste des grades RBAC.
+templ RbacGradeListPage(rows []adminrbac.GradeRow) {
+	<div id="rbac-grades" class="flex flex-col gap-space-lg">
+		<h2 class="text-xl font-semibold text-ink">Grades RBAC</h2>
+		<table class="w-full text-sm">
+			<thead>
+				<tr>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Nom</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Desc</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Users</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Perms</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Actions</th>
+				</tr>
+			</thead>
+			<tbody id="grade-list">
+				for _, g := range rows {
+					@RbacGradeListRow(g)
+				}
+			</tbody>
+		</table>
+		<form hx-post="/admin/rbac/grades" hx-target="#grade-list" hx-swap="afterbegin" class="flex flex-col gap-space-sm sm:flex sm:flex-row sm:items-end">
+			@templux.FormField("Nom du grade", "", "", templux.Input("name", "", templ.Attributes{"type": "text", "placeholder": "Nom du grade", "required": "required"}))
+			@templux.FormField("Description", "", "", templux.Input("desc", "", templ.Attributes{"type": "text", "placeholder": "Description"}))
+			@templux.Button("Créer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+	</div>
+}
+
+// RbacGradeListRow rend une ligne grade.
+templ RbacGradeListRow(g adminrbac.GradeRow) {
+	<tr id={ "grade-row-" + g.ID }>
+		<td class="px-space-md py-space-sm border-b border-border text-left">
+			{ g.Name }
+			if g.IsSystem {
+				<span title="grade système"> (système)</span>
+			}
+		</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">{ g.Desc }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">{ fmt.Sprintf("%d", g.UsersCount) }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">{ fmt.Sprintf("%d", g.PermsCount) }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">
+			<div class="flex items-center gap-space-sm">
+				<a class="text-accent" href={ templ.SafeURL("/admin/rbac/grades/" + g.ID) }>Éditer</a>
+				if !g.IsSystem {
+					@templux.Button("Supprimer", "danger", templ.Attributes{
+						"hx-delete":  "/admin/rbac/grades/" + g.ID,
+						"hx-target":  "#grade-row-" + g.ID,
+						"hx-swap":    "outerHTML",
+						"hx-confirm": "Supprimer le grade « " + g.Name + " » ?",
+					})
+				}
+			</div>
+		</td>
+	</tr>
+}
+
+// RbacGradeEditPage : édition d'un grade (permissions + héritage).
+templ RbacGradeEditPage(d adminrbac.GradeDetail) {
+	<div class="flex flex-col gap-space-lg">
+		<h2 class="text-xl font-semibold text-ink">Éditer grade : { d.Name }</h2>
+		if d.IsSystem {
+			@templux.Alert("warning", "Grade système — suppression désactivée.")
+		}
+		<h2 class="text-xl font-semibold text-ink">Permissions</h2>
+		<form hx-post={ "/admin/rbac/grades/" + d.ID + "/perms" } hx-swap="none" class="flex flex-col gap-space-md">
+			<div class="grid grid-cols-3 gap-space-sm">
+				for _, p := range d.AllPerms {
+					<label class="flex items-center gap-space-xs text-sm text-ink">
+						<input
+							type="checkbox"
+							name="perm_id"
+							value={ p.ID }
+							if d.HasPerms[p.ID] { checked }
+						/>
+						{ p.Name }
+					</label>
+				}
+			</div>
+			@templux.Button("Enregistrer permissions", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		<h2 class="text-xl font-semibold text-ink">Grades parents (héritage)</h2>
+		<form hx-post={ "/admin/rbac/grades/" + d.ID + "/inherit" } hx-swap="none" class="flex flex-col gap-space-md">
+			<div class="flex flex-col gap-space-xs">
+				for _, g := range d.AllGrades {
+					if g.ID != d.ID {
+						<label class="flex items-center gap-space-xs text-sm text-ink">
+							<input
+								type="checkbox"
+								name="parent_id"
+								value={ g.ID }
+								if d.Parents[g.ID] { checked }
+							/>
+							{ g.Name }
+						</label>
+					}
+				}
+			</div>
+			@templux.Button("Enregistrer héritage", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		<p><a class="text-accent" href="/admin/rbac/grades">← Retour liste</a></p>
+	</div>
+}
+
+// RbacUserListPage : liste utilisateurs RBAC.
+templ RbacUserListPage(rows []adminrbac.UserRow, filter adminrbac.UserFilter, allGrades []adminrbac.GradeRow) {
+	<div id="rbac-users" class="flex flex-col gap-space-lg">
+		<h2 class="text-xl font-semibold text-ink">Users RBAC</h2>
+		<form method="GET" action="/admin/rbac/users" class="flex flex-col gap-space-sm sm:flex sm:flex-row sm:items-end">
+			@templux.FormField("Recherche", "", "", templux.Input("search", filter.Search, templ.Attributes{"type": "text", "placeholder": "Email…"}))
+			<select name="grade_id" class="px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm">
+				<option value="">Tous grades</option>
+				for _, g := range allGrades {
+					<option value={ g.ID } if filter.GradeID == g.ID { selected }>{ g.Name }</option>
+				}
+			</select>
+			@templux.Button("Filtrer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		<table class="w-full text-sm">
+			<thead>
+				<tr>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Email</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Grades</th>
+					<th class="px-space-md py-space-sm border-b border-border text-left">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, u := range rows {
+					@RbacUserListRow(u, allGrades)
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// RbacUserListRow rend une ligne user.
+templ RbacUserListRow(u adminrbac.UserRow, allGrades []adminrbac.GradeRow) {
+	<tr id={ "user-row-" + u.ID }>
+		<td class="px-space-md py-space-sm border-b border-border text-left">{ u.Email }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">
+			<div class="flex items-center gap-space-xs">
+				for _, g := range u.Grades {
+					@templux.Badge(g, "neutral")
+				}
+			</div>
+		</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">
+			<form hx-post={ "/admin/rbac/users/" + u.ID + "/grades" }
+				hx-target={ "#user-row-" + u.ID }
+				hx-swap="outerHTML"
+				class="flex items-center gap-space-sm">
+				<select name="grade_id" class="px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm">
+					for _, g := range allGrades {
+						<option value={ g.ID }>{ g.Name }</option>
+					}
+				</select>
+				@templux.Button("+ Grade", "secondary", templ.Attributes{"type": "submit"})
+			</form>
+		</td>
+	</tr>
+}

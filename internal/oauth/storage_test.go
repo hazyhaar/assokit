@@ -13,7 +13,7 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/internal/oauth"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 )
@@ -54,7 +54,7 @@ func seedUserAndClient(t *testing.T, db *sql.DB) (userID, clientID, clientSecret
 	clientSecret = "test-secret-abc"
 
 	db.Exec(`INSERT INTO users(id, email, password_hash, display_name, is_active, created_at) VALUES(?,?,?,?,1,?)`,
-		userID, "test@nps.fr", "hashed", "Test User", time.Now().UTC().Format(time.RFC3339))
+		userID, "test@example.org", "hashed", "Test User", time.Now().UTC().Format(time.RFC3339))
 
 	store := oauth.New(db, testSigningKey, &rbac.Store{DB: db})
 	store.CreateClient(context.Background(), clientID, clientSecret,

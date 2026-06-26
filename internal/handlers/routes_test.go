@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/internal/handlers"
 	"github.com/hazyhaar/assokit/internal/mailer"
+	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 
 	_ "modernc.org/sqlite"
@@ -24,7 +26,7 @@ import (
 
 // newRouterForRouteTests minimal : chassis + middlewares + MountRoutes.
 // Tests vérifient le routing pas le contenu des handlers.
-func newRouterForRouteTests(t *testing.T) (*chi.Mux, *sql.DB) {
+func newRouterForRouteTests(t *testing.T, opts ...handlers.RouteOption) (*chi.Mux, *sql.DB) {
 	t.Helper()
 	db, err := sql.Open("sqlite", ":memory:?_pragma=foreign_keys(1)")
 	if err != nil {
@@ -45,7 +47,9 @@ func newRouterForRouteTests(t *testing.T) (*chi.Mux, *sql.DB) {
 	r := chi.NewRouter()
 	r.Use(middleware.Flash)
 	r.Use(middleware.Auth(db, deps.Config.CookieSecret))
-	handlers.MountRoutes(r, deps)
+	if err := handlers.MountRoutes(r, deps, opts...); err != nil {
+		t.Fatalf("MountRoutes: %v", err)
+	}
 	return r, db
 }
 
@@ -121,4 +125,108 @@ func TestRoutes_FeedbackPublicAnonymous(t *testing.T) {
 	}
 }
 
-var _ = context.Background // garde l'import stable
+// fetchToolsCount lit le champ tools_count exposé par /.well-known/mcp/server
+// (= len(registry.All())) — proxy d'observation du nombre d'actions montées.
+func fetchToolsCount(t *testing.T, r *chi.Mux) int {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/.well-known/mcp/server", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /.well-known/mcp/server → %d", w.Code)
+	}
+	var payload struct {
+		ToolsCount int `json:"tools_count"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode tools_count: %v", err)
+	}
+	return payload.ToolsCount
+}
+
+// newDupActionDeps construit des deps minimales pour les tests du hook.
+func newHookTestDeps(t *testing.T) app.AppDeps {
+	t.Helper()
+	db, err := sql.Open("sqlite", ":memory:?_pragma=foreign_keys(1)")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("chassis.Run: %v", err)
+	}
+	return app.AppDeps{
+		DB: db,
+		Config: config.Config{
+			Port: "0", BaseURL: "http://localhost",
+			CookieSecret: []byte("test-cookie-secret-32bytes-padded000"),
+		},
+		Mailer: &mailer.Mailer{DB: db},
+	}
+}
+
+func okAction(id string) actions.Action {
+	return actions.Action{
+		ID:           id,
+		Title:        "Test",
+		Description:  "Action de test injectée via le hook de bordure.",
+		ParamsSchema: actions.MustSchema(`{"type":"object","properties":{}}`),
+		RequiredPerm: id,
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
+	}
+}
+
+// TestRegisterActionsHook_AddsCustomActionToMCP : une action injectée par le
+// hook WithExtraActions est montée comme outil MCP (tools_count +1). C'est la
+// LLM-parity attendue par les produits consommateurs (ex. un produit tiers et ses actions
+// ext.parcelle.*), sans modifier le core.
+func TestRegisterActionsHook_AddsCustomActionToMCP(t *testing.T) {
+	baseRouter, _ := newRouterForRouteTests(t)
+	base := fetchToolsCount(t, baseRouter)
+
+	hookRouter, _ := newRouterForRouteTests(t, handlers.WithExtraActions(func(reg *actions.Registry) error {
+		return reg.Add(okAction("ext.test.ping"))
+	}))
+	if got := fetchToolsCount(t, hookRouter); got != base+1 {
+		t.Errorf("tools_count = %d, attendu base+1 = %d (action custom non montée)", got, base+1)
+	}
+
+	// Parité HTTP : la route admin de l'action injectée est enregistrée. Sans
+	// session admin, requireRBACAdmin refuse (401/403/302) — mais PAS 404, ce
+	// qui prouverait l'absence de route.
+	req := httptest.NewRequest(http.MethodGet, "/admin/actions/ext.test.ping", nil)
+	w := httptest.NewRecorder()
+	hookRouter.ServeHTTP(w, req)
+	if w.Code == http.StatusNotFound {
+		t.Errorf("GET /admin/actions/ext.test.ping → 404 : route HTTP de l'action injectée non montée")
+	}
+}
+
+// TestRegisterActionsHook_DuplicateIDFailsLoud : un hook ajoutant un ID déjà
+// présent fait échouer MountRoutes — fail-loud au boot, jamais de montage
+// silencieux d'un registre incohérent.
+func TestRegisterActionsHook_DuplicateIDFailsLoud(t *testing.T) {
+	deps := newHookTestDeps(t)
+	r := chi.NewRouter()
+	err := handlers.MountRoutes(r, deps, handlers.WithExtraActions(func(reg *actions.Registry) error {
+		if e := reg.Add(okAction("ext.dup")); e != nil {
+			return e
+		}
+		return reg.Add(okAction("ext.dup")) // doublon → ErrDuplicateActionID
+	}))
+	if err == nil {
+		t.Fatal("MountRoutes doit échouer sur ID dupliqué (fail-loud)")
+	}
+}
+
+// TestRegisterActionsHook_NilIsNoop : sans hook, MountRoutes fonctionne (les
+// appelants existants restent valides — option variadique).
+func TestRegisterActionsHook_NilIsNoop(t *testing.T) {
+	deps := newHookTestDeps(t)
+	r := chi.NewRouter()
+	if err := handlers.MountRoutes(r, deps); err != nil {
+		t.Fatalf("MountRoutes sans hook: %v", err)
+	}
+}

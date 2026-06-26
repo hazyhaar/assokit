@@ -1,0 +1,124 @@
+// views/transcript.templ — pages comptes-rendus de salon (liste + détail segments).
+// Migré dans la stack templux vendored. Aucune classe CSS maison.
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/salon"
+	"github.com/hazyhaar/assokit/pkg/transcript"
+)
+
+// TranscriptRow regroupe un transcript avec ses champs d'affichage calculés.
+type TranscriptRow struct {
+	T        *transcript.Transcript
+	Duration string // durée lisible, vide si en cours
+	Status   string // libellé français
+}
+
+// TranscriptList : page GET /salon/{slug}/transcripts — liste des comptes-rendus.
+templ TranscriptList(sl *salon.Salon, rows []TranscriptRow) {
+	<section class="flex flex-col gap-space-lg">
+		<nav aria-label="Fil d'Ariane">
+			<ol class="flex flex-wrap items-center gap-1 text-sm text-ink-muted list-none">
+				<li><a href="/salons" class="text-accent">Salons</a><span aria-hidden="true" class="text-border"> / </span></li>
+				<li><a href={ templ.SafeURL("/salon/" + sl.Slug) } class="text-accent">{ sl.Name }</a><span aria-hidden="true" class="text-border"> / </span></li>
+				<li><span aria-current="page" class="text-ink font-medium">Comptes-rendus</span></li>
+			</ol>
+		</nav>
+		<div class="flex flex-col gap-space-xs">
+			<h1 class="text-2xl font-semibold text-ink">Comptes-rendus</h1>
+			<p class="text-ink-muted">Transcriptions des visioconférences du salon { sl.Name }.</p>
+		</div>
+		if len(rows) == 0 {
+			<div class="bg-surface-muted rounded-lg p-space-lg text-ink-muted">
+				<p>Aucun compte-rendu pour l'instant.</p>
+			</div>
+		} else {
+			<ul class="list-none flex flex-col gap-space-sm">
+				for _, row := range rows {
+					<li class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex items-center justify-between gap-space-md">
+						<div class="flex flex-col gap-space-xs">
+							<span class="font-semibold text-ink">{ row.T.StartedAt.Format("02/01/2006 à 15h04") }</span>
+							<div class="flex items-center gap-space-sm flex-wrap">
+								@templux.Badge(row.Status, transcriptBadgeVariant(row.T.Status))
+								if row.Duration != "" {
+									<span class="text-sm text-ink-muted">Durée : { row.Duration }</span>
+								}
+							</div>
+						</div>
+						if row.T.Status == "done" {
+							<div class="flex items-center gap-space-sm">
+								@templux.LinkButton("Voir", "/salon/"+sl.Slug+"/transcripts/"+row.T.ID, "ghost", templ.Attributes{})
+								@templux.LinkButton("Télécharger", "/salon/"+sl.Slug+"/transcripts/"+row.T.ID+"/download", "secondary", templ.Attributes{})
+							</div>
+						}
+					</li>
+				}
+			</ul>
+		}
+	</section>
+}
+
+// TranscriptDetail : page GET /salon/{slug}/transcripts/{id} — segments du compte-rendu.
+templ TranscriptDetail(sl *salon.Salon, tr *transcript.Transcript, segs []*transcript.Segment, statusLabel string) {
+	<section class="flex flex-col gap-space-lg">
+		<nav aria-label="Fil d'Ariane">
+			<ol class="flex flex-wrap items-center gap-1 text-sm text-ink-muted list-none">
+				<li><a href="/salons" class="text-accent">Salons</a><span aria-hidden="true" class="text-border"> / </span></li>
+				<li><a href={ templ.SafeURL("/salon/" + sl.Slug) } class="text-accent">{ sl.Name }</a><span aria-hidden="true" class="text-border"> / </span></li>
+				<li><a href={ templ.SafeURL("/salon/" + sl.Slug + "/transcripts") } class="text-accent">Comptes-rendus</a><span aria-hidden="true" class="text-border"> / </span></li>
+				<li><span aria-current="page" class="text-ink font-medium">{ tr.StartedAt.Format("02/01/2006") }</span></li>
+			</ol>
+		</nav>
+		<div class="flex flex-col gap-space-xs">
+			<div class="flex items-center gap-space-sm flex-wrap">
+				<h1 class="text-2xl font-semibold text-ink">Compte-rendu du { tr.StartedAt.Format("02/01/2006 à 15h04") }</h1>
+				@templux.Badge(statusLabel, transcriptBadgeVariant(tr.Status))
+			</div>
+			<div class="flex items-center gap-space-sm">
+				@templux.LinkButton("Télécharger (.txt)", "/salon/"+sl.Slug+"/transcripts/"+tr.ID+"/download", "secondary", templ.Attributes{})
+			</div>
+		</div>
+		if len(segs) == 0 {
+			<div class="bg-surface-muted rounded-lg p-space-lg text-ink-muted">
+				<p>Aucun segment de parole enregistré pour ce compte-rendu.</p>
+			</div>
+		} else {
+			<div class="flex flex-col gap-space-sm">
+				for _, seg := range segs {
+					<div class="bg-surface-raised rounded-lg p-space-md flex flex-col gap-space-xs shadow-sm">
+						<div class="flex items-center gap-space-sm text-sm text-ink-faint">
+							<span class="font-medium text-ink-muted">{ seg.Speaker }</span>
+							<time class="text-xs">{ formatSegmentTime(seg.T0ms) }</time>
+						</div>
+						<p class="text-ink text-sm">{ seg.Text }</p>
+					</div>
+				}
+			</div>
+		}
+	</section>
+}
+
+// transcriptBadgeVariant mappe le statut machine sur la variante de badge templux.
+func transcriptBadgeVariant(status string) string {
+	switch status {
+	case "done":
+		return "success"
+	case "failed":
+		return "danger"
+	case "recording", "transcribing":
+		return "info"
+	default:
+		return "secondary"
+	}
+}
+
+// formatSegmentTime convertit un offset en millisecondes en chaîne mm:ss.
+func formatSegmentTime(ms int64) string {
+	total := ms / 1000
+	m := total / 60
+	s := total % 60
+	return fmt.Sprintf("%d:%02d", m, s)
+}

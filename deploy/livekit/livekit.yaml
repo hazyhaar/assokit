@@ -1,0 +1,33 @@
+# Configuration du serveur média LiveKit pour assokit.
+#
+# REMPLACER la paire clé/secret ci-dessous (section `keys`) par une paire
+# générée — ne JAMAIS laisser les valeurs d'exemple en production : quiconque
+# les connaît peut forger des jetons d'accès aux salles. Voir README.md §1.
+
+# Port du signal WebSocket (handshake + signalisation). C'est l'URL que les
+# membres et le connecteur assokit contactent : ws://<hôte>:7880 (ou wss://
+# derrière un reverse-proxy TLS, cf. README.md §4).
+port: 7880
+
+# Plage de ports UDP pour les flux média WebRTC (audio/vidéo). Doit être
+# ouverte au pare-feu. La plage est large pour absorber de nombreux flux
+# simultanés ; la réduire est possible pour de petites communautés.
+rtc:
+  port_range_start: 50000
+  port_range_end: 60000
+  # use_external_ip: découverte de l'IP publique pour le SDP. À activer si le
+  # serveur est derrière un NAT (VPS, cloud) ; à laisser false en réseau local.
+  use_external_ip: false
+  # tcp_port: repli TCP 7881 quand l'UDP est bloqué (réseaux d'entreprise
+  # restrictifs). Ouvre une voie même sans plage UDP accessible.
+  tcp_port: 7881
+
+# Paire(s) API : <clé>: <secret>. Le connecteur assokit signe les jetons avec
+# elles. PLACEHOLDER — à remplacer (README.md §1).
+keys:
+  REMPLACER_API_KEY: REMPLACER_API_SECRET_AU_MOINS_32_CARACTERES
+
+# Journalisation. `info` convient ; passer à `debug` pour diagnostiquer une
+# connexion qui échoue.
+logging:
+  level: info

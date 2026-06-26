@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hazyhaar/assokit/pkg/api"
+	"github.com/hazyhaar/assokit/pkg/signupprofile"
 )
 
 // newTestApp crée une App minimale avec DB :memory: pour les tests.
@@ -96,6 +97,72 @@ func TestAPI_NewServesAllPublicRoutes(t *testing.T) {
 				t.Errorf("%s: réponse contient le placeholder stub LOT1 '<h1>Bienvenue sur'", path)
 			}
 		})
+	}
+}
+
+// TestSignupProfiles_DefaultRendersFourCardsNoEmoji vérifie que sans catalogue
+// injecté, /participer rend les 4 profils génériques historiques, sans emoji.
+func TestSignupProfiles_DefaultRendersFourCardsNoEmoji(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+
+	srv := httptest.NewServer(app.Handler())
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/participer")
+	if err != nil {
+		t.Fatalf("GET /participer: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	html := string(body)
+
+	for _, label := range []string{"Adhérent", "Bénévole", "Donateur", "Partenaire"} {
+		if !strings.Contains(html, label) {
+			t.Errorf("/participer ne contient pas le profil %q", label)
+		}
+	}
+	for _, emoji := range []string{"🙋", "💪", "💛", "🌐"} {
+		if strings.Contains(html, emoji) {
+			t.Errorf("/participer contient encore l'emoji %q (charte : aucun emoji)", emoji)
+		}
+	}
+}
+
+// TestSignupProfiles_CustomCatalogSeededGradeBoots vérifie qu'un catalogue
+// injecté dont chaque grade existe dans la table RBAC démarre sans erreur.
+func TestSignupProfiles_CustomCatalogSeededGradeBoots(t *testing.T) {
+	t.Parallel()
+	_, err := api.New(api.Options{
+		DBPath:  ":memory:",
+		BaseURL: "http://localhost",
+		Port:    "0",
+		SignupProfiles: []signupprofile.Profile{
+			{ID: "moderateur", Label: "Modérateur", GradeID: "sys-moderator"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("api.New avec grade seedé devrait réussir : %v", err)
+	}
+}
+
+// TestSignupProfiles_UnknownGradeFailsBoot vérifie le fail-loud : un GradeID
+// absent de la table RBAC fait échouer api.New, en nommant profil et grade.
+func TestSignupProfiles_UnknownGradeFailsBoot(t *testing.T) {
+	t.Parallel()
+	_, err := api.New(api.Options{
+		DBPath:  ":memory:",
+		BaseURL: "http://localhost",
+		Port:    "0",
+		SignupProfiles: []signupprofile.Profile{
+			{ID: "habitant", Label: "Habitant", GradeID: "grade-fantome"},
+		},
+	})
+	if err == nil {
+		t.Fatal("api.New devrait échouer sur un grade non seedé")
+	}
+	if !strings.Contains(err.Error(), "habitant") || !strings.Contains(err.Error(), "grade-fantome") {
+		t.Errorf("message d'erreur doit nommer profil et grade : %v", err)
 	}
 }
 

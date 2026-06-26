@@ -1,0 +1,26 @@
+/* Build Tailwind 4 d'assokit. Scanne les vues + composants vendored d'assokit.
+   Régénérer après toute migration de vue :
+     npx --yes @tailwindcss/cli@4 -i static/css/templux/app.css -o static/css/templux/templux.css --minify
+   (le @source ci-dessous doit pointer tout le code .templ d'assokit). */
+@import "tailwindcss";
+@source "../../../pkg/horui";
+@source "../../../pkg/actions";
+@source "../../../internal/webui";
+@import "./theme-bridge.css";
+
+/* Pulsation indicateur de nouveauté — forum-item--unread
+   Satisfait prefers-reduced-motion : pas d'animation si l'utilisateur le préfère. */
+@keyframes forum-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.forum-item--unread {
+  animation: forum-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forum-item--unread {
+    animation: none;
+  }
+}

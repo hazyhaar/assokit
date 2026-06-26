@@ -1,0 +1,21 @@
+// templux form-field — wrapper label + child + helper + message d'erreur.
+//
+// Usage :
+//   @FormField("Adresse e-mail", "Format user@domaine.fr", errMsg, emailInput)
+
+package templux
+
+
+templ FormField(label string, helper string, errorMsg string, body templ.Component) {
+	<div class="flex flex-col gap-space-xs">
+		if label != "" {
+			<label class="text-sm font-medium text-ink">{ label }</label>
+		}
+		@body
+		if errorMsg != "" {
+			<p class="text-xs text-danger">{ errorMsg }</p>
+		} else if helper != "" {
+			<p class="text-xs text-ink-muted">{ helper }</p>
+		}
+	</div>
+}

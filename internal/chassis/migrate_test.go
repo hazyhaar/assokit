@@ -189,3 +189,54 @@ func TestFTS5TriggersWork(t *testing.T) {
 		t.Errorf("FTS après update returned %q, want n1", id)
 	}
 }
+
+// TestRunBackfillsLegacyGooseHistory : une DB déjà migrée par l'ancien runner
+// goose (schema_version_goose) ne doit PAS ré-appliquer les migrations v3+ non
+// idempotentes (ex : 00009 DROP TABLE signups). Le backfill reporte l'historique.
+func TestRunBackfillsLegacyGooseHistory(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	// 1er Run : migre tout (fresh).
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("Run initial: %v", err)
+	}
+
+	// Simule une DB issue de l'ancien double-runner : on déplace l'historique
+	// v3+ de schema_version vers une table schema_version_goose legacy, puis on
+	// purge ces versions de schema_version. Un Run naïf ré-appliquerait 00009.
+	if _, err := db.Exec(`CREATE TABLE schema_version_goose (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		version_id INTEGER NOT NULL,
+		is_applied INTEGER NOT NULL,
+		tstamp TEXT
+	)`); err != nil {
+		t.Fatalf("create legacy table: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO schema_version_goose(version_id, is_applied)
+		SELECT version, 1 FROM schema_version WHERE version >= 3`); err != nil {
+		t.Fatalf("seed legacy history: %v", err)
+	}
+	if _, err := db.Exec(`DELETE FROM schema_version WHERE version >= 3`); err != nil {
+		t.Fatalf("purge schema_version: %v", err)
+	}
+
+	// Insère une ligne signups : si 00009 (DROP TABLE signups) ré-exécute, elle disparaît.
+	if _, err := db.Exec(`INSERT INTO signups(id, email, display_name, profile)
+		VALUES('sig1', 'a@example.org', 'A', 'individuel')`); err != nil {
+		t.Fatalf("insert signup: %v", err)
+	}
+
+	// 2e Run : le backfill doit empêcher toute ré-application.
+	if err := chassis.Run(db); err != nil {
+		t.Fatalf("Run after legacy: %v", err)
+	}
+
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM signups WHERE id='sig1'`).Scan(&n); err != nil {
+		t.Fatalf("count signups: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("signup perdu : 00009 a été ré-appliquée malgré le backfill (n=%d)", n)
+	}
+}

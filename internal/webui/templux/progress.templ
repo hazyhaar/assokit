@@ -1,0 +1,22 @@
+// templux progress — barre de progression native avec label. Vendored depuis pkg/horui/ui.
+package templux
+
+import "fmt"
+
+templ Progress(current int, max int, label string) {
+	<div class="w-full space-y-1">
+		if label != "" {
+			<div class="flex justify-between text-xs text-ink-muted">
+				<span>{ label }</span>
+				<span>{ fmt.Sprintf("%d%%", current*100/max) }</span>
+			</div>
+		}
+		<progress
+			value={ fmt.Sprint(current) }
+			max={ fmt.Sprint(max) }
+			class="w-full h-2 rounded overflow-hidden accent-accent"
+		>
+			{ fmt.Sprintf("%d / %d", current, max) }
+		</progress>
+	</div>
+}

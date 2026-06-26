@@ -15,7 +15,7 @@ func TestNewProvider_OpenIDConfiguration(t *testing.T) {
 	db := openTestDB(t)
 	issuer := "http://localhost:8080"
 
-	handler, store, err := oauth.NewProvider(db, issuer, testSigningKey, nil)
+	handler, store, err := oauth.NewProvider(db, issuer, testSigningKey, true, nil)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestNewProvider_OpenIDConfiguration(t *testing.T) {
 // TestNewProvider_SigningKey vérifie que le storage retourne une clé de signature valide.
 func TestNewProvider_SigningKey(t *testing.T) {
 	db := openTestDB(t)
-	_, store, err := oauth.NewProvider(db, "http://localhost:8080", testSigningKey, nil)
+	_, store, err := oauth.NewProvider(db, "http://localhost:8080", testSigningKey, true, nil)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestNewProvider_SigningKey(t *testing.T) {
 // TestNewProvider_Health vérifie que le storage passe le health check.
 func TestNewProvider_Health(t *testing.T) {
 	db := openTestDB(t)
-	_, store, err := oauth.NewProvider(db, "http://localhost:8080", testSigningKey, nil)
+	_, store, err := oauth.NewProvider(db, "http://localhost:8080", testSigningKey, true, nil)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestNewProvider_TokenEndpointResponds(t *testing.T) {
 	defer srv.Close()
 	issuer = srv.URL
 
-	handler, _, err := oauth.NewProvider(db, issuer, testSigningKey, nil)
+	handler, _, err := oauth.NewProvider(db, issuer, testSigningKey, true, nil)
 	if err != nil {
 		t.Fatalf("NewProvider: %v", err)
 	}
@@ -134,11 +134,11 @@ func TestOAuth_SigningKeyStableAcrossProviderInit(t *testing.T) {
 	// Même clé statique pour les deux providers
 	key := testSigningKey
 
-	_, store1, err := oauth.NewProvider(db1, "http://localhost:8080", key, nil)
+	_, store1, err := oauth.NewProvider(db1, "http://localhost:8080", key, true, nil)
 	if err != nil {
 		t.Fatalf("NewProvider (1): %v", err)
 	}
-	_, store2, err := oauth.NewProvider(db2, "http://localhost:8080", key, nil)
+	_, store2, err := oauth.NewProvider(db2, "http://localhost:8080", key, true, nil)
 	if err != nil {
 		t.Fatalf("NewProvider (2): %v", err)
 	}

@@ -1,0 +1,21 @@
+// templux link-button — lien d'action stylé comme un bouton.
+//
+// Même rendu visuel que Button (variants partagés via buttonClass), mais
+// produit un <a href> : à utiliser pour la navigation (login, signup, retour)
+// là où un <button> serait sémantiquement incorrect.
+//
+// Usage :
+//   @LinkButton("S'inscrire", "/signup", "primary", templ.Attributes{})
+//   @LinkButton("Retour", "/", "secondary", templ.Attributes{})
+
+package templux
+
+templ LinkButton(label string, href string, variant string, attrs templ.Attributes) {
+	<a
+		href={ templ.SafeURL(href) }
+		class={ buttonClass(variant) }
+		{ attrs... }
+	>
+		{ label }
+	</a>
+}

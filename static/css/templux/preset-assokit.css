@@ -1,0 +1,41 @@
+/*
+ * preset-assokit.css — charte assokit sur les tokens sémantiques templux.
+ *
+ * Override les valeurs par défaut de base.css avec la palette assokit (teal
+ * papier). Chargé APRÈS base.css, AVANT templux.css.
+ *
+ * Pont avec le branding dynamique : theme.CSSVars() injecte par communauté
+ * --primary/--secondary/--accent/--bg-light/--bg-dark/--text/--font. Les
+ * tokens templux mappables y puisent via var(<branding>, <défaut teal>), de
+ * sorte qu'une communauté qui personnalise ses couleurs reste maître de son
+ * rendu tout en consommant les composants templux. Les tokens sans équivalent
+ * branding gardent une valeur teal fixe.
+ */
+:root {
+  /* Surfaces */
+  --surface:        var(--bg-light, #ffffff);
+  --surface-muted:  #f7f6f3;
+  --surface-raised: var(--bg-light, #ffffff);
+  --surface-sunken: #efe9e0;
+
+  /* Encre */
+  --ink:            var(--text, #1a1714);
+  --ink-muted:      #6b6560;
+  --ink-faint:      #9a938a;
+  --ink-on-accent:  #ffffff;
+
+  /* Accent (teal) — pont branding --primary */
+  --accent:         var(--primary, #00897b);
+  --accent-hover:   #00695c;
+  --success:        #4d6a25;
+  --warning:        #9a6a14;
+  --danger:         var(--secondary, #d63031);
+  --info:           #2f6fa8;
+
+  /* Bordures */
+  --border:         #e2ddd6;
+  --border-strong:  #c4bcb0;
+
+  /* Police — pont branding --font */
+  --font-sans:      var(--font, 'DM Sans'), ui-sans-serif, system-ui, sans-serif;
+}

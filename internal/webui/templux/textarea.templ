@@ -1,0 +1,13 @@
+// templux textarea — zone de texte multiligne avec tokens. Vendored depuis pkg/horui/ui.
+package templux
+
+import "strconv"
+
+templ Textarea(name string, value string, rows int, attrs templ.Attributes) {
+	<textarea
+		name={ name }
+		rows={ strconv.Itoa(rows) }
+		class="block w-full rounded-md border border-border bg-surface text-ink px-space-md py-space-sm text-sm placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-y"
+		{ attrs... }
+	>{ value }</textarea>
+}

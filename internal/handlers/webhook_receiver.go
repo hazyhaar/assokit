@@ -17,6 +17,7 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/connectors/assets"
 	"github.com/hazyhaar/assokit/pkg/connectors/webhooks"
+	"github.com/hazyhaar/assokit/pkg/eventsink"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
@@ -26,8 +27,8 @@ type EventIDExtractor func(payload []byte) (eventID, eventType string, err error
 
 // SignatureHeaderName : nom du header HTTP qui porte la signature HMAC (provider-specific).
 type SignatureConfig struct {
-	HeaderName    string           // ex "X-Signature", "Stripe-Signature"
-	ExtractEvent  EventIDExtractor // parse payload
+	HeaderName   string           // ex "X-Signature", "Stripe-Signature"
+	ExtractEvent EventIDExtractor // parse payload
 }
 
 // WebhookHandler handler chi.
@@ -96,6 +97,19 @@ func WebhookHandler(deps app.AppDeps, store *webhooks.Store, vault *assets.Vault
 
 		deps.Logger.Info("webhook_received",
 			"req_id", reqID, "provider", provider, "event_id", eventID, "event_type", eventType)
+
+		// Émet webhook.received vers le Sink (signal provider — ex paiement
+		// HelloAsso). Le payload détaillé (montant) est ajouté au niveau du
+		// traitement connecteur ; ici on signale la réception au grain webhook.
+		if deps.EventSink != nil {
+			_ = deps.EventSink.Emit(r.Context(), eventsink.Event{
+				Type: "webhook.received",
+				Payload: map[string]any{
+					"provider": provider, "event_type": eventType, "event_id": eventID,
+				},
+			})
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"received"}`)) //nolint:errcheck
 	}

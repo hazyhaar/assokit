@@ -1,0 +1,213 @@
+// views/salon.templ — pages salon (liste, chat polling HTMX, join, boutons visio).
+// Migré vague 2 : renderPageV2 + templux vendored. Aucune classe CSS maison.
+package views
+
+import (
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/salon"
+)
+
+// SalonList : page GET /salons — liste des salons de l'utilisateur.
+templ SalonList(salons []salon.Salon, csrfToken string) {
+	<section class="flex flex-col gap-space-lg">
+		<div class="flex flex-col gap-space-sm">
+			<div class="text-sm font-medium text-accent">Communauté</div>
+			<h1 class="text-2xl font-semibold text-ink">Salons de discussion</h1>
+			<p class="text-ink-muted">Rejoignez ou créez un salon de discussion avec les membres.</p>
+		</div>
+		if len(salons) == 0 {
+			<div class="bg-surface-muted rounded-lg p-space-lg text-ink-muted">
+				<p>Vous n'avez rejoint aucun salon pour l'instant.</p>
+			</div>
+		} else {
+			<ul class="list-none flex flex-col gap-space-sm">
+				for _, s := range salons {
+					<li class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex items-center justify-between gap-space-md">
+						<div class="flex flex-col gap-space-xs">
+							<a href={ templ.SafeURL("/salon/" + s.Slug) } class="text-ink font-semibold text-lg">{ s.Name }</a>
+							<div class="flex items-center gap-space-sm">
+								if s.PasswordHash.Valid {
+									@templux.Badge("Protégé", "warning")
+								}
+								if s.VisioEnabled {
+									@templux.Badge("Visio", "info")
+								}
+								if s.ArchivedAt.Valid {
+									@templux.Badge("Archivé", "secondary")
+								}
+							</div>
+						</div>
+						@templux.LinkButton("Ouvrir", "/salon/"+s.Slug, "ghost", templ.Attributes{})
+					</li>
+				}
+			</ul>
+		}
+		<div class="pt-space-md border-t border-border">
+			<h2 class="text-xl font-semibold text-ink mb-space-md">Créer un salon</h2>
+			<form method="POST" action="/salons" class="flex flex-col gap-space-md max-w-lg">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				@templux.FormField("Nom du salon", "", "", templux.Input("name", "", templ.Attributes{
+					"id":        "salon-name",
+					"type":      "text",
+					"required":  "required",
+					"maxlength": "80",
+				}))
+				@templux.FormField("Mot de passe (optionnel)", "Laissez vide pour un salon ouvert aux membres.", "", templux.Input("password", "", templ.Attributes{
+					"id":   "salon-password",
+					"type": "password",
+				}))
+				<label class="flex items-center gap-space-sm text-sm text-ink cursor-pointer">
+					<input type="checkbox" name="visio_enabled" value="1" class="rounded border-border"/>
+					Activer la visioconférence
+				</label>
+				<div class="flex items-center gap-space-sm">
+					@templux.Button("Créer le salon", "primary", templ.Attributes{"type": "submit"})
+				</div>
+			</form>
+		</div>
+		<div class="pt-space-sm">
+			<h2 class="text-xl font-semibold text-ink mb-space-sm">Rejoindre un salon existant</h2>
+			<form method="POST" action="/salons/join" class="flex flex-col gap-space-md max-w-lg">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				@templux.FormField("Identifiant du salon (slug)", "", "", templux.Input("slug", "", templ.Attributes{
+					"id":       "join-slug",
+					"type":     "text",
+					"required": "required",
+				}))
+				@templux.FormField("Mot de passe (si requis)", "", "", templux.Input("password", "", templ.Attributes{
+					"id":   "join-password",
+					"type": "password",
+				}))
+				@templux.Button("Rejoindre", "secondary", templ.Attributes{"type": "submit"})
+			</form>
+		</div>
+	</section>
+}
+
+// SalonPage : page GET /salon/{slug} — en-tête + chat + formulaire envoi.
+templ SalonPage(sl *salon.Salon, msgs []salon.Message, isOwner bool, authorNames map[string]string, csrfToken string) {
+	<section class="flex flex-col gap-space-lg">
+		<nav aria-label="Fil d'Ariane">
+			<ol class="flex flex-wrap items-center gap-1 text-sm text-ink-muted list-none">
+				<li><a href="/salons" class="text-accent">Salons</a><span aria-hidden="true" class="text-border"> / </span></li>
+				<li><span aria-current="page" class="text-ink font-medium">{ sl.Name }</span></li>
+			</ol>
+		</nav>
+		<div class="flex flex-col gap-space-xs">
+			<div class="flex items-center gap-space-sm flex-wrap">
+				<h1 class="text-2xl font-semibold text-ink">{ sl.Name }</h1>
+				if sl.ArchivedAt.Valid {
+					@templux.Badge("Archivé", "secondary")
+				}
+				if sl.VisioEnabled {
+					@templux.Badge("Visio active", "info")
+				}
+				if sl.PasswordHash.Valid {
+					@templux.Badge("Protégé", "warning")
+				}
+			</div>
+			<div class="flex items-center gap-space-sm flex-wrap">
+				@templux.LinkButton("Comptes-rendus", "/salon/"+sl.Slug+"/transcripts", "ghost", templ.Attributes{})
+				if isOwner {
+					if sl.VisioEnabled {
+						<form method="POST" action={ templ.SafeURL("/salon/" + sl.Slug + "/toggle-visio") } class="inline">
+							<input type="hidden" name="_csrf" value={ csrfToken }/>
+							<input type="hidden" name="visio_enabled" value="0"/>
+							@templux.Button("Désactiver la visio", "secondary", templ.Attributes{"type": "submit"})
+						</form>
+						@templux.LinkButton("Rejoindre la visio", "/salon/"+sl.Slug+"/visio", "primary", templ.Attributes{})
+					} else {
+						<form method="POST" action={ templ.SafeURL("/salon/" + sl.Slug + "/toggle-visio") } class="inline">
+							<input type="hidden" name="_csrf" value={ csrfToken }/>
+							<input type="hidden" name="visio_enabled" value="1"/>
+							@templux.Button("Activer la visio", "secondary", templ.Attributes{"type": "submit"})
+						</form>
+					}
+				} else {
+					if sl.VisioEnabled {
+						@templux.LinkButton("Rejoindre la visio", "/salon/"+sl.Slug+"/visio", "primary", templ.Attributes{})
+					}
+				}
+			</div>
+		</div>
+		<div
+			id="salon-messages"
+			class="flex flex-col gap-space-sm bg-surface-muted rounded-lg p-space-lg min-h-[12rem]"
+			hx-get={ "/salon/" + sl.Slug + "/messages/fragment" }
+			hx-trigger="every 3s"
+			hx-swap="innerHTML"
+		>
+			@salonMessagesInner(msgs, authorNames)
+		</div>
+		if !sl.ArchivedAt.Valid {
+			<form method="POST" action={ templ.SafeURL("/salon/" + sl.Slug + "/messages") } class="flex flex-col gap-space-sm">
+				<input type="hidden" name="_csrf" value={ csrfToken }/>
+				@templux.Textarea("body", "", 3, templ.Attributes{
+					"required":    "required",
+					"placeholder": "Votre message…",
+				})
+				@templux.Button("Envoyer", "primary", templ.Attributes{"type": "submit"})
+			</form>
+		}
+	</section>
+}
+
+// SalonMessagesFragment : fragment HTMX renvoyé par GET /salon/{slug}/messages/fragment.
+// Contient uniquement le innerHTML de #salon-messages (pas de shell).
+templ SalonMessagesFragment(msgs []salon.Message, authorNames map[string]string) {
+	@salonMessagesInner(msgs, authorNames)
+}
+
+// salonMessagesInner : liste des messages (du plus ancien au plus récent après inversion).
+templ salonMessagesInner(msgs []salon.Message, authorNames map[string]string) {
+	if len(msgs) == 0 {
+		<p class="text-ink-muted text-sm">Aucun message pour l'instant. Soyez le premier à écrire.</p>
+	} else {
+		for i := len(msgs) - 1; i >= 0; i-- {
+			<div class="bg-surface-raised rounded-lg p-space-md flex flex-col gap-space-xs shadow-sm">
+				<div class="flex items-center gap-space-sm text-sm text-ink-faint">
+					<span class="font-medium text-ink-muted">{ salonAuthorName(msgs[i].AuthorID, authorNames) }</span>
+					<time>{ msgs[i].CreatedAt.Format("02/01 15:04") }</time>
+				</div>
+				<div class="text-ink text-sm">@templ.Raw(msgs[i].BodyHTML)</div>
+			</div>
+		}
+	}
+}
+
+// SalonJoinForm : formulaire de saisie du mot de passe pour un salon protégé.
+templ SalonJoinForm(sl *salon.Salon, errMsg string, csrfToken string) {
+	<section class="flex flex-col gap-space-lg max-w-md">
+		<div class="flex flex-col gap-space-sm">
+			<h1 class="text-2xl font-semibold text-ink">Rejoindre { sl.Name }</h1>
+			<p class="text-ink-muted">Ce salon est protégé par un mot de passe.</p>
+		</div>
+		if errMsg != "" {
+			@templux.Alert("danger", errMsg)
+		}
+		<form method="POST" action={ templ.SafeURL("/salons/join") } class="flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<input type="hidden" name="slug" value={ sl.Slug }/>
+			@templux.FormField("Mot de passe", "", "", templux.Input("password", "", templ.Attributes{
+				"id":       "join-password",
+				"type":     "password",
+				"required": "required",
+			}))
+			<div class="flex items-center gap-space-sm">
+				@templux.Button("Rejoindre", "primary", templ.Attributes{"type": "submit"})
+				@templux.LinkButton("Annuler", "/salons", "ghost", templ.Attributes{})
+			</div>
+		</form>
+	</section>
+}
+
+// salonAuthorName retourne le nom d'affichage d'un auteur depuis la map, ou l'ID tronqué.
+func salonAuthorName(authorID string, names map[string]string) string {
+	if n, ok := names[authorID]; ok && n != "" {
+		return n
+	}
+	if len(authorID) > 8 {
+		return authorID[:8]
+	}
+	return authorID
+}

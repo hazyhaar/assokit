@@ -11,8 +11,8 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hazyhaar/assokit/internal/chassis"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 func newTestDB(t *testing.T) *sql.DB {
@@ -65,18 +65,18 @@ func TestSessionCookieSignVerify(t *testing.T) {
 	}
 	var sessionCookie *http.Cookie
 	for _, c := range cookies {
-		if c.Name == "nps_session" {
+		if c.Name == "assokit_session" {
 			sessionCookie = c
 		}
 	}
 	if sessionCookie == nil {
-		t.Fatal("cookie nps_session absent")
+		t.Fatal("cookie assokit_session absent")
 	}
 
 	// Vérifie que le middleware Auth accepte le cookie
 	db := newTestDB(t)
-	store := &auth.Store{DB: db}
-	u, _ := store.Register(context.Background(), "test@nps.fr", "pass", "Test")
+	store := &identity.Store{DB: db}
+	u, _ := store.Register(context.Background(), "test@example.org", "pass", "Test")
 
 	w2 := httptest.NewRecorder()
 	middleware.SetSessionCookie(w2, u.ID, secret, false)
@@ -106,8 +106,8 @@ func TestSessionCookieSignVerify(t *testing.T) {
 func TestSessionCookieTamperedRejected(t *testing.T) {
 	secret := []byte("test-secret-key")
 	db := newTestDB(t)
-	store := &auth.Store{DB: db}
-	u, _ := store.Register(context.Background(), "tamper@nps.fr", "pass", "Tamper")
+	store := &identity.Store{DB: db}
+	u, _ := store.Register(context.Background(), "tamper@example.org", "pass", "Tamper")
 
 	w := httptest.NewRecorder()
 	middleware.SetSessionCookie(w, u.ID, secret, false)
@@ -123,7 +123,7 @@ func TestSessionCookieTamperedRejected(t *testing.T) {
 	}))
 
 	r := httptest.NewRequest("GET", "/", nil)
-	r.AddCookie(&http.Cookie{Name: "nps_session", Value: "tampered-value"})
+	r.AddCookie(&http.Cookie{Name: "assokit_session", Value: "tampered-value"})
 	w2 := httptest.NewRecorder()
 	handler.ServeHTTP(w2, r)
 	if w2.Code != 401 {
@@ -133,7 +133,7 @@ func TestSessionCookieTamperedRejected(t *testing.T) {
 
 func TestCSRFProtection(t *testing.T) {
 	secret := []byte("csrf-secret")
-	handler := middleware.CSRF(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := middleware.CSRF(secret, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
 

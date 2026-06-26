@@ -102,7 +102,7 @@ func TestDonations_PaymentStatusUpdateReflected(t *testing.T) {
 func TestDonations_RefundUpdatesStatusAndRefundedAt(t *testing.T) {
 	db := openDonationsDB(t)
 	store := &DonationsStore{DB: db}
-	store.UpsertFromPayment(context.Background(), Payment{ID: 400, Amount: 10, State: "Paid", Date: "2026-05-01T10:00:00Z"}, "", "", "e-1") //nolint:errcheck
+	store.UpsertFromPayment(context.Background(), Payment{ID: 400, Amount: 10, State: "Paid", Date: "2026-05-01T10:00:00Z"}, "", "", "e-1")     //nolint:errcheck
 	store.UpsertFromPayment(context.Background(), Payment{ID: 400, Amount: 10, State: "Refunded", Date: "2026-05-02T10:00:00Z"}, "", "", "e-2") //nolint:errcheck
 
 	d, _ := store.GetByHelloAssoPaymentID(context.Background(), "400")

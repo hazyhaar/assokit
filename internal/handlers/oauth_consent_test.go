@@ -15,9 +15,9 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
-	authpages "github.com/hazyhaar/assokit/pkg/horui/auth/pages"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 func setupConsentTestDB(t *testing.T) *sql.DB {
@@ -49,7 +49,7 @@ func setupConsentTestDB(t *testing.T) *sql.DB {
 
 func userCtx(req *http.Request) *http.Request {
 	return req.WithContext(middleware.ContextWithUser(req.Context(),
-		&auth.User{ID: "u-test", Email: "u@test.com"}))
+		&identity.User{ID: "u-test", Email: "u@test.com"}))
 }
 
 // TestConsentSubmit_ApproveGeneratesCode : approve → 302 vers redirect_uri avec code param.
@@ -193,16 +193,16 @@ func TestConsentSubmit_InvalidDecisionReturns400(t *testing.T) {
 
 // TestConsentPage_RendersScopesInFrench : Render + grep libellés FR présents.
 func TestConsentPage_RendersScopesInFrench(t *testing.T) {
-	props := authpages.ConsentProps{
+	props := views.OAuthConsentProps{
 		ClientName:    "Claude Web",
 		AuthRequestID: "req-x",
 		CSRFToken:     "csrf-123",
-		ScopesGranted: authpages.LibellesScope([]string{"feedback.create", "forum.post.create"}),
+		ScopesGranted: libellesScope([]string{"feedback.create", "forum.post.create"}),
 		RedirectURI:   "https://claude.ai/cb",
 		State:         "abc",
 	}
 	var buf bytes.Buffer
-	if err := authpages.Consent(props).Render(context.Background(), &buf); err != nil {
+	if err := views.OAuthConsent(props).Render(context.Background(), &buf); err != nil {
 		t.Fatalf("Render: %v", err)
 	}
 	html := buf.String()
@@ -224,13 +224,13 @@ func TestConsentPage_RendersScopesInFrench(t *testing.T) {
 
 // TestConsentPage_UnknownScopeShowsFallback : scope inconnu → "Action technique : X" rendu.
 func TestConsentPage_UnknownScopeShowsFallback(t *testing.T) {
-	props := authpages.ConsentProps{
+	props := views.OAuthConsentProps{
 		ClientName:    "TestApp",
-		ScopesGranted: authpages.LibellesScope([]string{"unmapped.future_scope"}),
+		ScopesGranted: libellesScope([]string{"unmapped.future_scope"}),
 		RedirectURI:   "https://x/cb",
 	}
 	var buf bytes.Buffer
-	authpages.Consent(props).Render(context.Background(), &buf) //nolint:errcheck
+	views.OAuthConsent(props).Render(context.Background(), &buf) //nolint:errcheck
 	html := buf.String()
 	if !strings.Contains(html, "Action technique") || !strings.Contains(html, "unmapped.future_scope") {
 		t.Errorf("fallback non rendu : %s", html)

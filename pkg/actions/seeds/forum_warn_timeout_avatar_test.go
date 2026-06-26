@@ -13,8 +13,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/actions/seeds"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 
 	_ "modernc.org/sqlite"
 )
@@ -59,7 +59,7 @@ func TestForumUserWarn_InsertsRowInDB(t *testing.T) {
 	db, deps := setupSeedsDB(t)
 	action := findAction(t, "forum.user.warn")
 
-	ctx := middleware.ContextWithUser(context.Background(), &auth.User{ID: "admin-1"})
+	ctx := middleware.ContextWithUser(context.Background(), &identity.User{ID: "admin-1"})
 	res, err := action.Run(ctx, deps, json.RawMessage(`{"user_id":"victim-1","reason":"spam"}`))
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -89,7 +89,7 @@ func TestForumUserTimeout_UpsertsRow(t *testing.T) {
 	db, deps := setupSeedsDB(t)
 	action := findAction(t, "forum.user.timeout")
 
-	ctx := middleware.ContextWithUser(context.Background(), &auth.User{ID: "admin-1"})
+	ctx := middleware.ContextWithUser(context.Background(), &identity.User{ID: "admin-1"})
 	res, err := action.Run(ctx, deps, json.RawMessage(`{"user_id":"victim-1","hours":24,"reason":"flood"}`))
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -135,7 +135,7 @@ func TestProfileAvatarUpload_UpsertsAvatar(t *testing.T) {
 	db, deps := setupSeedsDB(t)
 	action := findAction(t, "profile.avatar_upload")
 
-	ctx := middleware.ContextWithUser(context.Background(), &auth.User{ID: "victim-1"})
+	ctx := middleware.ContextWithUser(context.Background(), &identity.User{ID: "victim-1"})
 	res, err := action.Run(ctx, deps, json.RawMessage(`{"avatar_url":"https://cdn.example/v1.png"}`))
 	if err != nil {
 		t.Fatalf("Run: %v", err)

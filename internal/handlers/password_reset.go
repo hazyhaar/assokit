@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/pages"
+	"github.com/hazyhaar/assokit/pkg/identity"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -29,7 +29,7 @@ const passwordResetTokenTTL = 1 * time.Hour
 func handleForgotForm(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		csrfToken := middleware.CSRFToken(r.Context())
-		renderPage(w, r, deps, "Mot de passe oublié", pages.ForgotPasswordForm(csrfToken))
+		renderPageV2(w, r, deps, "Mot de passe oublié", views.PagesForgotPasswordForm(csrfToken))
 	}
 }
 
@@ -60,7 +60,7 @@ func handleForgotSubmit(deps app.AppDeps) http.HandlerFunc {
 			if terr == nil && deps.Mailer != nil {
 				resetURL := deps.Config.BaseURL + "/reset?token=" + token
 				deps.Mailer.Enqueue(ctx, email, //nolint:errcheck
-					"NONPOSSUMUS — réinitialisation du mot de passe",
+					siteName()+" — réinitialisation du mot de passe",
 					"Pour réinitialiser votre mot de passe, cliquez sur ce lien (valable 1h) : "+resetURL+
 						"\n\nSi vous n'avez pas demandé cette réinitialisation, ignorez ce message.",
 					`<p>Pour réinitialiser votre mot de passe, cliquez <a href="`+resetURL+`">ici</a> (valable 1h).</p>`+
@@ -98,7 +98,7 @@ func handleResetForm(deps app.AppDeps) http.HandlerFunc {
 			return
 		}
 		csrfToken := middleware.CSRFToken(r.Context())
-		renderPage(w, r, deps, "Nouveau mot de passe", pages.ResetPasswordForm(token, csrfToken))
+		renderPageV2(w, r, deps, "Nouveau mot de passe", views.PagesResetPasswordForm(token, csrfToken))
 	}
 }
 
@@ -225,4 +225,4 @@ func lookupResetToken(ctx context.Context, db *sql.DB, token string) (bool, stri
 
 // _staticUsedToShutUpVet évite l'erreur "imported and not used" si auth bcrypt
 // transitivement ré-importé via go imports — placeholder neutre.
-var _ = auth.Store{}
+var _ = identity.Store{}

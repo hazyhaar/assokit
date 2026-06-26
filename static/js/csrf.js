@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Auto-injection du token CSRF (cookie nps_csrf) dans :
+// CLAUDE:SUMMARY Auto-injection du token CSRF (cookie assokit_csrf) dans :
 //  1. tous les <form method="POST"> avant submit (hidden field _csrf).
 //  2. toutes les requêtes htmx (header X-CSRF-Token via hx-headers global).
 // Compatible avec le middleware double-submit cookie pattern (middleware.go::CSRF).
@@ -24,12 +24,12 @@
     if (!(form instanceof HTMLFormElement)) return;
     var method = (form.getAttribute('method') || 'GET').toUpperCase();
     if (method === 'GET' || method === 'HEAD') return;
-    injectField(form, readCookie('nps_csrf'));
+    injectField(form, readCookie('assokit_csrf'));
   }, true);
 
   // 2. htmx requests : ajoute header X-CSRF-Token.
   document.addEventListener('htmx:configRequest', function (ev) {
-    var token = readCookie('nps_csrf');
+    var token = readCookie('assokit_csrf');
     if (token && ev.detail && ev.detail.headers) {
       ev.detail.headers['X-CSRF-Token'] = token;
     }

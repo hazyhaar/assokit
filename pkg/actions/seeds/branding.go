@@ -17,7 +17,7 @@ func initBranding(reg *actions.Registry) {
 		ParamsSchema: actions.MustSchema(`{"type":"object","properties":{}}`),
 		Run: func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (actions.Result, error) {
 			rows, err := deps.DB.QueryContext(ctx,
-				`SELECT field, value FROM branding ORDER BY field`,
+				`SELECT key, value FROM branding_kv ORDER BY key`,
 			)
 			if err != nil {
 				return actions.Result{Status: "error", Message: err.Error()}, err
@@ -64,8 +64,8 @@ func initBranding(reg *actions.Registry) {
 				return actions.Result{Status: "error", Message: "champ branding inconnu: " + p.Field}, nil
 			}
 			_, err := deps.DB.ExecContext(ctx,
-				`INSERT INTO branding(field, value) VALUES(?,?)
-				 ON CONFLICT(field) DO UPDATE SET value=excluded.value`,
+				`INSERT INTO branding_kv(key, value) VALUES(?,?)
+				 ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,
 				p.Field, p.Value,
 			)
 			if err != nil {

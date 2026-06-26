@@ -7,26 +7,26 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
-	"github.com/hazyhaar/assokit/pkg/horui/pages"
+	"github.com/hazyhaar/assokit/internal/webui/views"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 // renderDonate : helper compat pour tests pré-existants utilisant la signature simple.
 func renderDonate(t *testing.T, donURL, cotisURL, iban string) string {
 	t.Helper()
 	var buf bytes.Buffer
-	if err := pages.Donate(donURL, cotisURL, iban, nil, false, "don").Render(context.Background(), &buf); err != nil {
+	if err := views.Donate(views.DonateProps{DonURL: donURL, CotisURL: cotisURL, IBAN: iban}).Render(context.Background(), &buf); err != nil {
 		t.Fatalf("render Donate: %v", err)
 	}
 	return buf.String()
 }
 
-// renderDonateRich rend DonateRich avec props custom.
-func renderDonateRich(t *testing.T, p pages.DonateProps) string {
+// renderDonateRich rend Donate (views.DonateProps) avec props custom.
+func renderDonateRich(t *testing.T, p views.DonateProps) string {
 	t.Helper()
 	var buf bytes.Buffer
-	if err := pages.DonateRich(p).Render(context.Background(), &buf); err != nil {
-		t.Fatalf("render DonateRich: %v", err)
+	if err := views.Donate(p).Render(context.Background(), &buf); err != nil {
+		t.Fatalf("render Donate: %v", err)
 	}
 	return buf.String()
 }
@@ -45,7 +45,7 @@ func TestDonateForm_RendersSuggestedTiers(t *testing.T) {
 // TestDonateRedirectsToHelloAssoURL : URL HelloAsso fournie → boutons palier rendus avec target=_blank.
 func TestDonateRedirectsToHelloAssoURL(t *testing.T) {
 	hellourl := "https://www.helloasso.com/asso/test/dons"
-	html := renderDonateRich(t, pages.DonateProps{
+	html := renderDonateRich(t, views.DonateProps{
 		DonURL: hellourl, Paliers: []int{10, 30, 50},
 	})
 	if !strings.Contains(html, hellourl) {
@@ -73,7 +73,7 @@ func TestDonate_NoConfiguredURL_ShowsFallbackMessage(t *testing.T) {
 
 // TestDonatePage_NoIframeRendered : aucune balise <iframe> rendue (CSP-compatible).
 func TestDonatePage_NoIframeRendered(t *testing.T) {
-	html := renderDonateRich(t, pages.DonateProps{
+	html := renderDonateRich(t, views.DonateProps{
 		DonURL: "https://www.helloasso.com/x", Paliers: []int{10, 30, 50},
 	})
 	if strings.Contains(html, "<iframe") {
@@ -83,7 +83,7 @@ func TestDonatePage_NoIframeRendered(t *testing.T) {
 
 // TestDonatePage_PaliersFromBrandingKV : paliers passés rendent N boutons + montant libre.
 func TestDonatePage_PaliersFromBrandingKV(t *testing.T) {
-	html := renderDonateRich(t, pages.DonateProps{
+	html := renderDonateRich(t, views.DonateProps{
 		DonURL: "https://hello/x", Paliers: []int{10, 30, 50, 100},
 	})
 	for _, p := range []string{"10 €", "30 €", "50 €", "100 €", "Montant libre"} {
@@ -101,7 +101,7 @@ func TestDonatePage_PaliersFromBrandingKV(t *testing.T) {
 
 // TestDonatePage_FallbackMessageIfNoURLConfigured : URL vide → message "Soutien en cours de configuration".
 func TestDonatePage_FallbackMessageIfNoURLConfigured(t *testing.T) {
-	html := renderDonateRich(t, pages.DonateProps{DonURL: "", IBAN: "FR76..."})
+	html := renderDonateRich(t, views.DonateProps{DonURL: "", IBAN: "FR76..."})
 	if !strings.Contains(html, "Soutien en cours de configuration") {
 		t.Errorf("URL vide : message fallback attendu")
 	}
@@ -112,12 +112,12 @@ func TestDonatePage_FallbackMessageIfNoURLConfigured(t *testing.T) {
 
 // TestDonatePage_AuthenticatedShowsMyDonations : user + donations → bloc "Mes dons".
 func TestDonatePage_AuthenticatedShowsMyDonations(t *testing.T) {
-	user := &auth.User{ID: "u-1", Email: "u@x.com"}
-	donations := []pages.MyDonationView{
+	user := &identity.User{ID: "u-1", Email: "u@x.com"}
+	donations := []views.MyDonationView{
 		{Date: "01/01/2026", Amount: "25,00 €", FormType: "Donation", Status: "paid"},
 		{Date: "15/02/2026", Amount: "50,00 €", FormType: "Donation", Status: "refunded"},
 	}
-	html := renderDonateRich(t, pages.DonateProps{
+	html := renderDonateRich(t, views.DonateProps{
 		DonURL: "https://hello/x", User: user, MyDonations: donations,
 	})
 	if !strings.Contains(html, "Mes dons") {
@@ -126,15 +126,16 @@ func TestDonatePage_AuthenticatedShowsMyDonations(t *testing.T) {
 	if !strings.Contains(html, "25,00 €") || !strings.Contains(html, "50,00 €") {
 		t.Errorf("montants donations absents")
 	}
-	if !strings.Contains(html, "status-paid") || !strings.Contains(html, "status-refunded") {
-		t.Error("status CSS classes absentes")
+	// Migré templux : le statut est rendu par @ui.Badge (libellé = statut).
+	if !strings.Contains(html, "paid") || !strings.Contains(html, "refunded") {
+		t.Error("statuts de don (badges) absents")
 	}
 }
 
 // TestDonatePage_AuthenticatedNoDonationsShowsEmptyState : user sans donations → "Aucun don encore".
 func TestDonatePage_AuthenticatedNoDonationsShowsEmptyState(t *testing.T) {
-	user := &auth.User{ID: "u-2"}
-	html := renderDonateRich(t, pages.DonateProps{User: user, DonURL: "https://hello"})
+	user := &identity.User{ID: "u-2"}
+	html := renderDonateRich(t, views.DonateProps{User: user, DonURL: "https://hello"})
 	if !strings.Contains(html, "Aucun don encore") {
 		t.Error("empty state Mes dons absent")
 	}
@@ -142,8 +143,8 @@ func TestDonatePage_AuthenticatedNoDonationsShowsEmptyState(t *testing.T) {
 
 // TestDonatePage_AdminShowsConfigureLink : isAdmin → bouton "Configurer HelloAsso".
 func TestDonatePage_AdminShowsConfigureLink(t *testing.T) {
-	user := &auth.User{ID: "admin-1", Roles: []string{"admin"}}
-	html := renderDonateRich(t, pages.DonateProps{User: user, IsAdmin: true, DonURL: "https://hello"})
+	user := &identity.User{ID: "admin-1", Roles: []string{"admin"}}
+	html := renderDonateRich(t, views.DonateProps{User: user, IsAdmin: true, DonURL: "https://hello"})
 	if !strings.Contains(html, "Configurer HelloAsso") {
 		t.Error("bouton 'Configurer HelloAsso' absent (admin user)")
 	}
@@ -154,8 +155,8 @@ func TestDonatePage_AdminShowsConfigureLink(t *testing.T) {
 
 // TestDonatePage_NonAdminHidesConfigureLink : non-admin → pas de bouton admin.
 func TestDonatePage_NonAdminHidesConfigureLink(t *testing.T) {
-	html := renderDonateRich(t, pages.DonateProps{
-		User: &auth.User{ID: "u-x"}, IsAdmin: false, DonURL: "https://hello",
+	html := renderDonateRich(t, views.DonateProps{
+		User: &identity.User{ID: "u-x"}, IsAdmin: false, DonURL: "https://hello",
 	})
 	if strings.Contains(html, "Configurer HelloAsso") {
 		t.Error("bouton admin visible pour non-admin")
@@ -167,12 +168,12 @@ func TestDonatePage_NonAdminHidesConfigureLink(t *testing.T) {
 // Si URL fournie → bouton lien sortant target=_blank (mode v1 graceful).
 // Pas de dépendance à la table `connectors` pour cette branche UX (M-FALLBACK).
 func TestDonate_ConnectorNotConfigured_FallsBackToV1Lien(t *testing.T) {
-	html := renderDonateRich(t, pages.DonateProps{DonURL: "", IBAN: "FR76..."})
+	html := renderDonateRich(t, views.DonateProps{DonURL: "", IBAN: "FR76..."})
 	if !strings.Contains(html, "Soutien en cours de configuration") {
 		t.Error("V1 fallback : message attendu sans URL")
 	}
 	// Avec URL : mode lien sortant.
-	html = renderDonateRich(t, pages.DonateProps{
+	html = renderDonateRich(t, views.DonateProps{
 		DonURL:  "https://www.helloasso.com/asso/test/dons",
 		Paliers: []int{10, 30},
 	})
@@ -184,7 +185,7 @@ func TestDonate_ConnectorNotConfigured_FallsBackToV1Lien(t *testing.T) {
 // TestDonate_NoBrandingNorConnector_RendersGracefulPlaceholder :
 // Aucune URL ni IBAN → message "en cours de configuration", pas d'erreur 500.
 func TestDonate_NoBrandingNorConnector_RendersGracefulPlaceholder(t *testing.T) {
-	html := renderDonateRich(t, pages.DonateProps{})
+	html := renderDonateRich(t, views.DonateProps{})
 	if !strings.Contains(html, "Soutien en cours de configuration") {
 		t.Errorf("placeholder graceful absent")
 	}
@@ -195,10 +196,10 @@ func TestDonate_NoBrandingNorConnector_RendersGracefulPlaceholder(t *testing.T) 
 
 // TestDonatePage_AnonymousShowsButtonsNoMyDonations : visiteur anonyme → paliers, pas de Mes dons.
 func TestDonatePage_AnonymousShowsButtonsNoMyDonations(t *testing.T) {
-	html := renderDonateRich(t, pages.DonateProps{
+	html := renderDonateRich(t, views.DonateProps{
 		DonURL: "https://hello/x", Paliers: []int{10, 30}, User: nil,
 	})
-	if !strings.Contains(html, "donate-palier") {
+	if !strings.Contains(html, "10 €") || !strings.Contains(html, "30 €") {
 		t.Error("boutons palier absents pour anonyme")
 	}
 	if strings.Contains(html, "Mes dons") {

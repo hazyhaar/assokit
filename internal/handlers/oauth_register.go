@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +36,18 @@ func (r *dcrRateLimiter) Allow(ip string) bool {
 	defer r.mu.Unlock()
 	now := time.Now()
 	cutoff := now.Add(-r.window)
+
+	// Borne mémoire : une IP qui s'enregistre une fois puis ne revient jamais
+	// laisserait son bucket en place indéfiniment. Au seuil, on purge toutes les
+	// IPs dont la dernière frappe est hors fenêtre.
+	if _, exists := r.buckets[ip]; !exists && len(r.buckets) >= dcrRateLimiterMaxBuckets {
+		for k, stamps := range r.buckets {
+			if len(stamps) == 0 || !stamps[len(stamps)-1].After(cutoff) {
+				delete(r.buckets, k)
+			}
+		}
+	}
+
 	stamps := r.buckets[ip]
 	// Garbage collect entries hors window.
 	kept := stamps[:0]
@@ -52,6 +65,8 @@ func (r *dcrRateLimiter) Allow(ip string) bool {
 	return true
 }
 
+const dcrRateLimiterMaxBuckets = 10000
+
 var globalDCRRateLimiter = newDCRRateLimiter()
 
 // OAuth2RegisterHandler POST /oauth2/register : RFC 7591.
@@ -60,7 +75,7 @@ var globalDCRRateLimiter = newDCRRateLimiter()
 // Rate-limit 5/h/IP anti-spam.
 func OAuth2RegisterHandler(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := clientIPFromRequest(r)
+		ip := clientIP(r, deps.Config.TrustProxyHeaders)
 		if !globalDCRRateLimiter.Allow(ip) {
 			deps.Logger.Warn("dcr_rate_limited", "ip_hash", maskIP(ip))
 			http.Error(w, "rate limit exceeded (5/heure)", http.StatusTooManyRequests)
@@ -71,6 +86,15 @@ func OAuth2RegisterHandler(deps app.AppDeps) http.HandlerFunc {
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024)).Decode(&req); err != nil {
 			http.Error(w, "JSON invalide: "+err.Error(), http.StatusBadRequest)
 			return
+		}
+
+		// Purge opportuniste des clients DCR abandonnés (TTL, sans token actif).
+		// Best-effort : un échec ne bloque pas l'enregistrement. Borné par le
+		// rate-limit 5/h/IP en amont.
+		if n, perr := intoauth.PurgeStaleClients(r.Context(), deps.DB, time.Now()); perr != nil {
+			deps.Logger.Warn("dcr_purge_failed", "err", perr.Error())
+		} else if n > 0 {
+			deps.Logger.Info("dcr_clients_purged", "count", n)
 		}
 
 		resp, err := intoauth.Register(r.Context(), deps.DB, req)
@@ -92,32 +116,34 @@ func OAuth2RegisterHandler(deps app.AppDeps) http.HandlerFunc {
 	}
 }
 
-// clientIPFromRequest : X-Forwarded-For ou RemoteAddr.
-func clientIPFromRequest(r *http.Request) string {
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		// Premier élément en cas de chain.
-		if idx := indexComma(ip); idx > 0 {
-			return ip[:idx]
+// clientIP retourne l'IP cliente pour les rate-limits / anti-bruteforce.
+//
+// SÉCURITÉ : X-Forwarded-For / X-Real-IP ne sont honorés QUE si trustProxy est
+// vrai (instance derrière un reverse-proxy de confiance qui réécrit ces
+// en-têtes). Sinon ils sont spoofables par n'importe quel client et
+// contourneraient tous les rate-limits → on se rabat sur RemoteAddr.
+func clientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		// X-Real-IP est posé par le reverse-proxy de confiance à $remote_addr (le
+		// pair réel) et écrase toute valeur fournie par le client : non spoofable.
+		if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+			return ip
 		}
-		return ip
-	}
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return ip
+		// Repli X-Forwarded-For : avec un proxy unique de confiance qui APPEND le
+		// pair réel ($proxy_add_x_forwarded_for), l'IP cliente est l'élément le
+		// PLUS À DROITE — le seul que le proxy ait ajouté. Prendre le premier
+		// élément serait spoofable (le client peut préfixer une fausse IP et
+		// contourner les rate-limits).
+		if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+			parts := strings.Split(ip, ",")
+			return strings.TrimSpace(parts[len(parts)-1])
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
 	return host
-}
-
-func indexComma(s string) int {
-	for i, c := range s {
-		if c == ',' {
-			return i
-		}
-	}
-	return -1
 }
 
 // maskIP retourne un hash court pour logs (pas de plaintext IP).

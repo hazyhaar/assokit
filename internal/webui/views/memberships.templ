@@ -1,0 +1,107 @@
+// views/memberships.templ — adhésions migrees vers templux (vague 2).
+package views
+
+import (
+	"fmt"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/membership"
+)
+
+var membershipStatusOptions = []templux.SelectOption{
+	{Value: "pending", Label: "pending"},
+	{Value: "active", Label: "active"},
+	{Value: "expired", Label: "expired"},
+	{Value: "cancelled", Label: "cancelled"},
+}
+
+// MembershipsAdminRow décore une adhésion avec le nom du membre.
+type MembershipsAdminRow struct {
+	Membership membership.Membership
+	MemberName string
+}
+
+// MembershipsAdminPage : liste des adhésions + formulaire d'enregistrement (admin).
+templ MembershipsAdminPage(rows []MembershipsAdminRow, csrfToken string) {
+	<section id="admin-memberships" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Adhésions</h1>
+		<form method="POST" action="/admin/memberships" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<h2 class="text-xl font-semibold text-ink">Enregistrer une adhésion</h2>
+			@templux.FormField("Identifiant du membre", "", "", templux.Input("user_id", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Début (AAAA-MM-JJ)", "", "", templux.Input("period_start", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Fin (AAAA-MM-JJ)", "", "", templux.Input("period_end", "", templ.Attributes{"type": "text", "required": "required"}))
+			@templux.FormField("Montant (centimes)", "", "", templux.Input("amount_cents", "0", templ.Attributes{"type": "number", "min": "0"}))
+			@templux.FormField("Statut", "", "", templux.Select("status", membershipStatusOptions, "pending", templ.Attributes{}))
+			@templux.FormField("Note", "", "", templux.Input("note", "", templ.Attributes{"type": "text"}))
+			@templux.Button("Enregistrer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+		if len(rows) == 0 {
+			<p class="text-ink-muted">Aucune adhésion enregistrée.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Membre</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Période</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Montant</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left"></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, row := range rows {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ row.MemberName }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ row.Membership.PeriodStart } → { row.Membership.PeriodEnd }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ membershipFormatAmount(row.Membership.AmountCents) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ row.Membership.Status }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">
+								<form method="POST" action="/admin/memberships/status" class="flex items-center gap-space-sm">
+									<input type="hidden" name="_csrf" value={ csrfToken }/>
+									<input type="hidden" name="id" value={ row.Membership.ID }/>
+									@templux.Select("status", membershipStatusOptions, row.Membership.Status, templ.Attributes{})
+									@templux.Button("Mettre à jour", "secondary", templ.Attributes{"type": "submit"})
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// MembershipsMyPage : adhésions de l'utilisateur courant.
+templ MembershipsMyPage(current string, list []membership.Membership) {
+	<section id="my-membership" class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Mon adhésion</h1>
+		<p class="text-ink-muted">Statut courant : <strong class="text-ink">{ current }</strong></p>
+		if len(list) == 0 {
+			<p class="text-ink-muted">Aucune adhésion enregistrée pour votre compte.</p>
+		} else {
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Période</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Montant</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range list {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ m.PeriodStart } → { m.PeriodEnd }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ membershipFormatAmount(m.AmountCents) }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ m.Status }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+func membershipFormatAmount(cents int64) string {
+	return fmt.Sprintf("%d,%02d €", cents/100, cents%100)
+}

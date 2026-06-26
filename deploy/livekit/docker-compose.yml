@@ -1,0 +1,24 @@
+# Serveur média LiveKit pour la visioconférence assokit.
+#
+# Mono-communauté : un seul conteneur, pas de Redis (le clustering multi-nœuds
+# LiveKit n'a de sens qu'au-delà d'un serveur ; une communauté = un serveur).
+#
+# Démarrage :
+#   1. Générer les clés          : voir README.md §1
+#   2. docker compose up -d
+#   3. Renseigner server_url / api_key / api_secret dans le panneau
+#      connecteurs d'assokit (/admin/connectors) — cf. README.md §3
+#
+# Réseau « host » : LiveKit ouvre une large plage de ports UDP (WebRTC) que le
+# bridge Docker mappe mal. Le mode host évite d'énumérer 50000-60000 dans
+# `ports:`. Sur Linux uniquement ; sous Docker Desktop (macOS/Windows) voir
+# README.md §4.
+services:
+  livekit:
+    image: livekit/livekit-server:v1.8
+    container_name: assokit-livekit
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro

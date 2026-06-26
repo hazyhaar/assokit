@@ -25,17 +25,15 @@ func TestPKCE_S256_VerifierMismatch(t *testing.T) {
 }
 
 // TestPKCE_PlainMatches : plain method, verifier == challenge → OK.
-func TestPKCE_PlainMatches(t *testing.T) {
-	if err := VerifyPKCE("abc", "abc", "plain"); err != nil {
-		t.Errorf("plain match err = %v", err)
+// TestPKCE_PlainRefused : la méthode "plain" est désormais REFUSÉE (S256-only,
+// le metadata OAuth n'annonce que S256 — pas de downgrade). Même un challenge
+// qui matcherait en plain doit être rejeté comme méthode non supportée.
+func TestPKCE_PlainRefused(t *testing.T) {
+	if err := VerifyPKCE("abc", "abc", "plain"); !errors.Is(err, ErrPKCEMethodUnsupported) {
+		t.Errorf("plain doit être refusé : err = %v, attendu ErrPKCEMethodUnsupported", err)
 	}
-}
-
-// TestPKCE_PlainMismatch : plain, verifier != challenge → erreur.
-func TestPKCE_PlainMismatch(t *testing.T) {
-	err := VerifyPKCE("abc", "xyz", "plain")
-	if !errors.Is(err, ErrPKCEMismatch) {
-		t.Errorf("err = %v, attendu ErrPKCEMismatch", err)
+	if err := VerifyPKCE("abc", "xyz", "plain"); !errors.Is(err, ErrPKCEMethodUnsupported) {
+		t.Errorf("plain doit être refusé : err = %v, attendu ErrPKCEMethodUnsupported", err)
 	}
 }
 

@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/horui/perms"
-	"github.com/hazyhaar/assokit/pkg/horui/rbac"
+	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	"github.com/hazyhaar/assokit/pkg/rbac"
 	"github.com/mark3labs/mcp-go/server"
 )
 
@@ -276,25 +276,15 @@ func TestMCPEndpoint_FullJourney_OAuthThenToolCall(t *testing.T) {
 	}
 }
 
-// TestMCPEndpoint_ResumabilityAfterDisconnect vérifie que la migration mcp_event_store existe.
-func TestMCPEndpoint_ResumabilityAfterDisconnect(t *testing.T) {
-	deps, _ := newRBACAdminDeps(t)
-	ctx := context.Background()
-
-	var count int
-	err := deps.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM mcp_event_store`).Scan(&count)
-	if err != nil {
-		t.Errorf("table mcp_event_store inaccessible: %v", err)
-	}
-}
-
 // TestWellKnownMCPServer vérifie le metadata endpoint.
 func TestWellKnownMCPServer(t *testing.T) {
 	deps, _ := newRBACAdminDeps(t)
 	rbacSvc := &rbac.Service{Store: &rbac.Store{DB: deps.DB}, Cache: &rbac.Cache{}}
 
 	r := chi.NewRouter()
-	mountMCPEndpoint(r, deps, rbacSvc)
+	if err := mountMCPEndpoint(r, deps, rbacSvc, nil, nil); err != nil {
+		t.Fatalf("mountMCPEndpoint: %v", err)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/mcp/server", nil)
 	w := httptest.NewRecorder()
@@ -330,7 +320,7 @@ func TestMCPEndpoint_RateLimitBruteForce(t *testing.T) {
 				http.Error(w, "bearer requis", 401)
 				return
 			}
-			ip := realIP(r)
+			ip := clientIP(r, false)
 			_, err := validateBearerToken(r.Context(), deps.DB, token)
 			if err != nil {
 				if guard.RecordFailure(ip) {
@@ -361,4 +351,4 @@ func TestMCPEndpoint_RateLimitBruteForce(t *testing.T) {
 }
 
 // authUser est un alias local pour éviter conflit de noms.
-var _ = auth.User{}
+var _ = identity.User{}

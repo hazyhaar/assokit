@@ -9,7 +9,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/hazyhaar/assokit/pkg/horui/tree"
+	tree "github.com/hazyhaar/assokit/internal/nodetree"
 )
 
 func openForumTestDB(t *testing.T) *sql.DB {

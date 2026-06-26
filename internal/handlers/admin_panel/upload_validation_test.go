@@ -16,8 +16,8 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/auth"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 func setupUploadTestDB(t *testing.T) *sql.DB {
@@ -61,7 +61,7 @@ func uploadRequest(t *testing.T, key, filename string, content []byte) *http.Req
 
 	req := httptest.NewRequest("POST", "/admin/panel/upload-file", body)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	ctx := middleware.ContextWithUser(req.Context(), &auth.User{ID: "admin-test"})
+	ctx := middleware.ContextWithUser(req.Context(), &identity.User{ID: "admin-test"})
 	return req.WithContext(ctx)
 }
 
