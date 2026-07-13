@@ -1,6 +1,8 @@
 # assokit
 
-**assokit** is an open-source (MIT) Go toolkit for building the website of any
+**assokit** is a source-available Go toolkit (PolyForm Noncommercial 1.0.0 —
+free for noncommercial use, commercial use requires a separate agreement) for
+building the website of any
 **member-based community** — associations, clubs, collectives, cooperatives,
 teams. It ships as a single self-contained binary: server-rendered HTML, a built
 SQLite database, and a native **MCP endpoint** so an LLM can drive every feature
@@ -112,4 +114,6 @@ for the contribution workflow.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+[PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/).
+See [LICENSE](LICENSE). Any noncommercial use is free; **any commercial use
+requires a separate agreement** with the licensor — contact contact@hazyhaar.fr.
