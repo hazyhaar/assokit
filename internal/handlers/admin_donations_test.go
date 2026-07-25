@@ -106,24 +106,29 @@ func TestAdminDonations_ListPaginationKeyset(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("page1 code=%d", w.Code)
 	}
-	var resp1 map[string]any
-	json.Unmarshal(w.Body.Bytes(), &resp1) //nolint:errcheck
-	items1, _ := resp1["items"].([]any)
-	if len(items1) != 50 {
-		t.Errorf("page1 len=%d, attendu 50", len(items1))
+	body1 := w.Body.String()
+	if !strings.Contains(body1, "Donations") {
+		t.Fatalf("page1 HTML attendu, obtenu: %s", body1[:min(len(body1), 200)])
 	}
-	cursor, _ := resp1["next_cursor"].(string)
-	if cursor == "" {
-		t.Fatal("next_cursor vide après page 1")
+	page1Rows := strings.Count(body1, "<tr>")
+	if page1Rows < 50 {
+		t.Errorf("page1 rows=%d, attendu >= 50", page1Rows)
 	}
+	if !strings.Contains(body1, "Page suivante") {
+		t.Fatal("lien page suivante absent après page 1")
+	}
+	cursorStart := strings.Index(body1, "cursor=")
+	if cursorStart < 0 {
+		t.Fatal("cursor absent du HTML page 1")
+	}
+	cursorEnd := strings.Index(body1[cursorStart:], "\"")
+	cursor := body1[cursorStart+7 : cursorStart+cursorEnd]
 
 	req2 := adminCtx(httptest.NewRequest("GET", "/admin/donations?cursor="+url.QueryEscape(cursor), nil))
 	w2 := httptest.NewRecorder()
 	AdminDonationsList(deps)(w2, req2)
-	var resp2 map[string]any
-	json.Unmarshal(w2.Body.Bytes(), &resp2) //nolint:errcheck
-	items2, _ := resp2["items"].([]any)
-	if len(items2) == 0 {
+	body2 := w2.Body.String()
+	if strings.Count(body2, "<tr>") == 0 {
 		t.Errorf("page2 vide alors qu'attendu non-vide (100 rows total)")
 	}
 }
@@ -141,11 +146,12 @@ func TestAdminDonations_FilterByStatus(t *testing.T) {
 	w := httptest.NewRecorder()
 	AdminDonationsList(deps)(w, req)
 
-	var resp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &resp) //nolint:errcheck
-	items, _ := resp["items"].([]any)
-	if len(items) != 1 {
-		t.Errorf("filter refunded len=%d, attendu 1", len(items))
+	body := w.Body.String()
+	if !strings.Contains(body, ">C<") && !strings.Contains(body, "C</td>") {
+		t.Errorf("filter refunded : donateur C attendu, obtenu %s", body[:min(len(body), 400)])
+	}
+	if strings.Contains(body, ">A<") || strings.Contains(body, ">B<") {
+		t.Errorf("filter refunded : donateurs A/B exclus, obtenu %s", body[:min(len(body), 400)])
 	}
 }
 
@@ -324,10 +330,30 @@ func TestAdminDonations_ListMaskedEmail(t *testing.T) {
 
 	body := w.Body.String()
 	if strings.Contains(body, "alice@example.org") {
-		// Email full visible dans response : c'est OK pour donor_email field, mais
-		// donor_email_masked doit aussi être présent
+		t.Error("email complet ne doit pas apparaître dans la page HTML")
 	}
 	if !strings.Contains(body, "a***@example.org") {
-		t.Errorf("masked email absent du JSON response : %s", body[:min(len(body), 500)])
+		t.Errorf("email masqué absent de la page HTML : %s", body[:min(len(body), 500)])
+	}
+}
+
+// TestAdminDonations_ListRendersHTMLPage : GET /admin/donations rend une page HTML
+// (pas du JSON brut) avec état vide assumé si aucune donation.
+func TestAdminDonations_ListRendersHTMLPage(t *testing.T) {
+	db := setupAdminDonationsDB(t)
+	deps := app.AppDeps{DB: db, Logger: slog.Default()}
+
+	req := adminCtx(httptest.NewRequest("GET", "/admin/donations", nil))
+	w := httptest.NewRecorder()
+	AdminDonationsList(deps)(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("code=%d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "text/html") && !strings.Contains(body, "Donations") {
+		t.Fatalf("page HTML attendue, obtenu: %s", body[:min(len(body), 300)])
+	}
+	if !strings.Contains(body, "Aucun don pour l'instant") {
+		t.Error("état vide attendu sans donation")
 	}
 }

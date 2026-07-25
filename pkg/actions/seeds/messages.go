@@ -6,8 +6,8 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/messaging"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // initMessages enregistre les actions de messagerie privée membre↔membre.

@@ -16,10 +16,10 @@ import (
 // manifestDTO est la struct de lecture du manifest.json produit par le bot transcriber.
 // Définie ici (CGO=0) pour éviter d'importer le package transcriber (CGO-tagged).
 type manifestDTO struct {
-	Room      string            `json:"room"`
-	Salon     string            `json:"salon"`
-	StartedAt string            `json:"started_at"`
-	EndedAt   string            `json:"ended_at"`
+	Room      string           `json:"room"`
+	Salon     string           `json:"salon"`
+	StartedAt string           `json:"started_at"`
+	EndedAt   string           `json:"ended_at"`
 	Speakers  []manifestSpeaker `json:"speakers"`
 }
 
@@ -60,8 +60,8 @@ type BatchStore interface {
 
 // Batcher exécute le pipeline batch post-enregistrement.
 type Batcher struct {
-	Store  BatchStore
-	Logger *slog.Logger
+	Store      BatchStore
+	Logger     *slog.Logger
 	// WhisperBin : chemin du binaire whisper-cli. Défaut : "whisper-cli".
 	// Lire depuis env ASSOKIT_WHISPER_BIN à la construction (bordure).
 	WhisperBin string

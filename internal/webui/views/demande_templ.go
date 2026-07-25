@@ -62,7 +62,7 @@ func OnboardProprietairePage(natures []string, csrfToken string) templ.Component
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><p class=\"text-ink-muted text-sm\">Ce parcours crée en une fois le compte du propriétaire, son adhésion et la ou les parcelles dont il détient un droit. Toutes les entrées sont validées avant la moindre création.</p><fieldset class=\"flex flex-col gap-space-md\"><legend class=\"text-lg font-medium text-ink\">Identité du propriétaire</legend>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><p class=\"text-ink-muted text-sm\">Ce parcours crée en une fois le compte du propriétaire (activation par lien, sans mot de passe initial), son adhésion et la ou les parcelles dont il détient un droit. Toutes les entrées sont validées avant la moindre création.</p><fieldset class=\"flex flex-col gap-space-md\"><legend class=\"text-lg font-medium text-ink\">Identité du propriétaire</legend>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -71,10 +71,6 @@ func OnboardProprietairePage(natures []string, csrfToken string) templ.Component
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = templux.FormField("Adresse électronique", "", "", templux.Input("email", "", templ.Attributes{"type": "email", "required": "required"})).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templux.FormField("Mot de passe initial", "Au moins 8 caractères, communiqué au propriétaire.", "", templux.Input("password", "", templ.Attributes{"type": "password", "required": "required", "minlength": "8"})).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -203,7 +199,7 @@ func DemandeMadPage(parcelles []parcelle.Parcelle, demandes []demande.Demande, c
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 65, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 64, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 		if templ_7745c5c3_Err != nil {
@@ -229,7 +225,7 @@ func DemandeMadPage(parcelles []parcelle.Parcelle, demandes []demande.Demande, c
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(demandeParcelleRef(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 70, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 69, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -383,7 +379,7 @@ func demandesTable(list []demande.Demande, admin bool) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(d.UserID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 117, Col: 85}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 116, Col: 85}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -401,7 +397,7 @@ func demandesTable(list []demande.Demande, admin bool) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(d.ParcelleRef)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 119, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 118, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -414,7 +410,7 @@ func demandesTable(list []demande.Demande, admin bool) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(d.Objet)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 120, Col: 83}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 119, Col: 83}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -427,7 +423,7 @@ func demandesTable(list []demande.Demande, admin bool) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(demandeStatut(d.Statut))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 121, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 120, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -455,7 +451,7 @@ func demandesTable(list []demande.Demande, admin bool) templ.Component {
 					var templ_7745c5c3_Var13 templ.SafeURL
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/admin/demandes/" + d.ID + "/convertir"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 127, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 126, Col: 103}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -515,7 +511,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(d.UserID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 144, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 143, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -528,7 +524,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(d.ParcelleRef)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 145, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 144, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -541,7 +537,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(d.Objet)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 146, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 145, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -559,7 +555,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(d.Details)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 148, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 147, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -577,7 +573,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 		var templ_7745c5c3_Var19 templ.SafeURL
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/admin/demandes/" + d.ID + "/convertir"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 151, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 150, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -590,7 +586,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 152, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 151, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 		if templ_7745c5c3_Err != nil {
@@ -603,7 +599,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(d.UserID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 153, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 152, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 		if templ_7745c5c3_Err != nil {
@@ -627,7 +623,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 162, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 161, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 				if templ_7745c5c3_Err != nil {
@@ -640,7 +636,7 @@ func DemandeConvertirPage(d demande.Demande, parcelles []parcelle.Parcelle, csrf
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(convertirParcelleLabel(p))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 163, Col: 40}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/demande.templ`, Line: 162, Col: 40}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {

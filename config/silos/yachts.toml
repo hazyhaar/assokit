@@ -1,9 +1,9 @@
-# Silo « yachts » — exemple générique de vertical marketplace.
+# Silo "yachts" — A&C Yacht Brokers (Martinique / Caraïbes)
 # Ajouter un vertical = ajouter un fichier ici, zéro code applicatif.
 
 id          = "yachts"
-label       = "Bateaux à vendre"
-description = "Annonces de bateaux d'occasion et neufs — exemple de catalogue"
+label       = "Yachts à vendre"
+description = "Annonces d'occasion et neuves — A&C Yacht Brokers, Martinique"
 
 # Attributs facettables : chaque entrée déclare une colonne GENERATED dans listings.
 # json_path : chemin json_extract depuis la colonne attrs.

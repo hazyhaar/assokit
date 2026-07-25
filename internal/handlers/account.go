@@ -8,6 +8,7 @@ package handlers
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/hazyhaar/assokit/internal/app"
@@ -19,6 +20,7 @@ import (
 	"github.com/hazyhaar/assokit/pkg/membership"
 	"github.com/hazyhaar/assokit/pkg/mutation"
 	"github.com/hazyhaar/assokit/pkg/parcelle"
+	"github.com/hazyhaar/assokit/pkg/profilrequest"
 )
 
 // membershipStateLabel traduit le statut d'adhésion courante (CurrentStatus) en
@@ -83,8 +85,64 @@ func handleAccountHome(deps app.AppDeps) http.HandlerFunc {
 			CotisationsLen:  len(cotis),
 			MembershipState: membershipStateLabel(state),
 		}
+		tabs := metierTabViews(visibleMetierTabs(deps.MetierTabs, u.Roles), "/account")
+		cards := filterAccountCards(views.BuildAccountHomeCards(summary), deps.MetierTabs, u.Roles)
+		cards = filterDisabledModuleCards(cards, deps.DisabledModules)
 		logAccountSelfAccess(r, deps, u.ID)
-		renderPageV2(w, r, deps, "Espace propriétaire", views.AccountHomePage(summary))
+		renderPageV2(w, r, deps, "Espace propriétaire", views.AccountHomePage(summary, tabs, cards))
+	}
+}
+
+// handleAccountProfils liste les profils métier détenus, les grades requestables
+// non détenus et l'état des demandes en cours du membre.
+func handleAccountProfils(deps app.AppDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u := middleware.UserFromContext(r.Context())
+		if u == nil {
+			http.Redirect(w, r, "/login?redirect_uri=/account/profils", http.StatusFound)
+			return
+		}
+		ctx := r.Context()
+		visible := visibleMetierTabs(deps.MetierTabs, u.Roles)
+		profils := make([]views.MetierProfilView, 0, len(visible))
+		for _, tab := range visible {
+			profils = append(profils, views.MetierProfilView{Label: tab.Label})
+		}
+		requestable := make([]views.ProfileRequestableView, 0)
+		for _, g := range deps.ProfileGrant.Requestable {
+			if !slices.Contains(u.Roles, g.Name) {
+				requestable = append(requestable, views.ProfileRequestableView{
+					GradeID: g.ID,
+					Label:   g.Name,
+				})
+			}
+		}
+		pendingViews := make([]views.ProfileRequestStatusView, 0)
+		if len(deps.ProfileGrant.Requestable) > 0 {
+			reqs, err := (&profilrequest.Store{DB: deps.DB}).ListForUser(ctx, u.ID)
+			if err != nil {
+				deps.Logger.Error("account_profils_requests", "err", err.Error())
+				http.Error(w, "Erreur interne", http.StatusInternalServerError)
+				return
+			}
+			for _, req := range reqs {
+				if req.Statut != "soumise" {
+					continue
+				}
+				label := gradeNameForID(deps.ProfileGrant, req.GradeID)
+				if label == "" {
+					label = req.GradeID
+				}
+				pendingViews = append(pendingViews, views.ProfileRequestStatusView{
+					GradeLabel: label,
+					Statut:     req.Statut,
+				})
+			}
+		}
+		csrfToken := middleware.CSRFToken(ctx)
+		logAccountSelfAccess(r, deps, u.ID)
+		renderPageV2(w, r, deps, "Mes profils",
+			views.AccountProfilsPage(profils, requestable, pendingViews, csrfToken))
 	}
 }
 

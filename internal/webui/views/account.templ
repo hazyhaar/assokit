@@ -7,6 +7,7 @@ package views
 import (
 	"fmt"
 
+	"github.com/hazyhaar/assokit/internal/webui/components/account"
 	"github.com/hazyhaar/assokit/internal/webui/templux"
 	"github.com/hazyhaar/assokit/pkg/membership"
 	"github.com/hazyhaar/assokit/pkg/mutation"
@@ -24,9 +25,61 @@ type AccountSummary struct {
 	MembershipState string // libellé de l'adhésion courante (CurrentStatus)
 }
 
+// AccountCardView porte les données d'une carte de l'accueil membre.
+type AccountCardView struct {
+	Title  string
+	Resume string
+	Href   string
+}
+
+// MetierProfilView décrit un profil métier détenu (lecture seule, page Mes profils).
+type MetierProfilView struct {
+	Label string
+}
+
+// ProfileRequestableView décrit un grade requestable que le membre peut solliciter.
+type ProfileRequestableView struct {
+	GradeID string
+	Label   string
+}
+
+// ProfileRequestStatusView décrit une demande en cours du membre connecté.
+type ProfileRequestStatusView struct {
+	GradeLabel string
+	Statut     string
+}
+
+// ProfileRequestPendingView décrit une demande soumise pour la page d'octroi.
+type ProfileRequestPendingView struct {
+	ID         string
+	UserLabel  string
+	GradeID    string
+	GradeLabel string
+}
+
+// BuildAccountHomeCards assemble le catalogue de cartes d'accueil ; le handler filtre
+// ensuite selon les grades détenus et la liste blanche MetierTabs.
+func BuildAccountHomeCards(s AccountSummary) []AccountCardView {
+	return []AccountCardView{
+		{Title: "Mes parcelles", Resume: accountParcellesResume(s), Href: "/account/parcelles"},
+		{Title: "Mes conventions", Resume: accountConventionsResume(s), Href: "/account/conventions"},
+		{Title: "Espace élevage", Resume: "Entretien, problèmes terrain, export PAC.", Href: "/account/elevage"},
+		{Title: "Demander une mise à disposition", Resume: "Solliciter une parcelle pour pâturage ou usage.", Href: "/account/demande-mad"},
+		{Title: "Mes cotisations", Resume: accountCotisationsResume(s), Href: "/account/cotisations"},
+		{Title: "Attestation d'adhésion", Resume: "Document imprimable (adhésion et parcelles).", Href: "/account/attestation"},
+		{Title: "Déclarer une mutation", Resume: "Vente ou succession sur une de mes parcelles.", Href: "/account/mutation"},
+		{Title: "Corpus juridique", Resume: "Rechercher dans le corpus de droit rural.", Href: "/account/corpus"},
+		{Title: "Mes données", Resume: "Télécharger mes données personnelles.", Href: "/account/data-download"},
+		// Point d'entrée d'auto-enrôlement : la page liste les profils détenus et
+		// permet d'en demander un. Carte générique, jamais filtrée par grade
+		// (la route /account/profils n'est déclarée dans aucun MetierTab).
+		{Title: "Mes profils", Resume: "Profils métier détenus et demande de nouveau profil.", Href: "/account/profils"},
+	}
+}
+
 // AccountHomePage : page d'accueil rôle-scopée du propriétaire. Résumés + liens vers
 // les vues détaillées existantes (parcelles, conventions, cotisations, gouvernance).
-templ AccountHomePage(s AccountSummary) {
+templ AccountHomePage(s AccountSummary, tabs []templux.MetierTabView, cards []AccountCardView) {
 	<section id="account-home" class="flex flex-col gap-space-lg">
 		<header class="flex flex-col gap-space-sm">
 			<h1 class="text-2xl font-semibold text-ink">Espace propriétaire</h1>
@@ -35,22 +88,97 @@ templ AccountHomePage(s AccountSummary) {
 			}
 			<p class="text-ink-muted text-sm">Adhésion : { s.MembershipState }</p>
 		</header>
+		@templux.MetierTabBar(tabs)
 		<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
-			@accountCard("Mes parcelles", accountParcellesResume(s), "/account/parcelles")
-			@accountCard("Mes conventions", accountConventionsResume(s), "/account/conventions")
-			@accountCard("Espace élevage", "Entretien, problèmes terrain, export PAC.", "/account/elevage")
-			@accountCard("Demander une mise à disposition", "Solliciter une parcelle pour pâturage ou usage.", "/account/demande-mad")
-			@accountCard("Mes cotisations", accountCotisationsResume(s), "/account/cotisations")
-			@accountCard("Attestation d'adhésion", "Document imprimable (adhésion et parcelles).", "/account/attestation")
-			@accountCard("Déclarer une mutation", "Vente ou succession sur une de mes parcelles.", "/account/mutation")
-			@accountCard("Corpus juridique", "Rechercher dans le corpus de droit rural.", "/account/corpus")
-			@accountCard("Mes données", "Télécharger mes données personnelles.", "/account/data-download")
+			for _, card := range cards {
+				@accountCard(card.Title, card.Resume, card.Href)
+			}
 		</div>
 	</section>
 }
 
+// AccountProfilsPage : profils détenus, demandes requestables et état des demandes
+// en cours. État vide assumé pour chaque section.
+templ AccountProfilsPage(profils []MetierProfilView, requestable []ProfileRequestableView, pending []ProfileRequestStatusView, csrfToken string) {
+	<section id="account-profils" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Mes profils</h1>
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-lg font-medium text-ink">Profils détenus</h2>
+			if len(profils) == 0 {
+				<p class="text-ink-muted">Aucun profil métier rattaché à votre compte.</p>
+			} else {
+				<ul class="flex flex-col gap-space-sm">
+					for _, p := range profils {
+						@account.MetierProfilHeldItem(p.Label)
+					}
+				</ul>
+			}
+		</section>
+		if len(requestable) > 0 {
+			<section class="flex flex-col gap-space-sm">
+				<h2 class="text-lg font-medium text-ink">Demander un profil</h2>
+				<ul class="flex flex-col gap-space-sm">
+					for _, r := range requestable {
+						@account.ProfileRequestableItem(r.GradeID, r.Label, csrfToken)
+					}
+				</ul>
+			</section>
+		}
+		if len(pending) > 0 {
+			<section class="flex flex-col gap-space-sm">
+				<h2 class="text-lg font-medium text-ink">Demandes en cours</h2>
+				<ul class="flex flex-col gap-space-sm">
+					for _, p := range pending {
+						@account.ProfileRequestStatusItem(p.GradeLabel, profileRequestStatutLabel(p.Statut))
+					}
+				</ul>
+			</section>
+		}
+	</section>
+}
+
+// AccountProfilsOctroiPage : liste des demandes soumises et formulaire de retrait
+// (gouvernance). État vide assumé.
+templ AccountProfilsOctroiPage(pending []ProfileRequestPendingView, csrfToken string) {
+	<section id="account-profils-octroi" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Octroi de profils</h1>
+		if len(pending) == 0 {
+			<p class="text-ink-muted">Aucune demande en attente.</p>
+		} else {
+			<ul class="flex flex-col gap-space-sm">
+				for _, p := range pending {
+					@account.ProfileOctroiPendingItem(p.ID, p.UserLabel, p.GradeLabel, csrfToken)
+				}
+			</ul>
+		}
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-lg font-medium text-ink">Retrait de grade</h2>
+			@account.ProfileRetraitForm(csrfToken)
+		</section>
+	</section>
+}
+
+func profileRequestStatutLabel(statut string) string {
+	switch statut {
+	case "soumise":
+		return "en attente"
+	case "acceptee":
+		return "acceptée"
+	case "refusee":
+		return "refusée"
+	default:
+		return statut
+	}
+}
+
 templ accountCard(title, resume, href string) {
-	<a href={ templ.SafeURL(href) } class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm hover:shadow-md">
+	<a
+		href={ templ.SafeURL(href) }
+		class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm hover:shadow-md"
+		if href == "/account/data-download" {
+			hx-boost="false"
+		}
+	>
 		<h2 class="text-lg font-medium text-ink">{ title }</h2>
 		<p class="text-ink-muted text-sm">{ resume }</p>
 	</a>

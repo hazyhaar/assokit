@@ -3,7 +3,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/webui/views"
@@ -35,8 +37,9 @@ func handleDataDownload(deps app.AppDeps) http.HandlerFunc {
 			ActorID:     u.ID,
 			Action:      gdpr.ActionExport,
 		})
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("Content-Disposition", `attachment; filename="mes-donnees.json"`)
+		filename := fmt.Sprintf("mes-donnees-%s.json", time.Now().UTC().Format("20060102"))
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(data)

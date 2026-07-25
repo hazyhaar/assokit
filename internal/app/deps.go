@@ -29,6 +29,33 @@ type AppDeps struct {
 	BrandingFS fs.FS
 	Profils    []signupprofile.Profile
 
+	// MetierTabs : liste blanche des onglets d'espace membre par grade métier,
+	// injectée à la bordure (api.Options). Vide par défaut : aucune garde métier
+	// supplémentaire, comportement historique (requireAuth seul).
+	MetierTabs []MetierTab
+
+	// ProfileGrant : configuration d'octroi de profils métier (gouvernance + grades
+	// requestables), injectée à la bordure. Vide par défaut : pas de parcours demande/
+	// octroi actif.
+	ProfileGrant ProfileGrant
+
+	// DisabledModules : ensemble des slugs de module d'espace membre désactivés pour
+	// l'instance, injecté à la bordure (api.Options.DisabledModules). Nil/vide par
+	// défaut → tous les modules socle actifs (comportement historique). Une instance
+	// verticale (ex. GAFP) désactive ici un module socle (« conventions ») pour le
+	// remplacer par sa propre vue : les routes du module ne sont pas montées (404
+	// naturel) et ses cartes/liens ne sont pas rendus. Le core reste tenant-agnostic :
+	// il ne connaît que des slugs génériques, aucune identité d'instance.
+	DisabledModules map[string]bool
+
+	// ElevageExtraCards : cartes supplémentaires injectées dans le hub d'espace
+	// élevage (/account/elevage), fournies par la bordure (ex. GAFP relie ici ses
+	// sous-pages questions parcellaires / télédéclaration PAC / divergence). Vide
+	// par défaut → seules les cartes socle (entretien/problème/export PAC)
+	// s'affichent. Le core reste tenant-agnostic : il ne connaît aucune route
+	// propre à une instance verticale.
+	ElevageExtraCards []AccountCard
+
 	// EventSink : sortie des événements métier (nouveau membre, feedback, post,
 	// paiement…). Jamais nil après api.New (NopSink par défaut). La bordure
 	// injecte HTTPSink (webhook générique) ou un adaptateur bus ledger horos55

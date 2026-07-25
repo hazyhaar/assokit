@@ -10,8 +10,8 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // Gardiens comportementaux S5 — domaines mailer.outbox, feedback, plus actions

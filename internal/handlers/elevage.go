@@ -61,6 +61,7 @@ func handleAccountElevage(deps app.AppDeps) http.HandlerFunc {
 			Conventions:    convs,
 			Parcelles:      parcs,
 			SurfaceTotalM2: surface,
+			ExtraCards:     deps.ElevageExtraCards,
 		}
 		logAccountSelfAccess(r, deps, u.ID)
 		renderPageV2(w, r, deps, "Espace élevage", views.ElevagePage(summary))

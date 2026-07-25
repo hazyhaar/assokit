@@ -5,10 +5,15 @@
 package views
 
 // DashLink est une entrée du tableau de bord (libellé, cible, description courte).
+// Perm nomme, s'il n'est pas vide, la permission fine RBAC exigée pour que ce lien
+// soit affiché : le handler filtre les liens à ceux que l'utilisateur courant peut
+// réellement atteindre (cohérence entre la vue et le gate de la route). Perm vide =
+// lien réservé aux administrateurs (le tableau de bord est déjà gardé au niveau route).
 type DashLink struct {
 	Label string
 	Href  string
 	Desc  string
+	Perm  string
 }
 
 // DashGroup regroupe des liens sous un intitulé de domaine.

@@ -45,3 +45,12 @@ type InertProvider struct{}
 func (InertProvider) SearchCorpus(_ context.Context, _ string, _ int) ([]Hit, error) {
 	return []Hit{}, nil
 }
+
+// IsInert indique si le fournisseur est absent ou inerte (aucun moteur branché).
+func IsInert(p Provider) bool {
+	if p == nil {
+		return true
+	}
+	_, ok := p.(InertProvider)
+	return ok
+}

@@ -21,6 +21,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
+	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/webui/templux"
 	"github.com/hazyhaar/assokit/pkg/convention"
 	"github.com/hazyhaar/assokit/pkg/fieldlog"
@@ -35,6 +36,10 @@ type ElevageSummary struct {
 	Conventions    []convention.Convention
 	Parcelles      []parcelle.Parcelle
 	SurfaceTotalM2 int64
+
+	// ExtraCards : cartes injectées par la bordure (ex. GAFP), reliant le hub
+	// socle aux sous-pages métier de l'instance. Vide par défaut.
+	ExtraCards []app.AccountCard
 }
 
 // ElevagePage : accueil rôle-scopé de l'éleveur/preneur. Consultation en lecture
@@ -73,7 +78,7 @@ func ElevagePage(s ElevageSummary) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(s.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 35, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 40, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -100,6 +105,12 @@ func ElevagePage(s ElevageSummary) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		for _, c := range s.ExtraCards {
+			templ_7745c5c3_Err = accountCard(c.Title, c.Desc, c.Href).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><section class=\"flex flex-col gap-space-sm\"><h2 class=\"text-xl font-semibold text-ink\">Mes conventions de pâturage</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -122,7 +133,7 @@ func ElevagePage(s ElevageSummary) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(c.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 60, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 68, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -135,7 +146,7 @@ func ElevagePage(s ElevageSummary) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(elevageDuree(c.DureeMois))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 61, Col: 104}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 69, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -148,7 +159,7 @@ func ElevagePage(s ElevageSummary) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d parcelle(s)", len(c.Parcelles)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 62, Col: 126}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 70, Col: 126}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -161,7 +172,7 @@ func ElevagePage(s ElevageSummary) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(elevageStatutConvention(c.Statut))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 63, Col: 112}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 71, Col: 112}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -199,7 +210,7 @@ func ElevagePage(s ElevageSummary) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(attestationParcelleRef(p))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 77, Col: 37}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 85, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -217,7 +228,7 @@ func ElevagePage(s ElevageSummary) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Surface exploitée totale : %d m².", s.SurfaceTotalM2))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 80, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 88, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -267,7 +278,7 @@ func ElevageEntretienPage(parcelles []parcelle.Parcelle, entries []fieldlog.Entr
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 97, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 105, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -297,7 +308,7 @@ func ElevageEntretienPage(parcelles []parcelle.Parcelle, entries []fieldlog.Entr
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(mutationParcelleRef(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 103, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 111, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 			if templ_7745c5c3_Err != nil {
@@ -370,7 +381,7 @@ func ElevageProblemePage(parcelles []parcelle.Parcelle, entries []fieldlog.Entry
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 120, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 128, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -400,7 +411,7 @@ func ElevageProblemePage(parcelles []parcelle.Parcelle, entries []fieldlog.Entry
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(mutationParcelleRef(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 126, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 134, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 			if templ_7745c5c3_Err != nil {
@@ -496,7 +507,7 @@ func AdminFieldReportsPage(rows []FieldReportRow) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(row.DisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 167, Col: 93}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 175, Col: 93}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -509,7 +520,7 @@ func AdminFieldReportsPage(rows []FieldReportRow) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(fieldlogKindLabel(row.Entry.Kind))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 168, Col: 111}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 176, Col: 111}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -522,7 +533,7 @@ func AdminFieldReportsPage(rows []FieldReportRow) templ.Component {
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fieldlogCategorieLabel(row.Entry.Category))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 169, Col: 120}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 177, Col: 120}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -535,7 +546,7 @@ func AdminFieldReportsPage(rows []FieldReportRow) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(row.Entry.ParcelleRef)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 170, Col: 99}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 178, Col: 99}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -548,7 +559,7 @@ func AdminFieldReportsPage(rows []FieldReportRow) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(row.Entry.EventDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 171, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 179, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -561,7 +572,7 @@ func AdminFieldReportsPage(rows []FieldReportRow) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(row.Entry.Details)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 172, Col: 95}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 180, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -614,7 +625,7 @@ func fieldlogTable(emptyMsg string, entries []fieldlog.Entry) templ.Component {
 			var templ_7745c5c3_Var23 string
 			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(emptyMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 183, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 191, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 			if templ_7745c5c3_Err != nil {
@@ -637,7 +648,7 @@ func fieldlogTable(emptyMsg string, entries []fieldlog.Entry) templ.Component {
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(fieldlogCategorieLabel(e.Category))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 197, Col: 111}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 205, Col: 111}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -650,7 +661,7 @@ func fieldlogTable(emptyMsg string, entries []fieldlog.Entry) templ.Component {
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(e.ParcelleRef)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 198, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 206, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -663,7 +674,7 @@ func fieldlogTable(emptyMsg string, entries []fieldlog.Entry) templ.Component {
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(e.EventDate)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 199, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 207, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -676,7 +687,7 @@ func fieldlogTable(emptyMsg string, entries []fieldlog.Entry) templ.Component {
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(e.Details)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 200, Col: 86}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/elevage.templ`, Line: 208, Col: 86}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {

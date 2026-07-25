@@ -1,0 +1,44 @@
+# Instance GAFP — branding d'une association foncière pastorale.
+# Charge à la bordure via BRANDING_DIR ; le cœur assokit reste générique.
+# Thème papier-ochre (charte templux DESIGN.md), accents terre.
+
+name = "AFP de Montagagne"
+tagline = "Association foncière pastorale — gestion commune des herbages et des estives"
+base_url = "http://127.0.0.1:8088"
+locale = "fr-FR"
+
+# Police de la charte papier-ochre.
+font_family = "DM Sans, ui-sans-serif, system-ui, sans-serif"
+
+# Palette papier-ochre / terre (templux DESIGN.md preset papier-ochre).
+# primary -> accent d'action ; bg_light -> surface (papier) ; text -> encre ;
+# secondary -> danger (brique).
+[colors]
+primary   = "#8a5a1c"
+secondary = "#7a2c1f"
+accent    = "#8a5a1c"
+bg_light  = "#faf5ea"
+bg_dark   = "#2b1d0e"
+text      = "#2b1d0e"
+
+[footer]
+lines = [
+  "AFP de Montagagne",
+  "Association foncière pastorale",
+]
+
+[[nav]]
+slug = "/faq"
+label = "Questions fréquentes"
+order = 1
+
+[[nav]]
+slug = "/lexique"
+label = "Lexique"
+order = 2
+
+[texts]
+"button.join" = "Rejoindre l'AFP"
+"nav.forum" = "Échanges entre membres"
+"link.faq" = "Questions fréquentes"
+"link.lexique" = "Lexique"

@@ -24,6 +24,7 @@ import (
 	"github.com/hazyhaar/assokit/internal/handlers"
 	"github.com/hazyhaar/assokit/internal/mailer"
 	"github.com/hazyhaar/assokit/internal/transcription"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/connectors"
 	"github.com/hazyhaar/assokit/pkg/connectors/assets"
@@ -42,6 +43,24 @@ import (
 	"github.com/hazyhaar/assokit/static"
 
 	_ "modernc.org/sqlite"
+)
+
+// MetierTab, GrantableGrade et ProfileGrant sont réexportés pour la bordure
+// (instances consommatrices ne peuvent pas importer internal/app).
+type (
+	MetierTab      = app.MetierTab
+	GrantableGrade = app.GrantableGrade
+	ProfileGrant   = app.ProfileGrant
+	AccountCard    = app.AccountCard
+)
+
+// DashGroup et DashLink sont réexportés pour la bordure : une instance
+// consommatrice (ex. GAFP) ne peut pas importer internal/webui/views, mais peut
+// construire ses groupes de tableau de bord via ces alias et les injecter par
+// Options.AdminDashboardGroups.
+type (
+	DashGroup = views.DashGroup
+	DashLink  = views.DashLink
 )
 
 // App représente une instance assokit configurée et prête à servir.
@@ -143,7 +162,7 @@ type Options struct {
 	LogLevel slog.Level
 
 	// RegisterActions : hook de bordure optionnel. Reçoit le registre d'actions
-	// après les seeds core, pour qu'un produit consommateur (ex. un produit tiers) injecte
+	// après les seeds core, pour qu'un produit consommateur (ex. GAFP) injecte
 	// ses actions métier — chacune obtenant route HTTP admin + outil MCP +
 	// permission RBAC automatiques (LLM-parity), sans modifier le core. Une
 	// erreur (ex. ID en doublon avec une action core) est fatale au New.
@@ -181,6 +200,61 @@ type Options struct {
 	// GradeID référencé doit exister dans la table RBAC de l'instance, sinon api.New
 	// échoue au boot (fail-loud, aucun repli silencieux).
 	SignupProfiles []signupprofile.Profile
+
+	// MetierTabs : liste blanche des onglets d'espace membre par grade métier.
+	// Injectée à la bordure ; vide par défaut (aucune garde métier, requireAuth seul).
+	// Le core ne connaît aucun nom de grade en dur : seuls les onglets déclarés ici
+	// activent requireMetierGrade et le filtrage UI.
+	MetierTabs []app.MetierTab
+
+	// ProfileGrant : configuration d'octroi de profils métier (grade de gouvernance
+	// + catalogue requestable). Injectée à la bordure ; vide par défaut. Le core ne
+	// connaît aucun nom de grade en dur.
+	ProfileGrant app.ProfileGrant
+
+	// DisabledModules : slugs des modules d'espace membre du socle à désactiver pour
+	// cette instance (ex. "conventions"). Vide/nil par défaut → tous les modules
+	// actifs (rétro-compatible). Quand un module est désactivé, ses routes ne sont
+	// pas montées (404 naturel) et ses cartes/liens ne sont pas rendus ; une instance
+	// verticale (ex. GAFP) fournit alors sa propre vue à la même place. Le core reste
+	// tenant-agnostic : seul un slug de module générique est accepté, jamais une
+	// identité d'instance. Un slug inconnu du catalogue socle est fatal au New
+	// (fail-loud, aucune désactivation silencieuse). Modules reconnus : cf.
+	// handlers.KnownModuleSlugs.
+	DisabledModules []string
+
+	// SeedGrades : hook de bordure optionnel, appelé APRÈS les migrations (la table
+	// grades existe alors) et AVANT la validation des profils d'inscription, pour
+	// qu'un consommateur (ex. GAFP) enregistre ses grades RBAC personnalisés. Sans
+	// cette fenêtre, un SignupProfile référençant un grade custom ferait échouer le
+	// boot (validateProfileGrades fail-loud) faute de pouvoir seeder ce grade. Une
+	// erreur du hook est fatale au New (la db est refermée). Nil → aucun seed custom.
+	SeedGrades func(*sql.DB) error
+
+	// AdminDashboardGroups : groupes de liens supplémentaires ajoutés au tableau de
+	// bord /admin, injectés à la bordure. Vide par défaut → seuls les groupes socle
+	// (génériques du kit) s'affichent. Le core reste tenant-agnostic : il ne connaît
+	// aucune sous-page propre à une instance ; une instance verticale (ex. GAFP)
+	// place ici son groupe « Registre foncier » (→ /admin/registre) sans modifier le
+	// core. Les liens injectés portent, s'il le faut, une permission RBAC fine (champ
+	// Perm) et sont soumis au même filtrage par utilisateur que les liens socle.
+	AdminDashboardGroups []views.DashGroup
+
+	// ElevageExtraCards : cartes supplémentaires injectées dans le hub d'espace
+	// élevage (/account/elevage), miroir d'AdminDashboardGroups pour l'espace
+	// membre. Vide par défaut → seules les cartes socle (entretien, problème,
+	// export PAC) s'affichent. Une instance verticale (ex. GAFP) y relie ses
+	// sous-pages métier (questions parcellaires, télédéclaration PAC, écarts
+	// acte/PAC) sans que le core ne connaisse jamais ces routes.
+	ElevageExtraCards []AccountCard
+
+	// CSPExtra : sources additionnelles autorisées par directive Content-Security-Policy,
+	// injectées à la bordure d'instance. Valeur zéro (défaut) → CSP durcie inchangée,
+	// octet-pour-octet. Le core reste durci par défaut ; une instance qui charge une
+	// ressource externe légitime (ex. GAFP : MapLibre CDN + tuiles IGN pour la carte
+	// foncière) ouvre ici le cran nécessaire, sans que le core n'élargisse jamais sa
+	// propre CSP.
+	CSPExtra appMiddleware.CSPExtra
 }
 
 // New crée une App, ouvre la DB, applique les migrations, charge le branding.
@@ -205,6 +279,17 @@ func New(opts Options) (*App, error) {
 	if err := chassis.Run(db); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("api.New: migrations: %w", err)
+	}
+
+	// 2bis. Seed des grades RBAC personnalisés (bordure). Fenêtre dédiée entre les
+	// migrations (table grades créée) et la validation des profils d'inscription
+	// (validateProfileGrades, fail-loud) : un consommateur enregistre ici ses grades
+	// custom pour qu'un SignupProfile puisse les référencer sans planter au boot.
+	if opts.SeedGrades != nil {
+		if err := opts.SeedGrades(db); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("api.New: seed grades: %w", err)
+		}
 	}
 
 	// 3. Admin bootstrap (idempotent, skip si AdminEmail vide).
@@ -281,6 +366,10 @@ func New(opts Options) (*App, error) {
 			return nil, fmt.Errorf("api.New: branding: %w", err)
 		}
 		theme.Init(b)
+		if err := bootstrap.SeedBrandingPages(context.Background(), db, opts.BrandingFS, logger); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("api.New: seed branding pages: %w", err)
+		}
 	} else {
 		theme.Init(&theme.Branding{Name: "Assokit Default"})
 	}
@@ -302,6 +391,25 @@ func New(opts Options) (*App, error) {
 	if err := validateProfileGrades(db, signupProfiles); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("api.New: profils d'inscription: %w", err)
+	}
+	if err := validateProfileGrant(opts.ProfileGrant); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("api.New: octroi de profil: %w", err)
+	}
+
+	// Modules d'espace membre désactivés (bordure). Chaque slug doit désigner un
+	// module reconnu du socle — fail-loud sinon, pour qu'une faute de frappe ne
+	// désactive jamais rien en silence. Le core ne connaît que des slugs génériques.
+	if err := handlers.ValidateDisabledModules(opts.DisabledModules); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("api.New: modules désactivés: %w", err)
+	}
+	disabledModules := make(map[string]bool, len(opts.DisabledModules))
+	for _, s := range opts.DisabledModules {
+		disabledModules[s] = true
+	}
+	if len(disabledModules) > 0 {
+		logger.Info("modules d'espace membre désactivés", "modules", opts.DisabledModules)
 	}
 
 	deps := app.AppDeps{
@@ -327,6 +435,10 @@ func New(opts Options) (*App, error) {
 		Mailer:             ml,
 		BrandingFS:         opts.BrandingFS,
 		Profils:            signupProfiles,
+		MetierTabs:         opts.MetierTabs,
+		ProfileGrant:       opts.ProfileGrant,
+		DisabledModules:    disabledModules,
+		ElevageExtraCards:  opts.ElevageExtraCards,
 		EventSink:          chooseEventSink(opts, logger),
 		ConventionProvider: chooseConventionProvider(opts),
 		CorpusProvider:     chooseCorpusProvider(opts),
@@ -445,7 +557,7 @@ func New(opts Options) (*App, error) {
 	r := chi.NewRouter()
 	r.Use(appMiddleware.RequestID)
 	r.Use(appMiddleware.AccessLog(logger))
-	r.Use(appMiddleware.SecurityHeaders)
+	r.Use(appMiddleware.SecurityHeadersWith(opts.CSPExtra))
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(appMiddleware.CSRF(secret, deps.Config.CookieSecure()))
 	r.Use(appMiddleware.Auth(db, secret))
@@ -468,7 +580,7 @@ func New(opts Options) (*App, error) {
 		_, _ = w.Write([]byte("ready"))
 	})
 	r.Handle("/debug/vars", expvar.Handler())
-	if err := handlers.MountRoutes(r, deps, handlers.WithExtraActions(opts.RegisterActions), handlers.WithLiveKitVault(connectorVault)); err != nil {
+	if err := handlers.MountRoutes(r, deps, handlers.WithExtraActions(opts.RegisterActions), handlers.WithLiveKitVault(connectorVault), handlers.WithAdminDashboardGroups(opts.AdminDashboardGroups)); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("api.New: mount routes: %w", err)
 	}
@@ -650,6 +762,20 @@ func defaultSignupProfiles() []signupprofile.Profile {
 			Extra:    []signupprofile.ExtraField{{Name: "structure", Label: "Structure / organisation", Type: "text", Required: true}},
 		},
 	}
+}
+
+// validateProfileGrant vérifie l'invariant d'instance : le grade de gouvernance
+// ne doit pas figurer parmi les grades requestables (auto-octroi interdit par design).
+func validateProfileGrant(pg app.ProfileGrant) error {
+	if pg.GovernanceGradeID == "" && len(pg.Requestable) == 0 {
+		return nil
+	}
+	for _, g := range pg.Requestable {
+		if g.ID == pg.GovernanceGradeID {
+			return fmt.Errorf("le grade de gouvernance %q ne peut figurer parmi les grades requestables", pg.GovernanceGradeID)
+		}
+	}
+	return nil
 }
 
 // validateProfileGrades vérifie que chaque grade RBAC référencé par le catalogue

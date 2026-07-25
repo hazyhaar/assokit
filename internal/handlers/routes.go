@@ -12,19 +12,21 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
 	adminpanel "github.com/hazyhaar/assokit/internal/handlers/admin_panel"
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	intoauth "github.com/hazyhaar/assokit/internal/oauth"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/connectors/assets"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/perms"
 	svcrbac "github.com/hazyhaar/assokit/pkg/rbac"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 // routeConfig porte les options de bordure de MountRoutes.
 type routeConfig struct {
-	registerActions func(*actions.Registry) error
-	liveKitVault    *assets.Vault
+	registerActions     func(*actions.Registry) error
+	liveKitVault        *assets.Vault
+	adminDashboardExtra []views.DashGroup
 }
 
 // RouteOption configure MountRoutes depuis la bordure (cmd/assokit ou un
@@ -32,7 +34,7 @@ type routeConfig struct {
 type RouteOption func(*routeConfig)
 
 // WithExtraActions injecte un hook qui reçoit le registre d'actions après les
-// seeds core, pour qu'un consommateur (ex. un produit tiers) ajoute ses actions métier
+// seeds core, pour qu'un consommateur (ex. GAFP) ajoute ses actions métier
 // (route HTTP admin + outil MCP + permission RBAC automatiques). Le hook peut
 // retourner une erreur (ex. ID dupliqué) → fatale au boot.
 func WithExtraActions(fn func(*actions.Registry) error) RouteOption {
@@ -43,6 +45,16 @@ func WithExtraActions(fn func(*actions.Registry) error) RouteOption {
 // l'action room.join (MCP) et la route GET /salon/{slug}/visio (HTTP).
 func WithLiveKitVault(vault *assets.Vault) RouteOption {
 	return func(c *routeConfig) { c.liveKitVault = vault }
+}
+
+// WithAdminDashboardGroups injecte des groupes de liens supplémentaires dans le
+// tableau de bord /admin, fournis par la bordure (ex. la console du registre
+// foncier d'une instance verticale). Le core reste tenant-agnostic : il ne
+// contient aucune identité d'instance, seul ce hook générique la porte. Les
+// groupes injectés sont fusionnés après les groupes socle et soumis au même
+// filtrage par permission.
+func WithAdminDashboardGroups(groups []views.DashGroup) RouteOption {
+	return func(c *routeConfig) { c.adminDashboardExtra = groups }
 }
 
 // MountRoutes câble toutes les routes assokit sur r.
@@ -78,6 +90,9 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	r.Get("/thematiques/{slug}", handleThematique(deps, treeStore))
 	r.Get("/medias", handlePage(deps, "medias", treeStore))
 	r.Get("/mentions-legales", handlePage(deps, "mentions-legales", treeStore))
+	// CGU : page CMS servie par slug, contenu fourni par l'instance (BrandingFS
+	// pages/cgu.md) ou gravé par l'admin. État vide assumé sinon.
+	r.Get("/cgu", handlePage(deps, "cgu", treeStore))
 	// FAQ et lexique : deux pages du CMS existant, servies par slug. Contenu
 	// initial vide assumé (handlePage rend un état vide propre tant que l'admin
 	// n'a pas créé la page via l'action pages.create / pages.update).
@@ -130,7 +145,14 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	}
 	r.Get("/forum", handleForumIndex(deps))
 	// /forum/new AVANT /forum/{slug} pour matcher en priorité (chi route order).
-	r.Get("/forum/new", handleForumNewTopicForm(deps))
+	// GET du formulaire de création gardé par la MÊME garde d'écriture que son POST
+	// (RequirePerm write sur node-forum) : cohérence vue<->handler — un visiteur qui
+	// ne voit pas le bouton « Créer » (masqué par forumCanWrite) ne peut pas non plus
+	// charger le formulaire (302 /login si non-connecté, 403 si connecté sans perm).
+	r.Get("/forum/new",
+		middleware.RequirePerm(deps.DB, perms.PermWrite, func(r *http.Request) string {
+			return "node-forum"
+		})(handleForumNewTopicForm(deps)).ServeHTTP)
 	// Création d'une catégorie (enfant de la racine forum) — gardée comme les
 	// autres mutations forum (colmate l'ancien /forum/new non gardé).
 	r.Post("/forum/new",
@@ -139,9 +161,17 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 		})(handleForumCreateTopic(deps)).ServeHTTP)
 	// Station multi-panneaux : fragments HTMX (questions d'une catégorie, détail d'une question).
 	r.Get("/forum/{slug}/questions", handleForumQuestions(deps))
-	r.Get("/forum/{slug}/new-question", handleForumNewQuestionForm(deps))
+	// GET formulaire de création de question — même garde d'écriture que le POST /question.
+	r.Get("/forum/{slug}/new-question",
+		middleware.RequirePerm(deps.DB, perms.PermWrite, func(r *http.Request) string {
+			return "node-forum"
+		})(handleForumNewQuestionForm(deps)).ServeHTTP)
 	r.Get("/forum/{slug}/branches", handleForumBranches(deps))
-	r.Get("/forum/{slug}/new-branch", handleForumNewBranchForm(deps))
+	// GET formulaire de création de branche — même garde d'écriture que le POST /branch.
+	r.Get("/forum/{slug}/new-branch",
+		middleware.RequirePerm(deps.DB, perms.PermWrite, func(r *http.Request) string {
+			return "node-forum"
+		})(handleForumNewBranchForm(deps)).ServeHTTP)
 	r.Get("/forum/{slug}/detail", handleForumDetail(deps))
 	r.Post("/forum/{slug}/read", handleForumRead(deps))
 	r.Get("/forum/{slug}", handleForumNode(deps))
@@ -169,6 +199,14 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 		middleware.RequirePerm(deps.DB, perms.PermWrite, func(r *http.Request) string {
 			return "node-forum"
 		})(handleForumDelete(deps)).ServeHTTP)
+	// Pièces jointes forum : route gardée (visibilité nœud porteur + journal d'accès).
+	// Doit être enregistrée AVANT le FileServer /static/uploads/* monté par api.New.
+	r.Get("/forum/piece/{slug}/{filename}", handleForumPieceDownload(deps))
+	r.Get("/forum/piece/{filename}", handleForumPieceDownload(deps))
+	// Retrait du service statique des uploads forum : l'ancienne URL rend 404.
+	r.HandleFunc("/static/uploads/forum/*", func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	})
 
 	// Node générique
 	r.Get("/n/{slug}", handleNodeViewer(deps, treeStore))
@@ -181,6 +219,12 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	r.Post("/login", handleLoginSubmit(deps))
 	r.Get("/register", handleRegisterPage(deps))
 	r.Post("/register", handleRegisterSubmit(deps))
+	// Le lien d'en-tête (shell.templ) est une ancre GET ; accepter GET ET POST
+	// pour que la déconnexion fonctionne au clic. handleLogout ne fait qu'effacer
+	// le cookie de session (idempotent, sans effet de bord) : le GET est sûr ici.
+	// La déconnexion par GET expose au plus à une gêne (logout-CSRF, sévérité
+	// faible) ; un formulaire POST dans le shell reste la voie propre ultérieure.
+	r.Get("/logout", handleLogout)
 	r.Post("/logout", handleLogout)
 	// Password reset flow (M-ASSOKIT-IMPL-PASSWORD-RESET-FLOW)
 	r.Get("/forgot", handleForgotForm(deps))
@@ -223,7 +267,13 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	// Garde d'authentification de niveau route (patron requireAuth, jumeau de
 	// requireAdmin). La défense u == nil dans handleMyParcelles reste en
 	// ceinture-et-bretelles.
-	r.With(requireAuth).Get("/account/parcelles", handleMyParcelles(deps))
+	// Vue membre du module « parcelles » : montée seulement si le module n'est pas
+	// désactivé pour l'instance. Désactivé → route non enregistrée, 404 naturel, une
+	// instance verticale (ex. GAFP) sert alors son propre tableur cadastral à la même
+	// place (parcelles propriétaire + preneur, ajout manuel + import CSV).
+	if !moduleDisabled(deps.DisabledModules, "/account/parcelles") {
+		r.With(withAccountAuth(deps, "/account/parcelles")...).Get("/account/parcelles", handleMyParcelles(deps))
+	}
 
 	// Conventions de pâturage AFP (C4) — gestion admin (liste, formulaire guidé,
 	// génération du document imprimable, révocation) et vue preneur filtrée par
@@ -232,7 +282,12 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	r.With(requireAdmin).Post("/admin/conventions", handleAdminConventions(deps))
 	r.With(requireAdmin).Get("/admin/conventions/{id}/genere", handleAdminConventionGenere(deps))
 	r.With(requireAdmin).Post("/admin/conventions/{id}/revoke", handleAdminConventionRevoke(deps))
-	r.With(requireAuth).Get("/account/conventions", handleMyConventions(deps))
+	// Vue membre du module « conventions » : montée seulement si le module n'est pas
+	// désactivé pour l'instance. Désactivé → route non enregistrée, 404 naturel, une
+	// instance verticale (ex. GAFP) sert alors sa propre vue à la même place.
+	if !moduleDisabled(deps.DisabledModules, "/account/conventions") {
+		r.With(requireAuth).Get("/account/conventions", handleMyConventions(deps))
+	}
 
 	// Consultation du corpus juridique AFP (V1b) — recherche brute sourcée dans le
 	// corpus de droit (afp_droit), réservée aux membres authentifiés. Le moteur réel
@@ -246,10 +301,17 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	// rôle-scopées sur le membre connecté (requireAuth) ; aucune n'est publique. La
 	// liste des déclarations de mutation est aussi consultable côté administration.
 	r.With(requireAuth).Get("/account", handleAccountHome(deps))
+	r.With(requireAuth).Get("/account/profils", handleAccountProfils(deps))
+	r.With(requireAuth).Post("/account/profils/demande", handleAccountProfilsDemande(deps))
+	r.With(requireAuth, requireMetierGrade(deps.ProfileGrant.GovernanceGradeName)).Get("/account/gouvernance", handleAccountGouvernance(deps))
+	r.With(requireAuth, requireMetierGrade(deps.ProfileGrant.GovernanceGradeName)).Get("/account/gouvernance/{id}/pv", handleAccountGouvernancePV(deps))
+	r.With(requireAuth, requireMetierGrade(deps.ProfileGrant.GovernanceGradeName)).Get("/account/profils/octroi", handleAccountProfilsOctroi(deps))
+	r.With(requireAuth, requireMetierGrade(deps.ProfileGrant.GovernanceGradeName)).Post("/account/profils/octroi", handleAccountProfilsOctroi(deps))
+	r.With(requireAuth, requireMetierGrade(deps.ProfileGrant.GovernanceGradeName)).Post("/account/profils/retrait", handleAccountProfilsRetrait(deps))
 	r.With(requireAuth).Get("/account/cotisations", handleAccountCotisations(deps))
 	r.With(requireAuth).Get("/account/attestation", handleAccountAttestation(deps))
-	r.With(requireAuth).Get("/account/mutation", handleAccountMutation(deps))
-	r.With(requireAuth).Post("/account/mutation", handleAccountMutation(deps))
+	r.With(withAccountAuth(deps, "/account/mutation")...).Get("/account/mutation", handleAccountMutation(deps))
+	r.With(withAccountAuth(deps, "/account/mutation")...).Post("/account/mutation", handleAccountMutation(deps))
 	r.With(requireAdmin).Get("/admin/mutations", handleAdminMutations(deps))
 
 	// Espace éleveur/preneur (V3b) — accueil élevage (conventions + parcelles mises
@@ -257,12 +319,12 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	// signalement de problème terrain, export PAC (RPG). Toutes rôle-scopées sur le
 	// membre connecté (requireAuth). Le journal de terrain consolidé est consultable
 	// côté administration.
-	r.With(requireAuth).Get("/account/elevage", handleAccountElevage(deps))
-	r.With(requireAuth).Get("/account/elevage/entretien", handleAccountElevageEntretien(deps))
-	r.With(requireAuth).Post("/account/elevage/entretien", handleAccountElevageEntretien(deps))
-	r.With(requireAuth).Get("/account/elevage/probleme", handleAccountElevageProbleme(deps))
-	r.With(requireAuth).Post("/account/elevage/probleme", handleAccountElevageProbleme(deps))
-	r.With(requireAuth).Get("/account/elevage/export-pac.csv", handleAccountElevageExportPAC(deps))
+	r.With(withAccountAuth(deps, "/account/elevage")...).Get("/account/elevage", handleAccountElevage(deps))
+	r.With(withAccountAuth(deps, "/account/elevage/entretien")...).Get("/account/elevage/entretien", handleAccountElevageEntretien(deps))
+	r.With(withAccountAuth(deps, "/account/elevage/entretien")...).Post("/account/elevage/entretien", handleAccountElevageEntretien(deps))
+	r.With(withAccountAuth(deps, "/account/elevage/probleme")...).Get("/account/elevage/probleme", handleAccountElevageProbleme(deps))
+	r.With(withAccountAuth(deps, "/account/elevage/probleme")...).Post("/account/elevage/probleme", handleAccountElevageProbleme(deps))
+	r.With(withAccountAuth(deps, "/account/elevage/export-pac.csv")...).Get("/account/elevage/export-pac.csv", handleAccountElevageExportPAC(deps))
 	r.With(requireAdmin).Get("/admin/field-reports", handleAdminFieldReports(deps))
 
 	// Parcours guidés AFP (V3c) — intégration d'un propriétaire en cascade (compte +
@@ -329,7 +391,7 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 
 	// Tableau de bord de gestion — point d'entrée admin listant toutes les
 	// fonctions + les espaces membre (tester le point de vue de chaque profil).
-	r.With(requireAdmin).Get("/admin", handleAdminDashboard(deps))
+	r.With(requireAdmin).Get("/admin", handleAdminDashboard(deps, cfg.adminDashboardExtra))
 
 	// Admin Setup — diagnostic de configuration (lecture seule + liens d'édition).
 	r.With(requireAdmin).Get("/admin/setup", handleAdminSetup(deps))

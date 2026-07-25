@@ -1,0 +1,59 @@
+// Composants de l'onglet gouvernance membre (O3c) : ligne d'assemblée, gestion des
+// profils, registre et procès-verbal en lecture seule.
+package governance
+
+// AssemblyRowItem affiche une assemblée (nom, date, statut) et un lien vers le PV
+// lorsqu'il existe.
+templ AssemblyRowItem(name, scheduledAt, statusLabel, assemblyID string, hasMinutes bool) {
+	<tr class="border-t border-border">
+		<td class="px-space-md py-space-sm border-b border-border text-left text-ink">{ name }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left text-ink-muted">{ scheduledAt }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left text-ink-muted">{ statusLabel }</td>
+		<td class="px-space-md py-space-sm border-b border-border text-left">
+			if hasMinutes {
+				<a href={ templ.SafeURL("/account/gouvernance/" + assemblyID + "/pv") } class="text-ink underline text-sm">Procès-verbal</a>
+			} else {
+				<span class="text-ink-muted text-sm">—</span>
+			}
+		</td>
+	</tr>
+}
+
+// ProfilsManageBlock renvoie vers la gestion des profils (octroi et retrait, O2).
+templ ProfilsManageBlock() {
+	<section class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm">
+		<h2 class="text-lg font-medium text-ink">Gestion des profils</h2>
+		<p class="text-ink-muted text-sm">Octroi et retrait des profils métier requestables.</p>
+		<a href="/account/profils/octroi" class="text-ink underline text-sm">Gérer les demandes d'octroi</a>
+	</section>
+}
+
+// RegisterDeliberationRow affiche une délibération consignée (lecture seule).
+templ RegisterDeliberationRow(label, tallySummary string) {
+	<tr class="border-t border-border">
+		<td class="py-space-xs text-ink">{ label }</td>
+		<td class="py-space-xs text-ink-muted">{ tallySummary }</td>
+	</tr>
+}
+
+// MinutesReadOnly affiche le corps d'un procès-verbal généré (lecture seule).
+templ MinutesReadOnly(body string) {
+	<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm">
+		<h2 class="text-xl font-semibold text-ink">Procès-verbal</h2>
+		<pre class="whitespace-pre-wrap text-ink text-sm">{ body }</pre>
+		<p class="text-ink-muted text-sm">Document généré et immuable.</p>
+	</div>
+}
+
+// MinutesEmptyState indique l'absence de procès-verbal pour l'assemblée.
+templ MinutesEmptyState() {
+	<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-sm">
+		<h2 class="text-xl font-semibold text-ink">Procès-verbal</h2>
+		<p class="text-ink-muted text-sm">Aucun procès-verbal généré pour cette assemblée.</p>
+	</div>
+}
+
+// BackToGouvernanceLink renvoie à la vue d'ensemble de l'onglet gouvernance.
+templ BackToGouvernanceLink() {
+	<a href="/account/gouvernance" class="text-ink underline text-sm">Retour à la gouvernance</a>
+}

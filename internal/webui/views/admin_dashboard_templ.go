@@ -17,10 +17,15 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 // DashLink est une entrée du tableau de bord (libellé, cible, description courte).
+// Perm nomme, s'il n'est pas vide, la permission fine RBAC exigée pour que ce lien
+// soit affiché : le handler filtre les liens à ceux que l'utilisateur courant peut
+// réellement atteindre (cohérence entre la vue et le gate de la route). Perm vide =
+// lien réservé aux administrateurs (le tableau de bord est déjà gardé au niveau route).
 type DashLink struct {
 	Label string
 	Href  string
 	Desc  string
+	Perm  string
 }
 
 // DashGroup regroupe des liens sous un intitulé de domaine.
@@ -62,7 +67,7 @@ func AdminDashboard(groups []DashGroup) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(g.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 28, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 33, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -80,7 +85,7 @@ func AdminDashboard(groups []DashGroup) templ.Component {
 				var templ_7745c5c3_Var3 templ.SafeURL
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(l.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 31, Col: 37}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 36, Col: 37}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -93,7 +98,7 @@ func AdminDashboard(groups []DashGroup) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(l.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 32, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 37, Col: 57}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -111,7 +116,7 @@ func AdminDashboard(groups []DashGroup) templ.Component {
 					var templ_7745c5c3_Var5 string
 					templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(l.Desc)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 34, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_dashboard.templ`, Line: 39, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 					if templ_7745c5c3_Err != nil {

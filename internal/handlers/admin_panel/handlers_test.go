@@ -18,8 +18,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
 	adminpanel "github.com/hazyhaar/assokit/internal/handlers/admin_panel"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 func newAdminDeps(t *testing.T) app.AppDeps {

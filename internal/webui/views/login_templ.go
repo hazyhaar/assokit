@@ -70,7 +70,7 @@ func Login(csrfToken string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</form><p class=\"text-sm text-ink-muted\"><a href=\"/forgot\" class=\"text-accent\">Mot de passe oublié ?</a> · Pas encore de compte ? <a href=\"/participer\" class=\"text-accent\">Adhérer</a>.</p></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</form><p class=\"text-sm text-ink-muted\"><a href=\"/forgot\" class=\"text-accent\">Mot de passe oublié ?</a> · <a href=\"/register\" class=\"text-accent\">Créer un compte</a> · Pas encore de compte ? <a href=\"/participer\" class=\"text-accent\">Adhérer</a>.</p></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

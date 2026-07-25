@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
 )
 
 // ForumUnreadDot : indicateur visuel de nouveauté — petit disque coloré (accent).
@@ -21,13 +22,13 @@ templ ForumUnreadDot() {
 // ForumUnreadBadge : pastille de comptage de nouveautés (ex. nb questions non lues
 // dans une catégorie). Wrappée dans un title pour l'accessibilité.
 templ ForumUnreadBadge(count int) {
-	<span title="Questions avec du nouveau">
+	<span title={ theme.T("forum.unread_questions_badge", "Questions avec du nouveau") }>
 		@templux.Badge(strconv.Itoa(count), "success")
 	</span>
 }
 
 // ForumPanelBody : corps d'un panneau scrollable avec padding standard.
-// id : identifiant HTMX cible (ex. "forum-col-questions"). Peut être vide.
+// id : identifiant HTMX cible (ex. "forum-col-items"). Peut être vide.
 templ ForumPanelBody(id string) {
 	<div
 		id={ id }
@@ -63,39 +64,103 @@ templ ForumColumnHint(msg string) {
 
 // ForumItemCard : carte unifiée pour catégories, questions et branches.
 // Remplace les anciens ForumCategoryItem, ForumQuestionItem, ForumBranchItem.
-// slug        : slug du nœud (pour la route hxGet).
+// slug        : slug du nœud (pour la route hxGet et les actions).
 // title       : titre à afficher en gras.
 // meta        : ligne de métadonnée « Créé par X, le DD/MM/YYYY » (vide = absent).
 // snippet     : extrait de corps HTML (optionnel, affiché en petit).
 // counter     : compteur d'enfants (0 = non affiché).
 // counterUnit : unité au singulier (ex. "question", "réponse", "branche").
 // hasUnread   : true → ajoute la pulsation d'animation + indicateur.
-// hxGet       : URL GET HTMX déclenchée au clic.
-// hxTarget    : cible HTMX du swap (ex. "#forum-col-questions").
-templ ForumItemCard(slug, title, meta, snippet string, counter int, counterUnit string, hasUnread bool, hxGet, hxTarget string) {
-	<button
-		type="button"
-		class={ "text-left w-full flex flex-col gap-space-xs rounded-md px-space-sm py-space-sm text-ink hover:bg-surface-muted transition cursor-pointer border border-border bg-surface-raised hover:border-accent hover:shadow-sm", templ.KV("forum-item--unread", hasUnread) }
-		hx-get={ hxGet }
-		hx-target={ hxTarget }
-		hx-swap="innerHTML"
-	>
-		<span class="flex items-center gap-space-xs">
-			if hasUnread {
-				@ForumUnreadDot()
+// hxGet       : URL GET HTMX déclenchée au clic (sélection de la carte).
+// hxTarget    : cible HTMX du swap de sélection (ex. "#forum-col-items").
+// canWrite    : utilisateur connecté ET porteur de la permission d'écriture sur le
+//
+//	forum (même prédicat que la garde RequirePerm des routes de mutation). false →
+//	aucune action Créer/Modifier/Supprimer n'est rendue, quel que soit le niveau.
+//
+// editTarget  : cible HTMX du swap après renommage/suppression de CETTE carte —
+//
+//	le panneau qui la liste (se rafraîchit sur lui-même).
+//
+// createLabel, createGet, createTarget : action de création d'un enfant de ce
+//
+//	nœud (vide = pas de bouton Créer, ex. carte branche = pas d'enfant créable).
+templ ForumItemCard(slug, title, meta, snippet string, counter int, counterUnit string, hasUnread bool, hxGet, hxTarget string, canWrite bool, editTarget, createLabel, createGet, createTarget string) {
+	<div class="flex flex-col rounded-md border border-border bg-surface-raised hover:border-accent hover:shadow-sm transition">
+		<button
+			type="button"
+			class={ "text-left w-full flex flex-col gap-space-xs px-space-sm py-space-sm text-ink hover:bg-surface-muted transition cursor-pointer rounded-md", templ.KV("forum-item--unread", hasUnread) }
+			hx-get={ hxGet }
+			hx-target={ hxTarget }
+			hx-swap="innerHTML"
+		>
+			<span class="flex items-center gap-space-xs">
+				if hasUnread {
+					@ForumUnreadDot()
+				}
+				<span class="font-semibold text-sm">{ title }</span>
+			</span>
+			if snippet != "" {
+				<span class="text-xs text-ink-muted">@templ.Raw(snippet)</span>
 			}
-			<span class="font-semibold text-sm">{ title }</span>
-		</span>
-		if snippet != "" {
-			<span class="text-xs text-ink-muted">@templ.Raw(snippet)</span>
+			if counter > 0 {
+				<span class="text-xs text-ink-faint">{ forumCounterLabel(counter, counterUnit) }</span>
+			}
+			if meta != "" {
+				<span class="text-xs text-ink-faint">{ meta }</span>
+			}
+		</button>
+		if canWrite {
+			@CardActions(slug, editTarget, createLabel, createGet, createTarget)
 		}
-		if counter > 0 {
-			<span class="text-xs text-ink-faint">{ forumCounterLabel(counter, counterUnit) }</span>
+	</div>
+}
+
+// CardActions : ligne d'actions Créer / Modifier / Supprimer, appliquée à
+// l'identique sur chaque carte des quatre panneaux du forum (catégorie, question,
+// branche, message). Seul point d'écriture inline autorisé sous cette carte est
+// ce composant nommé — jamais de <form>/<button> ad hoc dans une vue.
+// slug         : nœud ciblé par renommer/supprimer.
+// editTarget   : cible HTMX du swap après renommer/supprimer.
+// createLabel  : libellé du bouton Créer (vide = pas de bouton, ex. carte feuille).
+// createGet, createTarget : endpoint et cible HTMX du bouton Créer.
+templ CardActions(slug, editTarget, createLabel, createGet, createTarget string) {
+	<div class="flex items-center gap-space-sm px-space-sm pb-space-xs border-t border-border pt-space-xs">
+		if createLabel != "" {
+			@templux.Button(createLabel, "secondary", templ.Attributes{
+				"hx-get":    createGet,
+				"hx-target": createTarget,
+				"hx-swap":   "innerHTML",
+			})
 		}
-		if meta != "" {
-			<span class="text-xs text-ink-faint">{ meta }</span>
-		}
-	</button>
+		<details class="ml-auto">
+			<summary class={ "list-none cursor-pointer", templux.ButtonClass("ghost") }>Modifier</summary>
+			<form
+				class="flex gap-space-xs items-center mt-space-xs"
+				hx-post={ "/forum/" + slug + "/rename" }
+				hx-target={ editTarget }
+				hx-swap="innerHTML"
+			>
+				<input
+					type="text"
+					name="title"
+					required
+					maxlength="180"
+					placeholder="Nouveau titre…"
+					class="text-xs flex-1 border border-border rounded-sm px-space-xs py-px bg-surface focus:outline-none focus:ring-1 focus:ring-accent"
+				/>
+				@templux.Button("Renommer", "ghost", templ.Attributes{"type": "submit"})
+			</form>
+		</details>
+		<form
+			hx-post={ "/forum/" + slug + "/delete" }
+			hx-target={ editTarget }
+			hx-swap="innerHTML"
+			hx-confirm="Supprimer cet élément supprime aussi tous ses sous-éléments. Continuer ?"
+		>
+			@templux.Button("Supprimer", "danger", templ.Attributes{"type": "submit"})
+		</form>
+	</div>
 }
 
 // ForumColumnHeader : en-tête d'un panneau avec actions contextuelles.
@@ -107,30 +172,30 @@ templ ForumItemCard(slug, title, meta, snippet string, counter int, counterUnit 
 // selectedSlug : slug de l'item sélectionné (dont les enfants sont affichés dans le panneau
 //                suivant). Non vide → affiche les actions Renommer et Supprimer.
 // editTarget   : cible HTMX pour les réponses rename/delete.
-templ ForumColumnHeader(title, createLabel, createGet, createHref, createTarget, selectedSlug, editTarget string) {
+// canWrite     : utilisateur connecté ET porteur de la permission d'écriture sur le
+//                forum — même prédicat que la garde RequirePerm des routes de mutation.
+//                false → aucun bouton Créer/Renommer/Supprimer, quel que soit l'appelant
+//                (corrige l'asymétrie où le bouton « + Créer catégorie » s'affichait
+//                inconditionnellement alors que question/branche étaient déjà gardés).
+templ ForumColumnHeader(title, createLabel, createGet, createHref, createTarget, selectedSlug, editTarget string, canWrite bool) {
 	<div class="px-space-sm py-space-xs bg-surface-muted border-b border-border flex flex-col gap-space-xs">
 		<div class="flex items-center justify-between gap-space-sm">
 			<span class="text-xs font-semibold text-ink-faint uppercase tracking-wide">{ title }</span>
-			if createLabel != "" {
+			if canWrite && createLabel != "" {
 				if createGet != "" {
-					<button
-						type="button"
-						class="shrink-0 text-xs font-medium text-accent hover:text-ink transition cursor-pointer"
-						hx-get={ createGet }
-						hx-target={ createTarget }
-						hx-swap="innerHTML"
-					>{ createLabel }</button>
+					@templux.Button(createLabel, "secondary", templ.Attributes{
+						"hx-get":    createGet,
+						"hx-target": createTarget,
+						"hx-swap":   "innerHTML",
+					})
 				} else if createHref != "" {
-					<a
-						href={ templ.SafeURL(createHref) }
-						class="shrink-0 text-xs font-medium text-accent hover:text-ink transition"
-					>{ createLabel }</a>
+					@templux.LinkButton(createLabel, createHref, "secondary", templ.Attributes{})
 				}
 			}
 		</div>
-		if selectedSlug != "" {
+		if canWrite && selectedSlug != "" {
 			<details>
-				<summary class="list-none cursor-pointer text-xs text-ink-faint hover:text-ink-muted transition flex items-center gap-1">
+				<summary class={ "list-none cursor-pointer flex items-center gap-1 w-fit", templux.ButtonClass("ghost") }>
 					<span>Actions</span>
 					<span aria-hidden="true">▾</span>
 				</summary>
@@ -149,10 +214,7 @@ templ ForumColumnHeader(title, createLabel, createGet, createHref, createTarget,
 							placeholder="Nouveau titre…"
 							class="text-xs flex-1 border border-border rounded-sm px-space-xs py-px bg-surface focus:outline-none focus:ring-1 focus:ring-accent"
 						/>
-						<button
-							type="submit"
-							class="shrink-0 text-xs font-medium text-accent hover:text-ink transition cursor-pointer"
-						>Renommer</button>
+						@templux.Button("Renommer", "ghost", templ.Attributes{"type": "submit"})
 					</form>
 					<form
 						hx-post={ "/forum/" + selectedSlug + "/delete" }
@@ -160,10 +222,7 @@ templ ForumColumnHeader(title, createLabel, createGet, createHref, createTarget,
 						hx-swap="innerHTML"
 						hx-confirm="Supprimer cet élément supprime aussi tous ses sous-éléments. Continuer ?"
 					>
-						<button
-							type="submit"
-							class="text-xs font-medium text-danger hover:text-danger/80 transition cursor-pointer"
-						>Supprimer</button>
+						@templux.Button("Supprimer", "danger", templ.Attributes{"type": "submit"})
 					</form>
 				</div>
 			</details>
@@ -181,7 +240,7 @@ templ ForumStationBreadcrumb() {
 				<span aria-hidden="true" class="mx-1 text-border">›</span>
 			</li>
 			<li>
-				<a href="/forum" class="text-ink font-medium hover:text-accent transition">Forum</a>
+				<a href="/forum" class="text-ink font-medium hover:text-accent transition">{ theme.ForumLabel() }</a>
 			</li>
 		</ol>
 	</nav>
@@ -193,7 +252,7 @@ templ ForumBreadcrumb(currentTitle string) {
 	<nav aria-label="Fil d'Ariane">
 		<ol class="flex flex-wrap items-center gap-1 text-sm text-ink-muted list-none">
 			<li>
-				<a href="/forum" class="text-accent">Forum</a>
+				<a href="/forum" class="text-accent">{ theme.ForumLabel() }</a>
 				<span aria-hidden="true" class="text-border"> / </span>
 			</li>
 			<li><span aria-current="page" class="text-ink font-medium">{ currentTitle }</span></li>
@@ -276,7 +335,7 @@ templ ForumReplyForm(parentSlug string, csrfToken string) {
 		action={ templ.SafeURL("/forum/" + parentSlug + "/reply") }
 	>
 		<input type="hidden" name="_csrf" value={ csrfToken }/>
-		<h3 class="text-xl font-semibold text-ink">Répondre</h3>
+		<h3 class="text-xl font-semibold text-ink">{ theme.T("forum.repondre", "Répondre") }</h3>
 		@templux.FormField("Titre", "", "", templux.Input("title", "", templ.Attributes{"id": "reply-title", "type": "text", "required": "required", "maxlength": "200"}))
 		@templux.FormField("Message", "", "", templux.Textarea("body", "", 6, templ.Attributes{"id": "reply-body", "required": "required"}))
 		@templux.Button("Publier", "primary", templ.Attributes{"type": "submit"})
@@ -332,7 +391,7 @@ templ ForumLoginPrompt() {
 // ForumLoginPromptBlock : variante bloc (sans inline — pour ForumThread plein écran).
 templ ForumLoginPromptBlock() {
 	<div class="text-ink-muted">
-		<p>Pour répondre, <a href="/login" class="text-accent">connectez-vous</a> ou <a href="/participer" class="text-accent">adhérez</a>.</p>
+		<p>{ theme.T("forum.login_prompt_reply_prefix", "Pour répondre,") } <a href="/login" class="text-accent">connectez-vous</a> ou <a href="/participer" class="text-accent">adhérez</a>.</p>
 	</div>
 }
 
@@ -373,7 +432,7 @@ func forumRepliesLabel(n int) string {
 // forumQuestionsLabel : singulier/pluriel de « question ».
 func forumQuestionsLabel(n int) string {
 	if n == 1 {
-		return "question"
+		return theme.T("forum.counter_question", "question")
 	}
-	return "questions"
+	return theme.T("forum.counter_questions", "questions")
 }

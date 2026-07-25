@@ -41,7 +41,7 @@ func Button(label string, variant string, attrs templ.Attributes) templ.Componen
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{buttonClass(variant)}
+		var templ_7745c5c3_Var2 = []any{ButtonClass(variant)}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -103,7 +103,12 @@ func buttonAttrs(attrs templ.Attributes) templ.Attributes {
 	return out
 }
 
-func buttonClass(variant string) string {
+// ButtonClass expose la classe de variante du bouton pour les rares cas où
+// l'élément interactif n'est pas un <button>/<a> (ex. un <summary> de
+// disclosure <details> qui doit visuellement se présenter comme un bouton
+// de la charte). Ne pas utiliser pour créer un nouveau composant ad hoc :
+// réservé aux éléments dont la sémantique HTML interdit Button/LinkButton.
+func ButtonClass(variant string) string {
 	base := "inline-flex items-center justify-center px-space-md py-space-sm rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
 	switch variant {
 	case "secondary":

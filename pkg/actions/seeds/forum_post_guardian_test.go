@@ -10,8 +10,8 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/chassis"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // newForumDB ouvre une DB neuve en mémoire, applique le schéma complet (chassis.Run,

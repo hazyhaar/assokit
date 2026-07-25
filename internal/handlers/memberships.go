@@ -7,8 +7,8 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/webui/views"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/membership"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // handleAdminMemberships gère GET (liste + form) et POST (enregistrement) sur

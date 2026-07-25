@@ -1,10 +1,11 @@
 // CLAUDE:SUMMARY Parcours guidé d'intégration d'un propriétaire (V3c) : admin
 // (/admin/onboard-proprietaire GET formulaire guidé + POST). Cascade orchestrée
-// sur les stores réutilisés (identity.Register → membership.Create → parcelle.Create
-// + parcelle.AddDroit) : validation complète AVANT toute création, rapport d'état
-// fail-loud si une étape échoue après une autre réussie (pas de demi-intégration
-// silencieuse). Gating admin assuré par requireAdmin sur la route. Aucune donnée
-// fabriquée : tout provient du formulaire, persisté via les stores réels.
+// sur les stores réutilisés (identity.CreateAccountOrGet → membership.Create →
+// parcelle.Create + parcelle.AddDroit) : validation complète AVANT toute création,
+// rapport d'état fail-loud si une étape échoue après une autre réussie (pas de
+// demi-intégration silencieuse). Activation par lien unique (login_magic_tokens,
+// TTL 72 h) — plus de mot de passe initial en clair. Gating admin assuré par
+// requireAdmin sur la route.
 package handlers
 
 import (
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/mailer"
 	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/gdpr"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
@@ -38,7 +40,6 @@ type onboardParcelleInput struct {
 type onboardForm struct {
 	Email       string
 	DisplayName string
-	Password    string
 	PeriodStart string
 	PeriodEnd   string
 	AmountCents int64
@@ -73,7 +74,6 @@ func handleAdminOnboardProprietaire(deps app.AppDeps) http.HandlerFunc {
 				middleware.PushFlash(w, "error", report.message())
 			} else {
 				middleware.PushFlash(w, "success", report.message())
-				// Intégration nominale d'un propriétaire : accès nominatif journalisé.
 				logOnboardAccess(r, deps, report.userID)
 			}
 			http.Redirect(w, r, "/admin/onboard-proprietaire", http.StatusSeeOther)
@@ -94,7 +94,6 @@ func parseOnboardForm(r *http.Request) (onboardForm, error) {
 	var f onboardForm
 	f.Email = strings.TrimSpace(r.FormValue("email"))
 	f.DisplayName = strings.TrimSpace(r.FormValue("display_name"))
-	f.Password = r.FormValue("password")
 	f.PeriodStart = strings.TrimSpace(r.FormValue("period_start"))
 	f.PeriodEnd = strings.TrimSpace(r.FormValue("period_end"))
 
@@ -103,9 +102,6 @@ func parseOnboardForm(r *http.Request) (onboardForm, error) {
 	}
 	if f.DisplayName == "" {
 		return f, fmt.Errorf("nom du propriétaire requis")
-	}
-	if len(f.Password) < 8 {
-		return f, fmt.Errorf("mot de passe initial d'au moins 8 caractères requis")
 	}
 	if f.PeriodStart == "" || f.PeriodEnd == "" {
 		return f, fmt.Errorf("période d'adhésion invalide (la fin doit être postérieure au début)")
@@ -152,7 +148,6 @@ func parseOnboardForm(r *http.Request) (onboardForm, error) {
 			SurfaceText:    strings.TrimSpace(surfaces[i]),
 			Nature:         strings.TrimSpace(natures[i]),
 		}
-		// Ligne entièrement vide : ignorée (le formulaire propose des lignes vierges).
 		if in.CommuneCode == "" && in.Section == "" && in.NumeroParcelle == "" && in.SurfaceText == "" {
 			continue
 		}
@@ -183,54 +178,97 @@ func parseOnboardForm(r *http.Request) (onboardForm, error) {
 	return f, nil
 }
 
-// onboardReport décrit l'état atteint par la cascade d'intégration. Il permet de
-// remonter un message clair en cas d'échec après création partielle (fail-loud).
+// onboardReport décrit l'état atteint par la cascade d'intégration.
 type onboardReport struct {
 	userID         string
 	memberCreated  bool
+	accountCreated bool
 	membershipDone bool
 	parcellesDone  int
 	parcellesTotal int
+	activationURL  string
+	activationExp  string
+	activationSent bool
 	err            error
 }
 
-// message produit un compte rendu lisible de l'état atteint par la cascade.
 func (rep onboardReport) message() string {
-	if rep.err == nil {
-		return fmt.Sprintf("Propriétaire intégré : membre créé, adhésion enregistrée, %d parcelle(s) rattachée(s).", rep.parcellesDone)
-	}
-	var b strings.Builder
-	b.WriteString("Intégration interrompue : ")
-	b.WriteString(rep.err.Error())
-	b.WriteString(". État atteint : ")
-	if !rep.memberCreated {
-		b.WriteString("aucune création (le membre n'a pas pu être créé).")
+	if rep.err != nil {
+		var b strings.Builder
+		b.WriteString("Intégration interrompue : ")
+		b.WriteString(rep.err.Error())
+		b.WriteString(". État atteint : ")
+		if !rep.memberCreated {
+			b.WriteString("aucune création (le membre n'a pas pu être créé).")
+			return b.String()
+		}
+		b.WriteString("membre ")
+		if rep.accountCreated {
+			b.WriteString("créé")
+		} else {
+			b.WriteString("existant (réutilisé, aucun doublon)")
+		}
+		if rep.membershipDone {
+			b.WriteString(", adhésion enregistrée")
+		}
+		b.WriteString(fmt.Sprintf(", %d/%d parcelle(s) rattachée(s).", rep.parcellesDone, rep.parcellesTotal))
 		return b.String()
 	}
-	b.WriteString("membre créé")
-	if rep.membershipDone {
-		b.WriteString(", adhésion enregistrée")
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Propriétaire intégré : %d parcelle(s) rattachée(s). ", rep.parcellesDone))
+	if rep.accountCreated {
+		b.WriteString("Compte créé sans mot de passe. ")
+	} else {
+		b.WriteString("Compte existant réutilisé (aucun doublon). ")
 	}
-	b.WriteString(fmt.Sprintf(", %d/%d parcelle(s) rattachée(s).", rep.parcellesDone, rep.parcellesTotal))
+	if rep.activationSent {
+		b.WriteString("Lien d'activation envoyé par courriel.")
+	} else if rep.activationURL != "" {
+		b.WriteString(fmt.Sprintf(
+			"Lien d'activation à transmettre manuellement (usage unique, expire le %s) : %s",
+			rep.activationExp, rep.activationURL,
+		))
+	}
 	return b.String()
 }
 
-// runOnboard exécute la cascade d'intégration sur les stores réutilisés. Les stores
-// ne partageant pas d'exécuteur transactionnel commun (chacun reçoit *sql.DB), la
-// cohérence repose sur la validation amont stricte (parseOnboardForm) ; en cas
-// d'échec d'une étape après une autre réussie, l'état atteint est rapporté sans
-// poursuivre (fail-loud). Aucune entité n'est recodée : identity.Register,
-// membership.Create, parcelle.Create et parcelle.AddDroit sont appelés tels quels.
 func runOnboard(ctx context.Context, deps app.AppDeps, f onboardForm) onboardReport {
 	rep := onboardReport{parcellesTotal: len(f.Parcelles)}
+	idStore := &identity.Store{DB: deps.DB, Mailer: deps.Mailer}
 
-	user, err := (&identity.Store{DB: deps.DB}).Register(ctx, f.Email, f.Password, f.DisplayName)
+	user, created, err := idStore.CreateAccountOrGet(ctx, identity.CreateAccountOpts{
+		Email: f.Email, DisplayName: f.DisplayName, Active: true,
+	})
 	if err != nil {
 		rep.err = err
 		return rep
 	}
 	rep.userID = user.ID
 	rep.memberCreated = true
+	rep.accountCreated = created
+
+	issued, err := idStore.IssueMagicToken(ctx, user.Email, user.ID, "/", "", identity.ActivationTokenTTL)
+	if err != nil {
+		rep.err = fmt.Errorf("émission du jeton d'activation : %w", err)
+		return rep
+	}
+	callbackURL := deps.Config.BaseURL + "/login/callback?token=" + issued.Token
+	rep.activationURL = callbackURL
+	rep.activationExp = issued.ExpiresAt.UTC().Format("2006-01-02 15:04")
+
+	if mailerConfigured(deps) {
+		subject := "Activez votre compte"
+		bodyText := fmt.Sprintf(
+			"Cliquez sur ce lien pour activer votre compte (usage unique, expire le %s) :\n\n%s\n",
+			rep.activationExp, callbackURL,
+		)
+		bodyHTML := fmt.Sprintf(
+			`<p>Cliquez <a href="%s">ici</a> pour activer votre compte (usage unique, expire le %s).</p>`,
+			callbackURL, rep.activationExp,
+		)
+		_ = deps.Mailer.Enqueue(ctx, user.Email, subject, bodyText, bodyHTML)
+		rep.activationSent = true
+	}
 
 	_, err = (&membership.Store{DB: deps.DB}).Create(ctx, membership.Membership{
 		UserID:      user.ID,
@@ -262,8 +300,17 @@ func runOnboard(ctx context.Context, deps app.AppDeps, f onboardForm) onboardRep
 	return rep
 }
 
-// logOnboardAccess journalise l'intégration nominale d'un propriétaire (acteur =
-// administrateur courant, sujet = membre intégré). N'échoue jamais la requête.
+func mailerConfigured(deps app.AppDeps) bool {
+	if deps.Mailer == nil {
+		return false
+	}
+	ml, ok := deps.Mailer.(*mailer.Mailer)
+	if !ok {
+		return false
+	}
+	return ml.SMTPHost != "" || ml.APIKey != ""
+}
+
 func logOnboardAccess(r *http.Request, deps app.AppDeps, userID string) {
 	u := middleware.UserFromContext(r.Context())
 	if u == nil || userID == "" {

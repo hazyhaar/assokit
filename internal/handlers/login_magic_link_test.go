@@ -27,7 +27,14 @@ func setupMagicLinkDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() { db.Close() })
 	if _, err := db.Exec(`
-		CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL DEFAULT '', display_name TEXT NOT NULL DEFAULT '');
+		CREATE TABLE users (
+			id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE,
+			password_hash TEXT NOT NULL DEFAULT '', display_name TEXT NOT NULL DEFAULT '',
+			is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE TABLE grades (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, system INTEGER NOT NULL DEFAULT 0);
+		CREATE TABLE user_grades (user_id TEXT NOT NULL, grade_id TEXT NOT NULL, PRIMARY KEY(user_id, grade_id));
+		INSERT INTO grades(id, name, system) VALUES('sys-member', 'member', 1);
 		CREATE TABLE login_magic_tokens (
 			token TEXT PRIMARY KEY,
 			email TEXT NOT NULL,

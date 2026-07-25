@@ -1,0 +1,52 @@
+# Instance ACyachting — communauté ACyachting (courtage et plaisance nautique).
+# Charge à la bordure via BRANDING_DIR ; le cœur assokit reste tenant-agnostic
+# (aucune lecture d'environnement dans pkg/api — tout vient des Options).
+# Charte nautique sobre posée sur les tokens sémantiques templux (DESIGN.md) :
+# le branding override --primary/--secondary/--accent/--bg-light/--text, et
+# preset-assokit.css les consomme via var(<branding>, <défaut>). Aucune
+# divergence de stack : personnalisation dans le cadre templux vendored.
+
+name = "ACyachting"
+tagline = "Communauté nautique — courtage, plaisance et entretien des bateaux"
+base_url = "http://127.0.0.1:8092"
+locale = "fr-FR"
+
+# Police de la charte (sobre, lisible).
+font_family = "DM Sans, ui-sans-serif, system-ui, sans-serif"
+
+# Palette nautique sobre. Lecture des ponts vers les tokens templux :
+#   primary   -> --accent (action) : bleu marine profond.
+#   secondary -> --danger          : corail discret.
+#   accent    -> redondant avec primary pour cohérence du bridge.
+#   bg_light  -> --surface         : blanc cassé légèrement bleuté (papier marin).
+#   text      -> --ink             : ardoise profonde.
+[colors]
+primary   = "#1f4e6b"
+secondary = "#b14a3c"
+accent    = "#1f4e6b"
+bg_light  = "#f5f8fa"
+bg_dark   = "#0f2433"
+text      = "#16242e"
+
+[footer]
+lines = [
+  "ACyachting",
+  "Communauté nautique",
+]
+
+[[nav]]
+slug = "/forum"
+label = "Forum"
+order = 1
+
+[[nav]]
+slug = "/faq"
+label = "Questions fréquentes"
+order = 2
+
+[texts]
+"button.signup" = "Rejoindre la communauté"
+"button.login" = "Connexion"
+"nav.forum" = "Échanges entre membres"
+"link.faq" = "Questions fréquentes"
+"link.contact" = "Contact"

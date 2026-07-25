@@ -121,11 +121,25 @@ func actionFormView(a Action, fields []formField) templ.Component {
 				}
 			}
 		}
+		if a.Destructive {
+			templ_7745c5c3_Err = templux.Alert("warning", "Action irréversible : recopiez l'identifiant de la cible dans le champ ci-dessous, ou tapez SUPPRIMER pour une opération de masse.").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templux.FormField("Confirmation", "Identifiant de la cible ou SUPPRIMER", "", templux.Input("_destructive_confirm", "", templ.Attributes{"type": "text", "required": "required", "autocomplete": "off"})).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		templ_7745c5c3_Err = templux.Button("Exécuter", "primary", templ.Attributes{"type": "submit"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</form><div id=\"action-result\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</form><div id=\"action-result\"></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -32,6 +32,10 @@ templ actionFormView(a Action, fields []formField) {
 					@templux.FormField(f.Name, "", "", actionInput(f))
 				}
 			}
+			if a.Destructive {
+				@templux.Alert("warning", "Action irréversible : recopiez l'identifiant de la cible dans le champ ci-dessous, ou tapez SUPPRIMER pour une opération de masse.")
+				@templux.FormField("Confirmation", "Identifiant de la cible ou SUPPRIMER", "", templux.Input("_destructive_confirm", "", templ.Attributes{"type": "text", "required": "required", "autocomplete": "off"}))
+			}
 			@templux.Button("Exécuter", "primary", templ.Attributes{"type": "submit"})
 		</form>
 		<div id="action-result"></div>

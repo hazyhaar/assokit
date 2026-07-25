@@ -8,8 +8,8 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hazyhaar/assokit/internal/chassis"
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	"github.com/hazyhaar/assokit/pkg/perms"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 func newTestDB(t *testing.T) *sql.DB {

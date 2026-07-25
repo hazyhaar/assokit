@@ -43,9 +43,9 @@ import (
 	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/internal/mailer"
+	"github.com/hazyhaar/assokit/pkg/identity"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
-	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 const (

@@ -202,6 +202,42 @@ func TestListForUser_IsolationCrossMembre(t *testing.T) {
 	}
 }
 
+// TestTraiter : une déclaration passe declaree -> traitee ; re-traiter est
+// idempotent (sans effet, sans erreur) ; une id inconnue remonte ErrNotFound.
+func TestTraiter(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	ctx := context.Background()
+	mkUser(t, db, "u8", "u8@example.com", 1)
+	store := &mutation.Store{DB: db}
+
+	id, err := store.Create(ctx, mutation.Declaration{UserID: "u8", ParcelleRef: "r8", Type: "vente"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := store.Traiter(ctx, id); err != nil {
+		t.Fatalf("Traiter: %v", err)
+	}
+	var status string
+	if err := db.QueryRow(`SELECT status FROM account_mutations WHERE id=?`, id).Scan(&status); err != nil {
+		t.Fatalf("select status: %v", err)
+	}
+	if status != mutation.StatutTraitee {
+		t.Fatalf("statut attendu traitee, obtenu %q", status)
+	}
+
+	// Idempotence : re-traiter une traitee est sans effet et sans erreur.
+	if err := store.Traiter(ctx, id); err != nil {
+		t.Fatalf("Traiter idempotent: %v", err)
+	}
+
+	// Id inconnue : ErrNotFound.
+	if err := store.Traiter(ctx, "inexistant"); !errors.Is(err, mutation.ErrNotFound) {
+		t.Fatalf("attendu ErrNotFound, obtenu %v", err)
+	}
+}
+
 // TestListAll : la vue administration voit les déclarations de tous les membres.
 func TestListAll(t *testing.T) {
 	db := newTestDB(t)

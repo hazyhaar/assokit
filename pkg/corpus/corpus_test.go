@@ -5,6 +5,24 @@ import (
 	"testing"
 )
 
+func TestIsInert(t *testing.T) {
+	if !IsInert(nil) {
+		t.Fatal("nil provider doit être inerte")
+	}
+	if !IsInert(InertProvider{}) {
+		t.Fatal("InertProvider doit être inerte")
+	}
+	if IsInert(&stubActiveProvider{}) {
+		t.Fatal("stub actif ne doit pas être inerte")
+	}
+}
+
+type stubActiveProvider struct{}
+
+func (stubActiveProvider) SearchCorpus(context.Context, string, int) ([]Hit, error) {
+	return nil, nil
+}
+
 // TestInertProvider_Vide vérifie l'état vide assumé : le fournisseur inerte ne
 // fabrique aucun résultat, quelle que soit la requête.
 func TestInertProvider_Vide(t *testing.T) {

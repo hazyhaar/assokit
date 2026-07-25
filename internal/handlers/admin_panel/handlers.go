@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui"
 	"github.com/hazyhaar/assokit/internal/webui/views"
 	adminui "github.com/hazyhaar/assokit/pkg/horui/admin"
 
@@ -110,10 +111,7 @@ func AdminPanelPage(deps app.AppDeps, fields []Field) http.HandlerFunc {
 		progress := fieldProgress(deps.DB, fields)
 		panelBySection := toPanelBySec(fields)
 
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := views.AdminPanelPage(panelBySection, values, progress).Render(r.Context(), w); err != nil {
-			deps.Logger.Error("admin panel render", "err", err)
-		}
+		webui.RenderPage(w, r, deps.Logger, "Personnalisation du site", views.AdminPanelPage(panelBySection, values, progress))
 	}
 }
 

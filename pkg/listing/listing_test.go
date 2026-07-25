@@ -50,17 +50,17 @@ func setupStore(t *testing.T) *listing.Store {
 	return s
 }
 
-// fixtures génériques — modèles constructeurs publics (exemple de catalogue)
+// fixtures A&C réelles — données modèles constructeurs + inventaire bateaux-antilles.fr
 // ownerBroker est l'id vendeur partagé par les fixtures (un courtier réel
 // gérant l'inventaire). Owner-scoping testé séparément avec un second owner.
-const ownerBroker = "owner-broker-1"
+const ownerBroker = "owner-bateaux-antilles"
 
 var yachtsFixtures = []listing.Listing{
 	{
 		Silo:       "yachts",
 		OwnerID:    ownerBroker,
 		Title:      "NEEL 43 - 2021",
-		Body:       "Trimaran offshore NEEL-Trimarans, coque n°1328. Excellent état, Caraïbes. Voiles neuves 2022, moteur Volvo 40ch, pilote automatique Garmin.",
+		Body:       "Trimaran offshore NEEL-Trimarans, coque n°1328. Excellent état, Martinique. Voiles neuves 2022, moteur Volvo 40ch, pilote automatique Garmin.",
 		PriceCents: 45000000, // 450 000 €
 		Status:     listing.StatusPublished,
 		Attrs: map[string]any{
@@ -74,7 +74,7 @@ var yachtsFixtures = []listing.Listing{
 		Silo:       "yachts",
 		OwnerID:    ownerBroker,
 		Title:      "Dufour 500 Grand Large - 2014",
-		Body:       "Monocoque hauturier Dufour Yachts, coque n°1342. Tour du monde possible, 5 cabines, Caraïbes. Réfit complet 2020, GPS chartplotter Raymarine.",
+		Body:       "Monocoque hauturier Dufour Yachts, coque n°1342. Tour du monde possible, 5 cabines, Martinique. Réfit complet 2020, GPS chartplotter Raymarine.",
 		PriceCents: 28000000, // 280 000 €
 		Status:     listing.StatusPublished,
 		Attrs: map[string]any{
@@ -88,7 +88,7 @@ var yachtsFixtures = []listing.Listing{
 		Silo:       "yachts",
 		OwnerID:    ownerBroker,
 		Title:      "Jeanneau Sun Odyssey 440 - 2020",
-		Body:       "Monocoque famille Jeanneau, coque n°1343. Caraïbes. Pack bluewater, 3 cabines, motorisation Yanmar 45ch. Parfait état.",
+		Body:       "Monocoque famille Jeanneau, coque n°1343. Martinique. Pack bluewater, 3 cabines, motorisation Yanmar 45ch. Parfait état.",
 		PriceCents: 21500000, // 215 000 €
 		Status:     listing.StatusPublished,
 		Attrs: map[string]any{
@@ -116,7 +116,7 @@ var yachtsFixtures = []listing.Listing{
 		Silo:       "yachts",
 		OwnerID:    ownerBroker,
 		Title:      "Jeanneau Sun Odyssey 519 - 2018",
-		Body:       "Grand monocoque Jeanneau, 5 cabines, 3 salles de bain. Voilure en carbone, Caraïbes. Idéal navigation hauturière caraïbes.",
+		Body:       "Grand monocoque Jeanneau, 5 cabines, 3 salles de bain. Voilure en carbone, Martinique. Idéal navigation hauturière caraïbes.",
 		PriceCents: 25000000, // 250 000 €
 		Status:     listing.StatusPublished,
 		Attrs: map[string]any{
@@ -148,7 +148,7 @@ func TestCreate(t *testing.T) {
 		Silo:       "yachts",
 		OwnerID:    ownerBroker,
 		Title:      "Bavaria 46 Cruiser - 2016",
-		Body:       "Monocoque Bavaria, Caraïbes, 4 cabines.",
+		Body:       "Monocoque Bavaria, Martinique, 4 cabines.",
 		PriceCents: 18000000,
 		Status:     listing.StatusPublished,
 		Attrs: map[string]any{

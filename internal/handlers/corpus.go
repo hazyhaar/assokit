@@ -30,17 +30,19 @@ func handleCorpusConsult(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		query := strings.TrimSpace(r.URL.Query().Get("q"))
 
+		provider := deps.CorpusProvider
+		if provider == nil {
+			// Ceinture-et-bretelles : api.New garantit un provider non-nil
+			// (InertProvider par défaut). Un montage de test minimal pourrait
+			// l'omettre — retomber sur l'inerte plutôt que paniquer.
+			provider = corpus.InertProvider{}
+		}
+		providerActive := !corpus.IsInert(provider)
+
 		var hits []corpus.Hit
 		var searched bool
-		if query != "" {
+		if query != "" && providerActive {
 			searched = true
-			provider := deps.CorpusProvider
-			if provider == nil {
-				// Ceinture-et-bretelles : api.New garantit un provider non-nil
-				// (InertProvider par défaut). Un montage de test minimal pourrait
-				// l'omettre — retomber sur l'inerte plutôt que paniquer.
-				provider = corpus.InertProvider{}
-			}
 			res, err := provider.SearchCorpus(r.Context(), query, corpusSearchLimit)
 			if err != nil {
 				deps.Logger.Error("corpus_consult", "query", query, "err", err.Error())
@@ -51,6 +53,6 @@ func handleCorpusConsult(deps app.AppDeps) http.HandlerFunc {
 		}
 
 		renderPageV2(w, r, deps, "Consultation du corpus juridique",
-			views.CorpusConsultPage(query, searched, hits))
+			views.CorpusConsultPage(query, providerActive, searched, hits))
 	}
 }

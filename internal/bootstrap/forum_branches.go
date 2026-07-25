@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	"github.com/hazyhaar/assokit/pkg/uid"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 // BootstrapForumBranches crée, de façon idempotente, une branche "Général" (titrée

@@ -9,7 +9,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 func openForumTestDB(t *testing.T) *sql.DB {

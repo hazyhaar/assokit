@@ -10,7 +10,7 @@ func TestCookieSecure(t *testing.T) {
 		baseURL string
 		want    bool
 	}{
-		{"https://assokit.example.org", true},
+		{"https://assokit.hazyhaar.fr", true},
 		{"https://example.org/", true},
 		{"http://localhost:8080", false},
 		{"", false},

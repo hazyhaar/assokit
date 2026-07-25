@@ -140,6 +140,57 @@ func TestMountHTTP_ActionWithoutPermReturns403(t *testing.T) {
 	}
 }
 
+// TestMountHTTP_HTMXMissingRequiredParamShowsError : exécuter une action avec
+// schéma requis sans renseigner les paramètres affiche un message d'erreur HTML
+// dans la zone result-swap (la page ne reste pas muette).
+func TestMountHTTP_HTMXMissingRequiredParamShowsError(t *testing.T) {
+	db := openDB(t)
+	deps := depsWithDB(db)
+	svc := &rbac.Service{Store: &rbac.Store{DB: db}, Cache: &rbac.Cache{}}
+
+	reg := actions.NewRegistry()
+	reg.Add(actions.Action{ //nolint:errcheck
+		ID:           "test.required",
+		RequiredPerm: "test.required",
+		ParamsSchema: actions.MustSchema(`{
+			"type":"object","required":["msg"],
+			"properties":{"msg":{"type":"string"}}
+		}`),
+		Run: func(_ context.Context, _ app.AppDeps, _ json.RawMessage) (actions.Result, error) {
+			return actions.Result{Status: "ok"}, nil
+		},
+	})
+
+	ctx := context.Background()
+	gID, _ := svc.Store.CreateGrade(ctx, "req-tester")
+	pID, _ := svc.Store.EnsurePermission(ctx, "test.required", "")
+	svc.Store.GrantPerm(ctx, gID, pID)            //nolint:errcheck
+	svc.Store.AssignGrade(ctx, "user-req-1", gID) //nolint:errcheck
+	svc.Recompute(ctx, "user-req-1")              //nolint:errcheck
+
+	r := chi.NewRouter()
+	r.Use(middleware.RBAC(svc))
+	actions.MountHTTP(r, deps, reg)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/actions/test.required", strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	req = req.WithContext(middleware.ContextWithUser(
+		perms.ContextWithUserID(perms.ContextWithService(req.Context(), svc), "user-req-1"),
+		&identity.User{ID: "user-req-1"},
+	))
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	body := w.Body.String()
+	if !strings.Contains(body, "validation") && !strings.Contains(body, "error") {
+		t.Fatalf("message d'erreur attendu dans le fragment HTMX, obtenu: %s", body)
+	}
+	if !strings.Contains(body, "action-result") && !strings.Contains(body, "danger") && !strings.Contains(body, "error") {
+		t.Fatalf("bandeau d'erreur attendu, obtenu: %s", body)
+	}
+}
+
 // TestMountHTTP_GenericFormRendersFromSchema vérifie que GET retourne un form HTML.
 func TestMountHTTP_GenericFormRendersFromSchema(t *testing.T) {
 	db := openDB(t)

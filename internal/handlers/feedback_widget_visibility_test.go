@@ -17,8 +17,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/pkg/eventsink"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // TestCSS_FeedbackFabHasPositionFixed : test gardien anti-régression du faux F2.

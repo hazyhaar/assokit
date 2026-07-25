@@ -93,6 +93,9 @@ func (s *Store) Create(ctx context.Context, p Parcelle) (string, error) {
 
 // AddDroit attache un droit (membre + nature) à une parcelle. Retourne l'ID du
 // droit créé. La nature est seulement stockée, sans logique de vote associée.
+// Idempotent : rejouer un couple (parcelle, membre) déjà lié retourne l'ID du
+// droit existant (nature d'origine conservée), jamais une erreur de contrainte
+// UNIQUE.
 func (s *Store) AddDroit(ctx context.Context, parcelleID, userID, nature string) (string, error) {
 	parcelleID = strings.TrimSpace(parcelleID)
 	userID = strings.TrimSpace(userID)
@@ -110,15 +113,52 @@ func (s *Store) AddDroit(ctx context.Context, parcelleID, userID, nature string)
 	}
 
 	id := uid.New()
-	_, err = s.DB.ExecContext(ctx,
+	res, err := s.DB.ExecContext(ctx,
 		`INSERT INTO parcelle_droits(id, parcelle_id, user_id, nature_du_droit)
-		 VALUES(?,?,?,?)`,
+		 VALUES(?,?,?,?)
+		 ON CONFLICT(parcelle_id, user_id) DO NOTHING`,
 		id, parcelleID, userID, nature,
 	)
 	if err != nil {
 		return "", fmt.Errorf("parcelle.AddDroit: %w", err)
 	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return "", fmt.Errorf("parcelle.AddDroit rows: %w", err)
+	}
+	if n == 0 {
+		var existant string
+		err := s.DB.QueryRowContext(ctx,
+			`SELECT id FROM parcelle_droits WHERE parcelle_id=? AND user_id=?`,
+			parcelleID, userID).Scan(&existant)
+		if err != nil {
+			return "", fmt.Errorf("parcelle.AddDroit existant: %w", err)
+		}
+		return existant, nil
+	}
 	return id, nil
+}
+
+// RemoveDroitsForUser supprime tous les droits parcellaires d'un membre et
+// retourne le nombre de lignes supprimées. Générique : aucune sémantique
+// d'instance. Utilisé quand un candidat propriétaire est refusé et que ses liens
+// parcellaires saisis ne doivent pas être conservés. Idempotent : un membre sans
+// droit retourne 0 sans erreur ; un userID vide est un no-op.
+func (s *Store) RemoveDroitsForUser(ctx context.Context, userID string) (int64, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return 0, nil
+	}
+	res, err := s.DB.ExecContext(ctx,
+		`DELETE FROM parcelle_droits WHERE user_id=?`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("parcelle.RemoveDroitsForUser: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("parcelle.RemoveDroitsForUser rows: %w", err)
+	}
+	return n, nil
 }
 
 // ListAll retourne toutes les parcelles (vue bureau), les plus récentes d'abord.
@@ -133,6 +173,25 @@ func (s *Store) ListAll(ctx context.Context) ([]Parcelle, error) {
 	}
 	defer rows.Close()
 	return scanParcelles(rows)
+}
+
+// FindByCadastral retourne l'id d'une parcelle par son triplet cadastral
+// (commune, section, numéro), qui porte une contrainte UNIQUE. Le second retour
+// vaut false si aucune parcelle ne correspond (jamais une erreur). Utilisé par
+// les instances verticales pour un « chercher-ou-créer » idempotent avant de
+// rattacher un droit, sans SQL direct ni doublonner la clé cadastrale.
+func (s *Store) FindByCadastral(ctx context.Context, communeCode, section, numeroParcelle string) (string, bool, error) {
+	var id string
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT id FROM parcelles WHERE commune_code=? AND section=? AND numero_parcelle=?`,
+		strings.TrimSpace(communeCode), strings.TrimSpace(section), strings.TrimSpace(numeroParcelle)).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("parcelle.FindByCadastral: %w", err)
+	}
+	return id, true, nil
 }
 
 // ListForUser retourne uniquement les parcelles sur lesquelles le membre détient

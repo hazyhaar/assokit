@@ -12,8 +12,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/chassis"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/actions/seeds"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 func findMsgAction(t *testing.T, id string) actions.Action {

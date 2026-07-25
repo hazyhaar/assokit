@@ -15,6 +15,7 @@ type Action struct {
 	Description  string             // pour LLM + tooltip admin
 	ParamsSchema *jsonschema.Schema // validation des paramètres
 	RequiredPerm string             // permission RBAC atomique
+	Destructive  bool               // si true : confirmation typée exigée avant exécution
 	Run          func(ctx context.Context, deps app.AppDeps, params json.RawMessage) (Result, error)
 }
 

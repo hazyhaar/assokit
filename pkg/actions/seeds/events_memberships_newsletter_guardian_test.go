@@ -8,8 +8,8 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // Ce fichier contient les tests gardiens comportementaux (strate S5) des actions

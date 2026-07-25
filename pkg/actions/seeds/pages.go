@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	tree "github.com/hazyhaar/nodetree"
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"

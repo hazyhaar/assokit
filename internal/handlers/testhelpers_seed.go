@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 // SeedNodes insère les nœuds nécessaires aux tests CDP.

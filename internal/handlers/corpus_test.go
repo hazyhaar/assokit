@@ -96,6 +96,31 @@ func TestCorpusConsult_EtatVide(t *testing.T) {
 	}
 }
 
+// TestCorpusConsult_ProviderInerte : sans moteur branché, la vue affiche un état
+// honnête et aucun placeholder d'exemples prometteurs.
+func TestCorpusConsult_ProviderInerte(t *testing.T) {
+	deps := newCorpusDeps(t, corpus.InertProvider{})
+	defer deps.DB.Close()
+
+	r := httptest.NewRequest(http.MethodGet, "/account/corpus", nil)
+	r = r.WithContext(middleware.ContextWithUser(r.Context(), &identity.User{ID: "membre-1", Roles: []string{"member"}}))
+	w := httptest.NewRecorder()
+	handleCorpusConsult(deps).ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("attendu 200, obtenu %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "n'est pas raccordé sur cette instance") {
+		t.Fatal("attendu message honnête corpus non raccordé")
+	}
+	for _, forbidden := range []string{"redevance", "droit de délaissement", "enquête publique"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("placeholder prometteur interdit %q présent", forbidden)
+		}
+	}
+}
+
 // TestCorpusConsult_SansRequete : sans paramètre q, le fournisseur n'est pas appelé
 // (formulaire seul affiché).
 func TestCorpusConsult_SansRequete(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	tree "github.com/hazyhaar/nodetree"
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/bootstrap"

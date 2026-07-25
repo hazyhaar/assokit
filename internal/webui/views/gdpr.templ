@@ -35,5 +35,30 @@ templ DataPolicyPage(categories []gdpr.RetentionCategory) {
 				}
 			</tbody>
 		</table>
+		<div class="flex flex-col gap-space-xs">
+			<h2 class="text-xl font-semibold text-ink">Vos droits</h2>
+			<p class="text-ink-muted">
+				Conformément au règlement général sur la protection des données (RGPD),
+				chaque personne dispose d'un droit d'accès, de rectification, d'effacement,
+				de limitation, d'opposition et de portabilité sur ses données. Depuis son
+				espace, un membre connecté peut exporter l'ensemble de ses données
+				(<a href="/account/data-download" class="text-accent no-underline">téléchargement de mes données</a>)
+				et demander la suppression définitive de son compte, qui anonymise ses
+				contributions et purge ses données nominatives. Toute personne peut aussi
+				exercer ses droits auprès du responsable de traitement identifié dans les
+				<a href="/mentions-legales" class="text-accent no-underline">mentions légales</a>,
+				et introduire une réclamation auprès de la CNIL.
+			</p>
+		</div>
+		<div class="flex flex-col gap-space-xs">
+			<h2 class="text-xl font-semibold text-ink">Cookies</h2>
+			<p class="text-ink-muted">
+				Ce site dépose un unique cookie de session, strictement nécessaire à
+				l'authentification et à la sécurité du compte. Il n'utilise aucun cookie
+				de mesure d'audience, de publicité ou de suivi, ni aucun traceur tiers.
+				Ce cookie strictement nécessaire est exempté de consentement préalable ;
+				aucune bannière n'est donc requise ni affichée.
+			</p>
+		</div>
 	</section>
 }

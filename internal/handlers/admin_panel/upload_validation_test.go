@@ -16,8 +16,8 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 func setupUploadTestDB(t *testing.T) *sql.DB {

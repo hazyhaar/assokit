@@ -13,7 +13,7 @@ package templux
 templ LinkButton(label string, href string, variant string, attrs templ.Attributes) {
 	<a
 		href={ templ.SafeURL(href) }
-		class={ buttonClass(variant) }
+		class={ ButtonClass(variant) }
 		{ attrs... }
 	>
 		{ label }

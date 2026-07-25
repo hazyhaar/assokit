@@ -3,11 +3,13 @@
 package views
 
 import (
+	"fmt"
 	"strconv"
 
 	forumcomp "github.com/hazyhaar/assokit/internal/webui/components/forum"
 	"github.com/hazyhaar/assokit/internal/webui/templux"
 	"github.com/hazyhaar/assokit/pkg/horui/forum"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
@@ -15,7 +17,10 @@ import (
 const ForumMaxRenderDepth = 5
 
 // ForumIndex : station forum — quatre panneaux persistants.
-templ ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[string]int) {
+// canWrite : utilisateur connecté ET porteur de la permission d'écriture sur le
+// forum (même prédicat que les routes de mutation) — gouverne l'affichage de
+// TOUS les boutons Créer/Modifier/Supprimer, catégorie comprise.
+templ ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[string]int, canWrite bool) {
 	@forumcomp.ForumFullBleedSection() {
 		@forumcomp.ForumStationBreadcrumb()
 		@templux.ResizableStation() {
@@ -23,17 +28,18 @@ templ ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[
 			// Panneau Catégories
 			@templux.ResizablePanel("flex:0 0 15rem", "sunken") {
 				@forumcomp.ForumColumnHeader(
-					"Catégories",
-					"+ Créer catégorie",
+					theme.T("forum.categories", "Catégories"),
+					theme.T("forum.create_category", "+ Créer catégorie"),
 					"",
 					"/forum/new",
 					"",
 					"",
 					"",
+					canWrite,
 				)
-				@forumcomp.ForumPanelBodyGrid("") {
+				@forumcomp.ForumPanelBodyGrid("forum-col-categories") {
 					if len(categories) == 0 {
-						@forumcomp.ForumColumnHint("Aucun sujet pour l'instant.")
+						@forumcomp.ForumColumnHint(theme.T("forum.empty_topics", "Aucun sujet pour l'instant."))
 					} else {
 						for _, c := range categories {
 							@forumcomp.ForumItemCard(
@@ -42,10 +48,15 @@ templ ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[
 								forumItemMeta(c.AuthorName, c.CreatedAt),
 								"",
 								c.ChildCount,
-								"question",
+								theme.T("forum.counter_question", "question"),
 								unread[c.ID] > 0,
 								"/forum/"+c.Slug+"/questions",
-								"#forum-col-questions",
+								"#forum-col-items",
+								canWrite,
+								"#forum-col-categories",
+								"",
+								"",
+								"",
 							)
 						}
 					}
@@ -54,25 +65,25 @@ templ ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[
 			@templux.ResizableHandle()
 			// Panneau Questions (vide à l'ouverture, rempli par HTMX au clic d'une catégorie)
 			@templux.ResizablePanel("flex:0 0 20rem", "sunken") {
-				@forumcomp.ForumColumnHeader("Questions", "", "", "", "", "", "")
-				@forumcomp.ForumPanelBody("forum-col-questions") {
-					@forumcomp.ForumColumnEmpty("Sélectionnez une catégorie pour afficher ses questions.")
+				@forumcomp.ForumColumnHeader(theme.T("forum.questions", "Questions"), "", "", "", "", "", "", false)
+				@forumcomp.ForumPanelBody("forum-col-items") {
+					@forumcomp.ForumColumnEmpty(theme.T("forum.hint_select_category", "Sélectionnez une catégorie pour afficher ses questions."))
 				}
 			}
 			@templux.ResizableHandle()
 			// Panneau Branches (vide à l'ouverture, rempli par HTMX au clic d'une question)
 			@templux.ResizablePanel("flex:0 0 18rem", "sunken") {
-				@forumcomp.ForumColumnHeader("Branches", "", "", "", "", "", "")
-				@forumcomp.ForumPanelBody("forum-col-branches") {
-					@forumcomp.ForumColumnEmpty("Sélectionnez une question pour afficher ses branches.")
+				@forumcomp.ForumColumnHeader(theme.T("forum.branches", "Branches"), "", "", "", "", "", "", false)
+				@forumcomp.ForumPanelBody("forum-col-channels") {
+					@forumcomp.ForumColumnEmpty(theme.T("forum.hint_select_question_branches", "Sélectionnez une question pour afficher ses branches."))
 				}
 			}
 			@templux.ResizableHandle()
 			// Panneau Détail (espace restant)
 			@templux.ResizablePanel("flex:1 1 0", "raised") {
-				@forumcomp.ForumColumnHeader("Détail", "", "", "", "", "", "")
+				@forumcomp.ForumColumnHeader(theme.T("forum.detail", "Détail"), "", "", "", "", "", "", false)
 				@forumcomp.ForumPanelBody("forum-col-detail") {
-					@forumcomp.ForumColumnEmpty("Sélectionnez une question pour afficher l'échange et y répondre.")
+					@forumcomp.ForumColumnEmpty(theme.T("forum.hint_select_question_detail", "Sélectionnez une question pour afficher l'échange et y répondre."))
 				}
 			}
 			@templux.ResizableEdge("right")
@@ -81,29 +92,22 @@ templ ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[
 }
 
 // ForumQuestionsColumn : panneau questions d'une catégorie (fragment HTMX).
-templ ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNode, unread map[string]bool, canCreate bool) {
+// canWrite : même prédicat que ForumIndex — gouverne le bouton d'en-tête ET les
+// actions Modifier/Supprimer de chaque carte question.
+templ ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNode, unread map[string]bool, canWrite bool) {
 	<div class="flex flex-col gap-space-sm">
 		@forumcomp.ForumColumnHeader(
 			category.Title,
-			func() string {
-				if canCreate {
-					return "+ Créer question"
-				}
-				return ""
-			}(),
-			func() string {
-				if canCreate {
-					return "/forum/" + category.Slug + "/new-question"
-				}
-				return ""
-			}(),
+			theme.T("forum.create_question", "+ Créer question"),
+			"/forum/"+category.Slug+"/new-question",
 			"",
 			"#forum-col-detail",
 			category.Slug,
-			"#forum-col-questions",
+			"#forum-col-items",
+			canWrite,
 		)
 		if len(questions) == 0 {
-			@forumcomp.ForumColumnHint("Aucune question dans cette catégorie.")
+			@forumcomp.ForumColumnHint(theme.T("forum.empty_questions_in_category", "Aucune question dans cette catégorie."))
 		} else {
 			for _, q := range questions {
 				@forumcomp.ForumItemCard(
@@ -115,7 +119,12 @@ templ ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNo
 					"",
 					unread[q.ID],
 					"/forum/"+q.Slug+"/branches",
-					"#forum-col-branches",
+					"#forum-col-channels",
+					canWrite,
+					"#forum-col-items",
+					theme.T("forum.create_branch", "+ Créer branche"),
+					"/forum/"+q.Slug+"/new-branch",
+					"#forum-col-detail",
 				)
 			}
 		}
@@ -123,29 +132,24 @@ templ ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNo
 }
 
 // ForumBranchesColumn : panneau branches d'une question (fragment HTMX).
-templ ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode, unread map[string]bool, canCreate bool) {
+// canWrite : même prédicat — gouverne le bouton d'en-tête ET les actions
+// Modifier/Supprimer de chaque carte branche (pas de bouton Créer par carte : une
+// branche n'a pas d'enfant créable directement, les messages passent par le
+// formulaire de réponse du panneau Détail).
+templ ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode, unread map[string]bool, canWrite bool) {
 	<div class="flex flex-col gap-space-sm">
 		@forumcomp.ForumColumnHeader(
 			question.Title,
-			func() string {
-				if canCreate {
-					return "+ Créer branche"
-				}
-				return ""
-			}(),
-			func() string {
-				if canCreate {
-					return "/forum/" + question.Slug + "/new-branch"
-				}
-				return ""
-			}(),
+			theme.T("forum.create_branch", "+ Créer branche"),
+			"/forum/"+question.Slug+"/new-branch",
 			"",
 			"#forum-col-detail",
 			question.Slug,
-			"#forum-col-questions",
+			"#forum-col-items",
+			canWrite,
 		)
 		if len(branches) == 0 {
-			@forumcomp.ForumColumnHint("Aucune branche.")
+			@forumcomp.ForumColumnHint(theme.T("forum.empty_branches", "Aucune branche."))
 		} else {
 			for _, b := range branches {
 				@forumcomp.ForumItemCard(
@@ -154,10 +158,15 @@ templ ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode
 					forumItemMeta(b.AuthorName, b.CreatedAt),
 					"",
 					b.ChildCount,
-					"réponse",
+					theme.T("forum.counter_reply", "réponse"),
 					unread[b.ID],
 					"/forum/"+b.Slug+"/detail",
 					"#forum-col-detail",
+					canWrite,
+					"#forum-col-channels",
+					"",
+					"",
+					"",
 				)
 			}
 		}
@@ -167,18 +176,18 @@ templ ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode
 // ForumNewBranchForm : formulaire de création d'une branche (fragment HTMX dans détail).
 templ ForumNewBranchForm(questionSlug, questionTitle, csrfToken string) {
 	<div class="flex flex-col gap-space-md">
-		@forumcomp.ForumFormHeader("Nouvelle branche", "Sous la question « "+questionTitle+" ».")
+		@forumcomp.ForumFormHeader(theme.T("forum.new_branch", "Nouvelle branche"), forumNewBranchSubtitle(questionTitle))
 		<form
 			class="flex flex-col gap-space-sm"
 			hx-post={ "/forum/" + questionSlug + "/branch" }
-			hx-target="#forum-col-branches"
+			hx-target="#forum-col-channels"
 			hx-swap="innerHTML"
 		>
 			<input type="hidden" name="_csrf" value={ csrfToken }/>
-			@templux.FormField("Titre de la branche", "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": "Nommer la branche…"}))
+			@templux.FormField(theme.T("forum.branch_title_label", "Titre de la branche"), "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": theme.T("forum.branch_title_placeholder", "Nommer la branche…")}))
 			@templux.FormField("Détail (optionnel)", "", "", templux.Textarea("body", "", 4, templ.Attributes{"placeholder": "Préciser…"}))
 			<div>
-				@templux.Button("Créer la branche", "primary", templ.Attributes{"type": "submit"})
+				@templux.Button(theme.T("forum.submit_create_branch", "Créer la branche"), "primary", templ.Attributes{"type": "submit"})
 			</div>
 		</form>
 	</div>
@@ -187,25 +196,29 @@ templ ForumNewBranchForm(questionSlug, questionTitle, csrfToken string) {
 // ForumNewQuestionForm : formulaire de création d'une question (fragment HTMX dans détail).
 templ ForumNewQuestionForm(categorySlug, categoryTitle, csrfToken string) {
 	<div class="flex flex-col gap-space-md">
-		@forumcomp.ForumFormHeader("Nouvelle question", "Dans la catégorie « "+categoryTitle+" ».")
+		@forumcomp.ForumFormHeader(theme.T("forum.new_question", "Nouvelle question"), forumNewQuestionSubtitle(categoryTitle))
 		<form
 			class="flex flex-col gap-space-sm"
 			hx-post={ "/forum/" + categorySlug + "/question" }
-			hx-target="#forum-col-questions"
+			hx-target="#forum-col-items"
 			hx-swap="innerHTML"
 		>
 			<input type="hidden" name="_csrf" value={ csrfToken }/>
-			@templux.FormField("Titre de la question", "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": "Formuler la question…"}))
+			@templux.FormField(theme.T("forum.question_title_label", "Titre de la question"), "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": theme.T("forum.question_title_placeholder", "Formuler la question…")}))
 			@templux.FormField("Détail (optionnel)", "", "", templux.Textarea("body", "", 4, templ.Attributes{"placeholder": "Préciser le contexte…"}))
 			<div>
-				@templux.Button("Créer la question", "primary", templ.Attributes{"type": "submit"})
+				@templux.Button(theme.T("forum.submit_create_question", "Créer la question"), "primary", templ.Attributes{"type": "submit"})
 			</div>
 		</form>
 	</div>
 }
 
 // ForumQuestionDetail : panneau de droite — question + échanges + formulaire HTMX.
-templ ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, user *identity.User, canReply bool, csrfToken string) {
+// canWrite : utilisateur connecté ET porteur de la permission d'écriture sur le
+// forum — gouverne les actions Modifier/Supprimer de l'article affiché et de
+// chaque message, ET l'affichage du formulaire de réponse (cohérent avec la
+// garde RequirePerm de la route /forum/{slug}/reply).
+templ ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, user *identity.User, canWrite bool, csrfToken string) {
 	<div class="flex flex-col gap-space-md">
 		@forumcomp.ForumArticle(
 			question.Title,
@@ -220,18 +233,26 @@ templ ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode,
 			}(),
 			false,
 		)
+		if canWrite {
+			@forumcomp.CardActions(question.Slug, "#forum-col-channels", "", "", "")
+		}
 		@forumcomp.ForumSeparator()
 		<h3 class="text-sm font-semibold text-ink-muted">Échanges</h3>
 		if len(replies) > 0 {
 			<div class="flex flex-col gap-space-sm">
 				for _, r := range replies {
-					@templux.MessageCard(r.AuthorName, r.CreatedAt, r.BodyHTML, "")
+					<div class="flex flex-col gap-space-xs">
+						@templux.MessageCard(r.AuthorName, r.CreatedAt, r.BodyHTML, "")
+						if canWrite {
+							@forumcomp.CardActions(r.Slug, "#forum-col-detail", "", "", "")
+						}
+					</div>
 				}
 			</div>
 		} else {
-			@templux.Alert("info", "Pas encore de réponse.")
+			@templux.Alert("info", theme.T("forum.no_replies_yet", "Pas encore de réponse."))
 		}
-		if canReply {
+		if canWrite {
 			@forumcomp.ForumHTMXReplyForm(question.Slug, csrfToken)
 		} else if user == nil {
 			@forumcomp.ForumLoginPrompt()
@@ -242,9 +263,9 @@ templ ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode,
 // ForumNewTopic : formulaire de création d'un nouveau sujet (page entière).
 templ ForumNewTopic(csrfToken string) {
 	<section class="flex flex-col gap-space-lg">
-		@forumcomp.ForumBreadcrumb("Nouveau sujet")
+		@forumcomp.ForumBreadcrumb(theme.T("forum.new_topic_breadcrumb", "Nouveau sujet"))
 		<div class="flex flex-col gap-space-sm">
-			<h1 class="text-2xl font-semibold text-ink">Ouvrir une discussion</h1>
+			<h1 class="text-2xl font-semibold text-ink">{ theme.T("forum.new_topic_title", "Ouvrir une discussion") }</h1>
 			<p class="text-ink-muted">Donnez un titre clair et un message d'introduction.</p>
 		</div>
 		<form method="POST" action="/forum/new" class="flex flex-col gap-space-md">
@@ -272,7 +293,7 @@ templ ForumThread(node forum.ThreadNode, replies []forum.ThreadNode, user *ident
 				}
 			</div>
 		} else {
-			@templux.Alert("info", "Pas encore de réponse.")
+			@templux.Alert("info", theme.T("forum.no_replies_yet", "Pas encore de réponse."))
 		}
 		if canReply {
 			@forumcomp.ForumReplyForm(node.Slug, csrfToken)
@@ -311,7 +332,15 @@ func forumItemMeta(authorName, createdAt string) string {
 
 func forumRepliesLabel(n int) string {
 	if n == 1 {
-		return "réponse"
+		return theme.T("forum.counter_reply", "réponse")
 	}
-	return "réponses"
+	return theme.T("forum.counter_replies", "réponses")
+}
+
+func forumNewBranchSubtitle(questionTitle string) string {
+	return fmt.Sprintf(theme.T("forum.new_branch_subtitle", "Sous la question « %s »."), questionTitle)
+}
+
+func forumNewQuestionSubtitle(categoryTitle string) string {
+	return fmt.Sprintf(theme.T("forum.new_question_subtitle", "Dans la catégorie « %s »."), categoryTitle)
 }

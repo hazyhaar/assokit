@@ -17,28 +17,30 @@ templ RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination
 			@templux.FormField("ActorID", "", "", templux.Input("actor_id", filter.ActorID, templ.Attributes{"type": "text", "placeholder": "ActorID"}))
 			@templux.Button("Filtrer", "primary", templ.Attributes{"type": "submit"})
 		</form>
-		<table class="w-full text-sm">
-			<thead>
-				<tr>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Date</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Action</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Acteur</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Cible</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Détail</th>
-				</tr>
-			</thead>
-			<tbody>
-				for _, a := range rows {
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm">
+				<thead>
 					<tr>
-						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.CreatedAt }</td>
-						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.Action }</td>
-						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.ActorID }</td>
-						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.TargetID }</td>
-						<td class="px-space-md py-space-sm border-b border-border text-left">{ a.Detail }</td>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Date</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Action</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Acteur</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Cible</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Détail</th>
 					</tr>
-				}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					for _, a := range rows {
+						<tr>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ a.CreatedAt }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ a.Action }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ a.ActorID }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ a.TargetID }</td>
+							<td class="px-space-md py-space-sm border-b border-border text-left">{ a.Detail }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
 		<nav class="flex items-center gap-space-md">
 			if pag.HasPrev {
 				<a class="text-accent" href={ templ.SafeURL(fmt.Sprintf("/admin/rbac/audit?page=%d", pag.PrevPage)) }>← Préc</a>
@@ -55,22 +57,24 @@ templ RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination
 templ RbacGradeListPage(rows []adminrbac.GradeRow) {
 	<div id="rbac-grades" class="flex flex-col gap-space-lg">
 		<h2 class="text-xl font-semibold text-ink">Grades RBAC</h2>
-		<table class="w-full text-sm">
-			<thead>
-				<tr>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Nom</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Desc</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Users</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Perms</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Actions</th>
-				</tr>
-			</thead>
-			<tbody id="grade-list">
-				for _, g := range rows {
-					@RbacGradeListRow(g)
-				}
-			</tbody>
-		</table>
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Nom</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Desc</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Users</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Perms</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Actions</th>
+					</tr>
+				</thead>
+				<tbody id="grade-list">
+					for _, g := range rows {
+						@RbacGradeListRow(g)
+					}
+				</tbody>
+			</table>
+		</div>
 		<form hx-post="/admin/rbac/grades" hx-target="#grade-list" hx-swap="afterbegin" class="flex flex-col gap-space-sm sm:flex sm:flex-row sm:items-end">
 			@templux.FormField("Nom du grade", "", "", templux.Input("name", "", templ.Attributes{"type": "text", "placeholder": "Nom du grade", "required": "required"}))
 			@templux.FormField("Description", "", "", templux.Input("desc", "", templ.Attributes{"type": "text", "placeholder": "Description"}))
@@ -168,20 +172,22 @@ templ RbacUserListPage(rows []adminrbac.UserRow, filter adminrbac.UserFilter, al
 			</select>
 			@templux.Button("Filtrer", "primary", templ.Attributes{"type": "submit"})
 		</form>
-		<table class="w-full text-sm">
-			<thead>
-				<tr>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Email</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Grades</th>
-					<th class="px-space-md py-space-sm border-b border-border text-left">Actions</th>
-				</tr>
-			</thead>
-			<tbody>
-				for _, u := range rows {
-					@RbacUserListRow(u, allGrades)
-				}
-			</tbody>
-		</table>
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm">
+				<thead>
+					<tr>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Email</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Grades</th>
+						<th class="px-space-md py-space-sm border-b border-border text-left">Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, u := range rows {
+						@RbacUserListRow(u, allGrades)
+					}
+				</tbody>
+			</table>
+		</div>
 	</div>
 }
 

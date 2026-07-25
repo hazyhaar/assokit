@@ -103,6 +103,8 @@ var dbOperationKeywords = []string{
 	"store.Add", "store.Remove", "store.Recompute", "store.Grant", "store.Revoke",
 	"store.Assign", "store.Unassign",
 	"store.Send", "store.MarkRead", // messagerie privée (INSERT / UPDATE read_at)
+	"store.Enqueue",             // file de publication réseaux sociaux (INSERT OR IGNORE social_post_queue)
+	"store.ResolvePublishing",   // réconciliation d'une diffusion orpheline (UPDATE social_post_log status)
 	"store.Join", "store.Leave", // salon : INSERT / DELETE salon_member
 	"store.PostMessage",                           // salon : INSERT salon_message
 	"store.RecordMandate", "store.SignAttendance", // gouvernance V2b : INSERT mandates / attendance

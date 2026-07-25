@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -18,15 +19,97 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 
 	"github.com/hazyhaar/assokit/pkg/eventsink"
+	"github.com/hazyhaar/assokit/pkg/gdpr"
 	"github.com/hazyhaar/assokit/pkg/uid"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/forum"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/perms"
+	tree "github.com/hazyhaar/nodetree"
 )
+
+// forumWriteNodeID : nœud racine porteur des permissions d'écriture du forum.
+// Toutes les routes de mutation forum (rename/delete/question/branch/reply/new)
+// sont gardées via RequirePerm(deps.DB, perms.PermWrite, "node-forum") — cf.
+// routes.go. forumCanWrite applique EXACTEMENT le même prédicat côté vue, pour
+// qu'un bouton affiché corresponde toujours à une action qui aboutit (et
+// inversement, qu'un bouton caché corresponde à un 403 si l'action est forcée).
+const forumWriteNodeID = "node-forum"
+
+// forumCanWrite retourne true si l'utilisateur est connecté ET porte au moins la
+// permission d'écriture sur le forum. Prédicat UNIQUE réutilisé par les quatre
+// panneaux de la station (catégories, questions, branches, détail/messages) —
+// corrige l'asymétrie où seul "+ Créer catégorie" échappait à la garde.
+func forumCanWrite(ctx context.Context, deps app.AppDeps, user *identity.User) bool {
+	if user == nil {
+		return false
+	}
+	ps := &perms.Store{DB: deps.DB}
+	can, err := ps.UserCan(ctx, user.Roles, forumWriteNodeID, perms.PermWrite)
+	if err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Error("forum canWrite", "err", err)
+		}
+		return false
+	}
+	return can
+}
+
+// forumUserRoles retourne les rôles effectifs du lecteur. Anonyme → rôle « public »
+// (même convention que les tests de permissions node×rôle).
+func forumUserRoles(user *identity.User) []string {
+	if user == nil {
+		return []string{"public"}
+	}
+	return user.Roles
+}
+
+// forumCanRead est le prédicat UNIQUE de visibilité d'un nœud forum : au moins
+// PermRead sur le nœud (héritage ancêtres via perms.Effective). Réutilisé par la
+// route gardée des pièces jointes et le filtre /search sur les résultats forum.
+func forumCanRead(ctx context.Context, deps app.AppDeps, user *identity.User, nodeID string) bool {
+	ps := &perms.Store{DB: deps.DB}
+	can, err := ps.UserCan(ctx, forumUserRoles(user), nodeID, perms.PermRead)
+	if err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Error("forum canRead", "node_id", nodeID, "err", err)
+		}
+		return false
+	}
+	return can
+}
+
+var forumPieceFilenameRe = regexp.MustCompile(`^[0-9a-f]{8}-[a-zA-Z0-9._-]+$`)
+
+func forumPieceURL(carrierSlug, name string) string {
+	return "/forum/piece/" + carrierSlug + "/" + name
+}
+
+// isForumTreeNode indique si le nœud appartient à l'arbre du forum (descendant
+// du nœud racine slug « forum »).
+func isForumTreeNode(ctx context.Context, store *tree.Store, nodeID string) (bool, error) {
+	node, err := store.GetByID(ctx, nodeID)
+	if err != nil {
+		return false, err
+	}
+	if node.Slug == "forum" {
+		return true, nil
+	}
+	ancs, err := store.Ancestors(ctx, nodeID)
+	if err != nil {
+		return false, err
+	}
+	for _, a := range ancs {
+		if a.Slug == "forum" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 // ForumMaxDepth : profondeur max autorisée pour les réponses (création). La station
 // à catégories ajoute un niveau (racine 0 → catégorie 1 → question 2 → réponse 3),
@@ -41,7 +124,7 @@ func handleForumIndex(deps app.AppDeps) http.HandlerFunc {
 		if err != nil {
 			deps.Logger.Error("forum index : node racine introuvable", "err", err)
 			user := middleware.UserFromContext(r.Context())
-			renderPageV2(w, r, deps, "Forum", views.ForumIndex(nil, user, nil))
+			renderPageV2(w, r, deps, theme.ForumLabel(), views.ForumIndex(nil, user, nil, forumCanWrite(r.Context(), deps, user)))
 			return
 		}
 		topics, err := forum.BuildIndex(r.Context(), treeStore, forumNode.ID, authorOf)
@@ -61,7 +144,7 @@ func handleForumIndex(deps app.AppDeps) http.HandlerFunc {
 			deps.Logger.Error("forum index unread", "err", err)
 			unread = nil
 		}
-		renderPageV2(w, r, deps, "Forum", views.ForumIndex(topics, user, unread))
+		renderPageV2(w, r, deps, theme.ForumLabel(), views.ForumIndex(topics, user, unread, forumCanWrite(r.Context(), deps, user)))
 	}
 }
 
@@ -75,7 +158,7 @@ func handleForumNewTopicForm(deps app.AppDeps) http.HandlerFunc {
 			return
 		}
 		csrfToken := middleware.CSRFToken(r.Context())
-		renderPageV2(w, r, deps, "Nouveau sujet — Forum", views.ForumNewTopic(csrfToken))
+		renderPageV2(w, r, deps, theme.T("forum.new_topic_page_title", "Nouveau sujet — Forum"), views.ForumNewTopic(csrfToken))
 	}
 }
 
@@ -217,7 +300,7 @@ func handleForumNode(deps app.AppDeps) http.HandlerFunc {
 }
 
 // handleForumQuestions rend le panneau central : les questions d'une catégorie.
-// Fragment HTMX injecté dans #forum-col-questions.
+// Fragment HTMX injecté dans #forum-col-items.
 func handleForumQuestions(deps app.AppDeps) http.HandlerFunc {
 	treeStore := &tree.Store{DB: deps.DB}
 	authorOf := authorResolver(deps.DB)
@@ -260,7 +343,7 @@ func writeForumQuestions(deps app.AppDeps, treeStore *tree.Store, authorOf func(
 			deps.Logger.Error("forum questions unread", "err", err)
 			unread = nil
 		}
-		views.ForumQuestionsColumn(category, questions, unread, qUser != nil).Render(r.Context(), w) //nolint:errcheck
+		views.ForumQuestionsColumn(category, questions, unread, forumCanWrite(r.Context(), deps, qUser)).Render(r.Context(), w) //nolint:errcheck
 	}
 }
 
@@ -296,9 +379,9 @@ func writeForumDetail(deps app.AppDeps, treeStore *tree.Store, authorOf func(ctx
 		return
 	}
 	user := middleware.UserFromContext(r.Context())
-	canReply := user != nil && node.Depth < ForumMaxDepth-1
+	canWrite := forumCanWrite(r.Context(), deps, user) && node.Depth < ForumMaxDepth-1
 	csrfToken := middleware.CSRFToken(r.Context())
-	views.ForumQuestionDetail(question, replies, user, canReply, csrfToken).Render(r.Context(), w) //nolint:errcheck
+	views.ForumQuestionDetail(question, replies, user, canWrite, csrfToken).Render(r.Context(), w) //nolint:errcheck
 }
 
 // forumMD rend le markdown des messages de forum SANS WithUnsafe : le HTML brut
@@ -379,11 +462,140 @@ func brandingUploadDir(deps app.AppDeps) string {
 	return "./uploads"
 }
 
+// handleForumPieceDownload sert une pièce jointe forum via route gardée. Vérifie
+// la visibilité du nœud porteur (forumCanRead) avant d'émettre l'octet ; journalise
+// l'accès légitime via gdpr.LogAccess (motif afppieces transposé au socle).
+func handleForumPieceDownload(deps app.AppDeps) http.HandlerFunc {
+	treeStore := &tree.Store{DB: deps.DB}
+	return func(w http.ResponseWriter, r *http.Request) {
+		filename := chi.URLParam(r, "filename")
+		if !forumPieceFilenameRe.MatchString(filename) {
+			http.NotFound(w, r)
+			return
+		}
+		user := middleware.UserFromContext(r.Context())
+		carrierSlug := chi.URLParam(r, "slug")
+
+		var carriers []*tree.Node
+		if carrierSlug != "" {
+			node, err := treeStore.GetBySlug(r.Context(), carrierSlug)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			if !nodeReferencesForumPiece(node, filename) {
+				http.NotFound(w, r)
+				return
+			}
+			carriers = []*tree.Node{node}
+		} else {
+			var err error
+			carriers, err = findForumPieceCarriers(r.Context(), deps.DB, filename)
+			if err != nil {
+				deps.Logger.Error("forum piece carriers", "filename", filename, "err", err)
+				http.Error(w, "Erreur lecture pièce", http.StatusInternalServerError)
+				return
+			}
+			if len(carriers) == 0 {
+				http.NotFound(w, r)
+				return
+			}
+		}
+
+		var readable *tree.Node
+		for _, c := range carriers {
+			if forumCanRead(r.Context(), deps, user, c.ID) {
+				readable = c
+				break
+			}
+		}
+		if readable == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		path := filepath.Join(brandingUploadDir(deps), "uploads", "forum", filename)
+		f, err := os.Open(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.NotFound(w, r)
+				return
+			}
+			deps.Logger.Error("forum piece open", "filename", filename, "err", err)
+			http.Error(w, "Erreur lecture pièce", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+
+		head := make([]byte, 512)
+		n, _ := f.Read(head)
+		mime := http.DetectContentType(head[:n])
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			http.Error(w, "Erreur lecture pièce", http.StatusInternalServerError)
+			return
+		}
+
+		actorID := "anonymous"
+		if user != nil && user.ID != "" {
+			actorID = user.ID
+		}
+		gdpr.LogAccess(r.Context(), &gdpr.Store{DB: deps.DB}, deps.Logger, gdpr.AccessLog{
+			SubjectKind: "forum_attachment",
+			SubjectID:   readable.ID,
+			ActorID:     actorID,
+			Action:      gdpr.ActionExport,
+			UserID:      userID(user),
+		})
+
+		w.Header().Set("Content-Type", mime)
+		if !strings.HasPrefix(mime, "image/") {
+			w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+		}
+		http.ServeContent(w, r, filename, readable.UpdatedAt, f)
+	}
+}
+
+func nodeReferencesForumPiece(node *tree.Node, filename string) bool {
+	return strings.Contains(node.BodyMD, filename) ||
+		strings.Contains(node.BodyHTML, filename)
+}
+
+func findForumPieceCarriers(ctx context.Context, db *sql.DB, filename string) ([]*tree.Node, error) {
+	store := &tree.Store{DB: db}
+	likeStatic := "%/static/uploads/forum/" + filename + "%"
+	likeGuarded := "%/forum/piece/%/" + filename + "%"
+	likeGuardedAlt := "%/forum/piece/" + filename + "%"
+	rows, err := db.QueryContext(ctx, `
+		SELECT id FROM nodes
+		WHERE deleted_at IS NULL
+		  AND (body_md LIKE ? OR body_md LIKE ? OR body_md LIKE ?
+		       OR body_html LIKE ? OR body_html LIKE ? OR body_html LIKE ?)
+	`, likeStatic, likeGuarded, likeGuardedAlt, likeStatic, likeGuarded, likeGuardedAlt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*tree.Node
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		n, err := store.GetByID(ctx, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
 // saveForumAttachments enregistre les pièces jointes ("attachments") d'un message
 // forum sous uploads/forum/ et retourne le markdown à ajouter au corps (images
 // inline, autres en lien), plus un message d'erreur non vide en cas de refus. Le
 // type est sniffé au contenu (allowlist) et le nom de fichier généré côté serveur.
-func saveForumAttachments(r *http.Request, deps app.AppDeps) (string, string) {
+// carrierSlug est le slug du nœud porteur (message) pour la route gardée.
+func saveForumAttachments(r *http.Request, deps app.AppDeps, carrierSlug string) (string, string) {
 	if r.MultipartForm == nil || r.MultipartForm.File == nil {
 		return "", ""
 	}
@@ -426,7 +638,7 @@ func saveForumAttachments(r *http.Request, deps app.AppDeps) (string, string) {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0640); err != nil {
 			return "", "Erreur d'écriture de la pièce jointe."
 		}
-		url := "/static/uploads/forum/" + name
+		url := forumPieceURL(carrierSlug, name)
 		if strings.HasPrefix(mime, "image/") {
 			fmt.Fprintf(&md, "![%s](%s)\n\n", name, url)
 		} else {
@@ -549,7 +761,7 @@ func handleForumCreateQuestion(deps app.AppDeps) http.HandlerFunc {
 			qIDs = append(qIDs, q.ID)
 		}
 		unread, _ := forum.UnreadQuestions(r.Context(), deps.DB, userID(user), qIDs)
-		views.ForumQuestionsColumn(category, questions, unread, user != nil).Render(r.Context(), w) //nolint:errcheck
+		views.ForumQuestionsColumn(category, questions, unread, forumCanWrite(r.Context(), deps, user)).Render(r.Context(), w) //nolint:errcheck
 	}
 }
 
@@ -568,7 +780,7 @@ func createDefaultBranch(ctx context.Context, store *tree.Store, questionID, tit
 }
 
 // handleForumBranches rend le panneau des branches d'une question (clone du panneau
-// Questions, un cran plus bas). Fragment HTMX injecté dans #forum-col-branches.
+// Questions, un cran plus bas). Fragment HTMX injecté dans #forum-col-channels.
 func handleForumBranches(deps app.AppDeps) http.HandlerFunc {
 	treeStore := &tree.Store{DB: deps.DB}
 	authorOf := authorResolver(deps.DB)
@@ -603,7 +815,7 @@ func writeForumBranches(deps app.AppDeps, treeStore *tree.Store, authorOf func(c
 	u := middleware.UserFromContext(r.Context())
 	// Une branche "a du nouveau" = un message (enfant DIRECT) plus récent que sa lecture.
 	unread, _ := forum.UnreadSet(r.Context(), deps.DB, userID(u), bIDs)
-	views.ForumBranchesColumn(question, branches, unread, u != nil).Render(r.Context(), w) //nolint:errcheck
+	views.ForumBranchesColumn(question, branches, unread, forumCanWrite(r.Context(), deps, u)).Render(r.Context(), w) //nolint:errcheck
 }
 
 // handleForumNewBranchForm rend le formulaire de création d'une branche, injecté
@@ -672,7 +884,7 @@ func handleForumCreateBranch(deps app.AppDeps) http.HandlerFunc {
 			bIDs = append(bIDs, b.ID)
 		}
 		unread, _ := forum.UnreadSet(r.Context(), deps.DB, userID(user), bIDs)
-		views.ForumBranchesColumn(question, branches, unread, user != nil).Render(r.Context(), w) //nolint:errcheck
+		views.ForumBranchesColumn(question, branches, unread, forumCanWrite(r.Context(), deps, user)).Render(r.Context(), w) //nolint:errcheck
 	}
 }
 
@@ -710,7 +922,10 @@ func handleForumReply(deps app.AppDeps) http.HandlerFunc {
 		// Mode chat/SAV : un message OU une pièce jointe suffit. Le titre du nœud
 		// (non affiché dans le fil) est dérivé du message ou d'un libellé par défaut.
 		body := strings.TrimSpace(r.FormValue("body"))
-		attachMD, attachErr := saveForumAttachments(r, deps)
+		// Slug de la réponse pré-généré : les liens de pièces jointes pointent la
+		// route gardée /forum/piece/{slug}/{filename} dès la création du message.
+		replySlug := "reply-" + uid.New()
+		attachMD, attachErr := saveForumAttachments(r, deps, replySlug)
 		if attachErr != "" {
 			deps.Logger.Warn("forum_reply_rejected", "reason", "attachment", "user_id", user.ID, "slug", slug, "detail", attachErr)
 			middleware.PushFlash(w, "error", attachErr)
@@ -734,8 +949,6 @@ func handleForumReply(deps app.AppDeps) http.HandlerFunc {
 				title = "Pièce jointe"
 			}
 		}
-		// UUIDv7 COMPLET : un préfixe tronqué (horodaté) collisionne même-milliseconde.
-		replySlug := "reply-" + uid.New()
 		_, err = treeStore.Create(r.Context(), tree.Node{
 			Slug:     replySlug,
 			ParentID: sql.NullString{String: parent.ID, Valid: true},
@@ -858,9 +1071,14 @@ func writeForumParentPanel(deps app.AppDeps, treeStore *tree.Store, authorOf fun
 	case 1:
 		// node est une question (parent = catégorie) : colonne des questions.
 		writeForumQuestions(deps, treeStore, authorOf, w, r, parent.Slug)
-	default:
+	case 2:
 		// node est une branche (parent = question) : colonne des branches.
 		writeForumBranches(deps, treeStore, authorOf, w, r, parent.Slug)
+	default:
+		// node est un message (parent = branche, profondeur >= 3) : panneau détail.
+		// La branche joue le rôle de "question" affichée dans ce panneau (cf.
+		// writeForumDetail — le slug reçu y est en pratique celui d'une branche).
+		writeForumDetail(deps, treeStore, authorOf, w, r, parent.Slug)
 	}
 }
 

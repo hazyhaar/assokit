@@ -15,6 +15,32 @@ import (
 // Shell est la coquille server-rendered complete (html/head/body + header + footer).
 // content = corps de la <main>, injecte dans le layout papier-ochre preset-assokit.
 templ Shell(title string, content templ.Component) {
+	@shellBase(title, "", nil, "data-shell-container", "px-space-lg py-space-xl flex flex-col gap-space-md", content)
+}
+
+// ShellWide est la coquille pleine largeur pour surfaces denses (tables admin).
+// Meme socle que Shell ; seul le conteneur <main> passe en data-shell-container-wide.
+templ ShellWide(title string, content templ.Component) {
+	@shellBase(title, "", nil, "data-shell-container-wide", "px-space-lg py-space-xl flex flex-col gap-space-md", content)
+}
+
+// ShellCustom est la coquille socle parametrable, exposee aux instances de bordure
+// (ex. GAFP, page carte plein ecran) via pkg/api. Elle conserve nav, user-menu,
+// flashs et FeedbackWidget du socle, mais autorise trois surcharges :
+//   - extraHead : composant injecte en fin de <head> (assets propres a l'instance,
+//     ex. MapLibre) ; nil = aucun ajout.
+//   - bodyClass : classe du <body> (ex. "min-h-screen flex flex-col" pour un layout
+//     pleine hauteur) ; vide = body socle nu. Necessaire au plein ecran : un <main
+//     flex-1> s'effondre a hauteur 0 sans body flex pleine hauteur.
+//   - mainClass : classe de la <main> (ex. plein ecran vs conteneur centre).
+templ ShellCustom(title string, extraHead templ.Component, bodyClass string, mainClass string, content templ.Component) {
+	@shellBase(title, bodyClass, extraHead, "", mainClass, content)
+}
+
+// shellBase est le squelette partage par Shell, ShellWide et ShellCustom. Il centralise le
+// <head> socle (CSS vars, base/preset/templux, scripts), le header, le footer et
+// le FeedbackWidget conditionnel ; seuls bodyClass, extraHead, mainContainerAttr et mainClass varient.
+templ shellBase(title string, bodyClass string, extraHead templ.Component, mainContainerAttr string, mainClass string, content templ.Component) {
 	<!DOCTYPE html>
 	<html lang={ theme.Brand().Locale }>
 		<head>
@@ -26,6 +52,29 @@ templ Shell(title string, content templ.Component) {
 			<meta property="og:type" content="website"/>
 			<link rel="icon" href={ "/static/" + theme.Brand().FaviconPath }/>
 			@templ.Raw(theme.CSSVars())
+			// Visibilité responsive du burger et du user-menu desktop en CSS PUR
+			// (le bundle précompilé n'émet pas sm:hidden, et une gestion JS ne
+			// survit pas aux swaps hx-boost — burger réapparu à 1400 px après
+			// navigation boostée, vu au geste 2026-07-07). Sélecteurs d'attribut,
+			// aucune classe maison. 40rem = breakpoint sm du bundle.
+			<style>
+				[data-shell-container]{max-width:1200px;margin-inline:auto;width:100%}
+				[data-shell-container-wide]{width:100%;max-width:none;margin-inline:auto}
+				[data-nav-desktop-user]{display:none}
+				@media (min-width:40rem){
+					[data-nav-desktop-user]{display:flex}
+					[data-nav-drawer-trigger],[data-nav-drawer-panel],[data-nav-drawer-overlay]{display:none}
+				}
+				[data-cms-prose]{line-height:1.5}
+				[data-cms-prose] h2{font-size:1.5rem;font-weight:600;color:var(--text,#2b1d0e);margin:1.5em 0 .5em}
+				[data-cms-prose] h3{font-size:1.25rem;font-weight:600;color:var(--text,#2b1d0e);margin:1.25em 0 .5em}
+				[data-cms-prose] p{margin:0 0 1em}
+				[data-cms-prose] ul{list-style:disc;padding-left:1.5em;margin:0 0 1em}
+				[data-cms-prose] ol{list-style:decimal;padding-left:1.5em;margin:0 0 1em}
+				[data-cms-prose] li{margin:.25em 0}
+				[data-cms-prose] a{color:var(--accent,#8a5a1c);text-decoration:underline}
+				[data-cms-prose] a:hover{color:var(--primary,#704818)}
+			</style>
 			<link rel="stylesheet" href="/static/css/templux/base.css"/>
 			<link rel="stylesheet" href="/static/css/templux/preset-assokit.css"/>
 			<link rel="stylesheet" href="/static/css/templux/templux.css"/>
@@ -33,13 +82,30 @@ templ Shell(title string, content templ.Component) {
 			<script src="/static/js/csrf.js" defer></script>
 			<script src="/static/js/helloasso_popup.js" defer></script>
 			<script src="/static/js/forum.js" defer></script>
+			<script src="/static/js/dropdown.js" defer></script>
+			<script src="/static/js/navdrawer.js" defer></script>
+			if extraHead != nil {
+				@extraHead
+			}
 		</head>
-		<body hx-boost="true">
+		<body hx-boost="true" class={ bodyClass }>
 			@shellHeader()
-			<main class="max-w-5xl mx-auto px-space-lg py-space-xl flex flex-col gap-space-md">
-				@shellFlash()
-				@content
-			</main>
+			if mainContainerAttr == "data-shell-container" {
+				<main data-shell-container class={ mainClass }>
+					@shellFlash()
+					@content
+				</main>
+			} else if mainContainerAttr == "data-shell-container-wide" {
+				<main data-shell-container-wide class={ mainClass }>
+					@shellFlash()
+					@content
+				</main>
+			} else {
+				<main class={ mainClass }>
+					@shellFlash()
+					@content
+				</main>
+			}
 			@shellFooter()
 			if !theme.Brand().Feedback.Disabled {
 				@components.FeedbackWidget(middleware.PageURIFromContext(ctx), title)
@@ -50,7 +116,7 @@ templ Shell(title string, content templ.Component) {
 
 templ shellHeader() {
 	<header class="border-b border-border bg-surface-raised">
-		<div class="max-w-5xl mx-auto flex items-center justify-between gap-space-lg px-space-lg py-space-md">
+		<div data-shell-container class="flex flex-wrap items-center justify-between gap-space-md px-space-lg py-space-md">
 			<a href="/" class="flex items-center gap-space-sm no-underline">
 				if theme.Brand().LogoPath != "" {
 					<img src={ "/static/" + theme.Brand().LogoPath } alt={ theme.Brand().Name } class="h-8"/>
@@ -59,30 +125,92 @@ templ shellHeader() {
 				}
 			</a>
 			<nav class="hidden sm:flex" aria-label="Navigation principale">
-				<ul class="flex items-center gap-space-lg list-none m-0 p-0">
-					for _, item := range theme.Brand().Nav {
-						<li><a href={ templ.SafeURL(item.Slug) } class="text-ink-muted hover:text-accent no-underline">{ item.Label }</a></li>
-					}
-				</ul>
+				@shellNavList()
 			</nav>
-			<div class="user-menu flex items-center gap-space-sm">
-				if u := middleware.UserFromContext(ctx); u != nil {
-					if slices.Contains(u.Roles, "admin") {
-						@templux.LinkButton("Gestion", "/admin", "ghost", templ.Attributes{})
-					}
-					<span class="user-name text-sm text-ink-muted">{ u.DisplayName }</span>
-					@templux.LinkButton(theme.T("button.logout", "Déconnexion"), "/logout", "ghost", templ.Attributes{})
-				} else {
-					@templux.LinkButton("Se connecter", "/login", "primary", templ.Attributes{})
-				}
+			<div class="flex items-center gap-space-sm">
+				@shellMobileDrawer()
+				<div data-nav-desktop-user class="user-menu items-center gap-space-sm">
+					@shellDesktopUserMenu()
+				</div>
 			</div>
 		</div>
 	</header>
 }
 
+templ shellNavList() {
+	<ul class="flex flex-wrap items-center gap-space-md list-none m-0 p-0">
+		for _, item := range theme.Brand().Nav {
+			// inline-block : un libellé replié sur 2 lignes reste UNE boîte
+			// cliquable continue — en inline, l'interstice entre les lignes
+			// est mort au clic (bug « double clic », 2026-07-07).
+			<li><a href={ templ.SafeURL(item.Slug) } class="inline-block text-ink-muted hover:text-accent no-underline">{ item.Label }</a></li>
+		}
+	</ul>
+}
+
+templ shellDesktopUserMenu() {
+	if u := middleware.UserFromContext(ctx); u != nil {
+		@templux.Dropdown(u.DisplayName, userDropdownItems(u), templ.Attributes{"id": "user-dropdown"})
+	} else {
+		@templux.LinkButton("Se connecter", "/login", "primary", templ.Attributes{})
+	}
+}
+
+templ shellMobileDrawer() {
+	<div data-nav-drawer>
+		<button
+			type="button"
+			data-nav-drawer-trigger
+			aria-label="Menu"
+			aria-expanded="false"
+			aria-controls="nav-drawer-panel"
+			class="inline-flex items-center justify-center p-space-sm rounded-md text-ink border border-border bg-surface hover:bg-surface-muted"
+		>
+			<span aria-hidden="true">&#x2630;</span>
+		</button>
+		<div data-nav-drawer-overlay class="fixed inset-0 bg-ink opacity-70 z-40 hidden"></div>
+		<div
+			id="nav-drawer-panel"
+			data-nav-drawer-panel
+			role="navigation"
+			aria-label="Menu mobile"
+			class="fixed top-0 right-0 h-full w-80 z-50 bg-surface shadow-lg p-space-lg overflow-auto hidden"
+		>
+			<button
+				type="button"
+				data-nav-drawer-close
+				aria-label="Fermer le menu"
+				class="absolute top-space-sm right-space-sm text-ink-muted hover:text-ink"
+			>&#x2715;</button>
+			<nav class="mt-space-xl" aria-label="Navigation principale">
+				@shellNavList()
+			</nav>
+			<div class="user-menu mt-space-xl pt-space-md border-t border-border">
+				@shellDrawerUserBlock()
+			</div>
+		</div>
+	</div>
+}
+
+templ shellDrawerUserBlock() {
+	if u := middleware.UserFromContext(ctx); u != nil {
+		<p class="text-sm font-medium text-ink mb-space-md">{ u.DisplayName }</p>
+		<ul class="flex flex-col gap-space-sm list-none m-0 p-0">
+			<li><a href="/account" class="text-sm text-ink-muted hover:text-accent no-underline">Mon compte</a></li>
+			<li><a href="/events" class="text-sm text-ink-muted hover:text-accent no-underline">Agenda</a></li>
+			if slices.Contains(u.Roles, "admin") {
+				<li><a href="/admin" class="text-sm text-ink-muted hover:text-accent no-underline">Gestion</a></li>
+			}
+			<li><a href="/logout" class="text-sm text-ink-muted hover:text-accent no-underline">{ theme.T("button.logout", "Déconnexion") }</a></li>
+		</ul>
+	} else {
+		@templux.LinkButton("Se connecter", "/login", "primary", templ.Attributes{})
+	}
+}
+
 templ shellFooter() {
 	<footer class="border-t border-border bg-surface-muted mt-space-3xl">
-		<div class="max-w-5xl mx-auto flex flex-col gap-space-sm px-space-lg py-space-xl text-sm text-ink-muted">
+		<div data-shell-container class="flex flex-col gap-space-sm px-space-lg py-space-xl text-sm text-ink-muted">
 			<p class="font-semibold text-ink">{ theme.Brand().Name }</p>
 			<nav class="flex flex-wrap items-center gap-space-md" aria-label="Liens légaux">
 				for _, line := range theme.Brand().Footer.Lines {
@@ -93,6 +221,9 @@ templ shellFooter() {
 					<a href="/lexique" class="text-accent no-underline">{ theme.T("link.lexique", "Lexique") }</a>
 					<a href="/contact" class="text-accent no-underline">{ theme.T("link.contact", "Contact") }</a>
 				<a href="/mentions-legales" class="text-accent no-underline">{ theme.T("link.legal", "Mentions légales") }</a>
+				<a href="/cgu" class="text-accent no-underline">{ theme.T("link.cgu", "Conditions générales d'utilisation") }</a>
+				<a href="/donnees-personnelles" class="text-accent no-underline">{ theme.T("link.privacy", "Données personnelles") }</a>
+				<a href="https://github.com/hazyhaar/assokit" target="_blank" rel="noopener" class="text-accent no-underline">{ theme.T("link.opensource", "Site propulsé par assokit (code source ouvert)") }</a>
 			</nav>
 		</div>
 	</footer>

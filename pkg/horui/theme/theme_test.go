@@ -21,6 +21,67 @@ func TestInitAndBrand(t *testing.T) {
 	}
 }
 
+func TestForumLabel_UsesNav(t *testing.T) {
+	Init(&Branding{
+		Name:    "GAFP",
+		BaseURL: "https://example.org",
+		Nav: []NavItem{
+			{Slug: "/forum", Label: "Dossiers", Order: 1},
+		},
+		Texts: map[string]string{},
+	})
+	if got := ForumLabel(); got != "Dossiers" {
+		t.Errorf("ForumLabel() = %q, attendu Dossiers", got)
+	}
+}
+
+func TestForumTexts_DefaultsWithoutOverrides(t *testing.T) {
+	Init(&Branding{Texts: map[string]string{}})
+	cases := []struct {
+		key, fallback, want string
+	}{
+		{"forum.categories", "Catégories", "Catégories"},
+		{"forum.questions", "Questions", "Questions"},
+		{"forum.branches", "Branches", "Branches"},
+		{"forum.repondre", "Répondre", "Répondre"},
+		{"forum.empty_topics", "Aucun sujet pour l'instant.", "Aucun sujet pour l'instant."},
+		{"forum.counter_question", "question", "question"},
+	}
+	for _, tc := range cases {
+		if got := T(tc.key, tc.fallback); got != tc.want {
+			t.Errorf("T(%q) = %q, attendu %q", tc.key, got, tc.want)
+		}
+	}
+}
+
+func TestForumTexts_GAFPOverrides(t *testing.T) {
+	Init(&Branding{
+		Texts: map[string]string{
+			"forum.categories":      "Familles de dossiers",
+			"forum.questions":       "Dossiers",
+			"forum.branches":        "Échanges",
+			"forum.repondre":        "Répondre au dossier",
+			"forum.create_question": "Ouvrir un dossier",
+			"forum.empty_topics":    "Aucun dossier ouvert pour l'instant — conciliation, contentieux, projets et démarches se tiennent ici.",
+		},
+	})
+	cases := []struct {
+		key, fallback, want string
+	}{
+		{"forum.categories", "Catégories", "Familles de dossiers"},
+		{"forum.questions", "Questions", "Dossiers"},
+		{"forum.branches", "Branches", "Échanges"},
+		{"forum.repondre", "Répondre", "Répondre au dossier"},
+		{"forum.create_question", "+ Créer question", "Ouvrir un dossier"},
+		{"forum.empty_topics", "Aucun sujet pour l'instant.", "Aucun dossier ouvert pour l'instant — conciliation, contentieux, projets et démarches se tiennent ici."},
+	}
+	for _, tc := range cases {
+		if got := T(tc.key, tc.fallback); got != tc.want {
+			t.Errorf("T(%q) = %q, attendu %q", tc.key, got, tc.want)
+		}
+	}
+}
+
 func TestT(t *testing.T) {
 	Init(&Branding{
 		Texts: map[string]string{

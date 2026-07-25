@@ -31,6 +31,7 @@ func InitAll(reg *actions.Registry) {
 	initGDPR(reg)
 	initConvention(reg)
 	initGovernance(reg)
+	initSocial(reg)
 	// Note : initSalon est appelé depuis InitSalonVisio (qui connaît le Connector
 	// LiveKit optionnel pour le cycle de vie best-effort). Si InitSalonVisio n'est
 	// jamais appelé, les actions salon.* ne seront pas enregistrées — ce cas ne

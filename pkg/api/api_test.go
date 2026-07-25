@@ -2,7 +2,9 @@ package api_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/api"
 	"github.com/hazyhaar/assokit/pkg/signupprofile"
 )
@@ -163,6 +166,170 @@ func TestSignupProfiles_UnknownGradeFailsBoot(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "habitant") || !strings.Contains(err.Error(), "grade-fantome") {
 		t.Errorf("message d'erreur doit nommer profil et grade : %v", err)
+	}
+}
+
+// TestDisabledModules_ConventionsOffRouteNotMounted vérifie qu'avec le module
+// « conventions » désactivé, la route d'espace membre /account/conventions n'est
+// pas montée : le routeur répond 404 (route absente), indépendamment de l'auth —
+// une instance verticale (ex. GAFP) fournit alors sa propre vue à la même place.
+func TestDisabledModules_ConventionsOffRouteNotMounted(t *testing.T) {
+	t.Parallel()
+	app, err := api.New(api.Options{
+		DBPath:          ":memory:",
+		BaseURL:         "http://localhost",
+		Port:            "0",
+		DisabledModules: []string{"conventions"},
+	})
+	if err != nil {
+		t.Fatalf("api.New: %v", err)
+	}
+	srv := httptest.NewServer(app.Handler())
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/account/conventions")
+	if err != nil {
+		t.Fatalf("GET /account/conventions: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("module désactivé: status = %d, want 404 (route non montée)", resp.StatusCode)
+	}
+}
+
+// TestDisabledModules_DefaultMountsConventions vérifie la rétro-compatibilité :
+// sans DisabledModules, la route /account/conventions reste montée. La garde
+// requireAuth de niveau route redirige alors un visiteur non authentifié vers le
+// login (302) — jamais 404, ce qui prouverait que la route n'existe pas.
+func TestDisabledModules_DefaultMountsConventions(t *testing.T) {
+	t.Parallel()
+	app := newTestApp(t)
+	srv := httptest.NewServer(app.Handler())
+	defer srv.Close()
+
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := client.Get(srv.URL + "/account/conventions")
+	if err != nil {
+		t.Fatalf("GET /account/conventions: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		t.Errorf("défaut: status 404, la route devrait être montée (rétro-compat)")
+	}
+}
+
+// TestDisabledModules_UnknownSlugFailsBoot vérifie le fail-loud : un slug de module
+// inconnu du catalogue socle est fatal au New, jamais une désactivation silencieuse.
+func TestDisabledModules_UnknownSlugFailsBoot(t *testing.T) {
+	t.Parallel()
+	_, err := api.New(api.Options{
+		DBPath:          ":memory:",
+		BaseURL:         "http://localhost",
+		Port:            "0",
+		DisabledModules: []string{"module-fantome"},
+	})
+	if err == nil {
+		t.Fatal("api.New devrait échouer sur un slug de module inconnu")
+	}
+	if !strings.Contains(err.Error(), "module-fantome") {
+		t.Errorf("message d'erreur doit nommer le slug fautif : %v", err)
+	}
+}
+
+// TestProfileGrant_GovernanceNotRequestableFailsBoot vérifie l'invariant AM-O20 :
+// le grade de gouvernance ne peut figurer parmi les grades requestables.
+func TestProfileGrant_GovernanceNotRequestableFailsBoot(t *testing.T) {
+	t.Parallel()
+	_, err := api.New(api.Options{
+		DBPath:  ":memory:",
+		BaseURL: "http://localhost",
+		Port:    "0",
+		ProfileGrant: app.ProfileGrant{
+			GovernanceGradeID:   "gov-grade",
+			GovernanceGradeName: "Gouvernance",
+			Requestable: []app.GrantableGrade{
+				{ID: "gov-grade", Name: "Gouvernance"},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("api.New devrait échouer si le grade de gouvernance est requestable")
+	}
+	if !strings.Contains(err.Error(), "gouvernance") {
+		t.Errorf("message d'erreur doit mentionner la gouvernance : %v", err)
+	}
+}
+
+// TestSeedGrades_HookEnablesCustomGradeProfile prouve l'utilité du hook
+// SeedGrades : un profil référençant un grade custom échoue au boot SANS le hook
+// (le grade n'existe pas dans la table RBAC), et démarre AVEC le hook (qui seede
+// le grade entre les migrations et la validation des profils).
+func TestSeedGrades_HookEnablesCustomGradeProfile(t *testing.T) {
+	t.Parallel()
+
+	profiles := []signupprofile.Profile{
+		{ID: "personne-autorisee", Label: "Personne autorisée", GradeID: "test-grade"},
+	}
+
+	// Sans le hook : le grade "test-grade" n'est pas seedé → boot échoue (fail-loud).
+	_, err := api.New(api.Options{
+		DBPath:         ":memory:",
+		BaseURL:        "http://localhost",
+		Port:           "0",
+		SignupProfiles: profiles,
+	})
+	if err == nil {
+		t.Fatal("sans SeedGrades, api.New devrait échouer (grade test-grade non seedé)")
+	}
+	if !strings.Contains(err.Error(), "test-grade") {
+		t.Errorf("erreur attendue nommant le grade absent, obtenu : %v", err)
+	}
+
+	// Avec le hook : le grade est seedé après les migrations, avant la validation.
+	app, err := api.New(api.Options{
+		DBPath:         ":memory:",
+		BaseURL:        "http://localhost",
+		Port:           "0",
+		SignupProfiles: profiles,
+		SeedGrades: func(db *sql.DB) error {
+			_, err := db.Exec(
+				`INSERT INTO grades(id, name, system) VALUES(?, ?, 0)`,
+				"test-grade", "Grade de test",
+			)
+			return err
+		},
+	})
+	if err != nil {
+		t.Fatalf("avec SeedGrades, api.New devrait réussir : %v", err)
+	}
+	if app == nil {
+		t.Fatal("app nil malgré New réussi")
+	}
+}
+
+// TestSeedGrades_HookErrorFailsBootNoLeak vérifie qu'une erreur du hook fait
+// échouer New avec un message contenant "seed grades" (la db est refermée).
+func TestSeedGrades_HookErrorFailsBootNoLeak(t *testing.T) {
+	t.Parallel()
+
+	app, err := api.New(api.Options{
+		DBPath:  ":memory:",
+		BaseURL: "http://localhost",
+		Port:    "0",
+		SeedGrades: func(*sql.DB) error {
+			return errors.New("boom seed")
+		},
+	})
+	if err == nil {
+		t.Fatal("api.New devrait échouer quand SeedGrades renvoie une erreur")
+	}
+	if !strings.Contains(err.Error(), "seed grades") {
+		t.Errorf("erreur attendue contenant \"seed grades\", obtenu : %v", err)
+	}
+	if app != nil {
+		t.Errorf("app devrait être nil sur erreur de seed, obtenu : %v", app)
 	}
 }
 

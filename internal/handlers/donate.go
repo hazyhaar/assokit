@@ -14,9 +14,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/signupprofile"
 )
-
-const donateAdhereSlug = "don"
 
 // defaultPaliers : utilisé si branding_kv.helloasso.paliers_suggeres absent.
 var defaultPaliers = []int{10, 30, 50, 100}
@@ -41,11 +40,27 @@ func handleDonatePage(deps app.AppDeps) http.HandlerFunc {
 				User:        user,
 				IsMember:    isMember,
 				IsAdmin:     isAdmin,
-				AdhereSlug:  donateAdhereSlug,
+				AdhereSlug:  adhereSlug(deps.Profils),
 				Paliers:     paliers,
 				MyDonations: myDonations,
 			}))
 	}
+}
+
+// adhereSlug retourne l'ID du profil d'inscription à proposer sur /soutenir
+// pour un visiteur non membre. Le catalogue de profils est injecté à la
+// bordure (pas de slug "don" figé dans le core, qui n'existe pas forcément
+// dans toutes les instances) : on retient le profil "visiteur" s'il existe,
+// sinon le premier profil déclaré. Si le catalogue est vide, la chaîne vide
+// fait retomber la vue sur le lien générique /participer.
+func adhereSlug(profils []signupprofile.Profile) string {
+	if p, ok := signupprofile.Find(profils, "visiteur"); ok {
+		return p.ID
+	}
+	if len(profils) > 0 {
+		return profils[0].ID
+	}
+	return ""
 }
 
 // loadPaliers lit branding_kv.helloasso.paliers_suggeres (CSV "10,30,50,100").

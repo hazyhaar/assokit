@@ -4,7 +4,6 @@ package handlers
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -14,17 +13,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hazyhaar/assokit/pkg/uid"
-
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
+	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 // _ = auth pour éviter import unused si certains chemins removed.
 var _ = "magic_link" // sentinel pour clarté package
 
 const (
-	magicTokenTTL   = 15 * time.Minute
 	magicRateLimit  = 3
 	magicRateWindow = 15 * time.Minute
 )
@@ -101,25 +98,19 @@ func LoginMagicSubmit(deps app.AppDeps) http.HandlerFunc {
 			userID = sql.NullString{String: existing, Valid: true}
 		}
 
-		// Token random 32 bytes hex.
-		tokenBytes := make([]byte, 32)
-		if _, err := rand.Read(tokenBytes); err != nil {
-			http.Error(w, "rand fail", http.StatusInternalServerError)
-			return
-		}
-		token := hex.EncodeToString(tokenBytes)
-		expiresAt := time.Now().UTC().Add(magicTokenTTL).Format("2006-01-02 15:04:05")
 		ipHash := hashIPShort(ip, deps.Config.CookieSecret)
-
-		_, err := deps.DB.ExecContext(r.Context(), `
-			INSERT INTO login_magic_tokens(token, email, user_id, return_url, expires_at, ip_hash)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, token, email, userID, returnURL, expiresAt, ipHash)
+		idStore := &identity.Store{DB: deps.DB}
+		var uidStr string
+		if userID.Valid {
+			uidStr = userID.String
+		}
+		issued, err := idStore.IssueMagicToken(r.Context(), email, uidStr, returnURL, ipHash, identity.LoginMagicTokenTTL)
 		if err != nil {
 			deps.Logger.Error("login_magic_insert", "err", err.Error())
 			http.Error(w, "db error", http.StatusInternalServerError)
 			return
 		}
+		token := issued.Token
 
 		// Envoyer email magic link via mailer outbox.
 		callbackURL := deps.Config.BaseURL + "/login/callback?token=" + token
@@ -195,24 +186,27 @@ func LoginMagicCallback(deps app.AppDeps) http.HandlerFunc {
 			return
 		}
 
-		// Si first-time : créer user.
 		var finalUserID string
+		idStore := &identity.Store{DB: deps.DB}
 		if userID.Valid {
 			finalUserID = userID.String
 		} else {
-			finalUserID = uid.New()
-			_, err := deps.DB.ExecContext(r.Context(), `
-				INSERT INTO users(id, email, password_hash, display_name)
-				VALUES (?, ?, '', ?)
-				ON CONFLICT(email) DO NOTHING
-			`, finalUserID, email, email)
-			if err != nil {
+			u, err := idStore.CreateAccount(r.Context(), identity.CreateAccountOpts{
+				Email: email, DisplayName: email, Active: true,
+			})
+			if errors.Is(err, identity.ErrEmailTaken) {
+				finalUserID, err = idStore.GetUserIDByEmail(r.Context(), email)
+			} else if err != nil {
 				deps.Logger.Error("login_magic_user_create", "err", err.Error())
 				renderMagicError(w, "Erreur création compte.")
 				return
+			} else {
+				finalUserID = u.ID
 			}
-			// Si conflict (race avec autre token concurrent), récupérer l'id existant.
-			_ = deps.DB.QueryRowContext(r.Context(), `SELECT id FROM users WHERE email = ?`, email).Scan(&finalUserID)
+			if finalUserID == "" {
+				renderMagicError(w, "Erreur création compte.")
+				return
+			}
 		}
 
 		// Set session cookie.

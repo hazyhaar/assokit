@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/webui/views"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/messaging"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // handleMessagesInbox affiche la liste des conversations de l'utilisateur courant.

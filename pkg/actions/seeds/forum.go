@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	"github.com/hazyhaar/assokit/pkg/actions"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/uid"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 func initForum(reg *actions.Registry) {

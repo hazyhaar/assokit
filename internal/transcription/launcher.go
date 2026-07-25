@@ -79,12 +79,12 @@ func NewLauncher(salon SalonStore, transcript TranscriptStore, logger *slog.Logg
 		outDir = "/tmp/assokit-transcribe"
 	}
 	return &Launcher{
-		Salon:          salon,
-		Transcript:     transcript,
-		Logger:         logger,
+		Salon:      salon,
+		Transcript: transcript,
+		Logger:     logger,
 		TranscriberBin: bin,
-		OutDir:         outDir,
-		running:        make(map[string]func()),
+		OutDir:     outDir,
+		running:    make(map[string]func()),
 	}
 }
 

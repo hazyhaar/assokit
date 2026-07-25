@@ -137,13 +137,17 @@ func (s *Store) GetGrade(ctx context.Context, gradeID string) (*Grade, error) {
 
 // GrantPerm attribue une permission à un grade.
 func (s *Store) GrantPerm(ctx context.Context, gradeID, permID string) error {
-	_, err := s.DB.ExecContext(ctx,
+	res, err := s.DB.ExecContext(ctx,
 		`INSERT OR IGNORE INTO grade_permissions(grade_id, permission_id) VALUES(?, ?)`,
 		gradeID, permID)
 	if err != nil {
 		return fmt.Errorf("rbac: grant perm: %w", err)
 	}
-	s.audit(ctx, "grant_perm", gradeID, permID, "")
+	// N'auditer que les octrois réels : le seed de boot rejoue GrantPerm à
+	// chaque démarrage, un no-op (ligne déjà présente) ne doit pas noyer le journal.
+	if n, err := res.RowsAffected(); err == nil && n > 0 {
+		s.audit(ctx, "grant_perm", gradeID, permID, "")
+	}
 	return nil
 }
 

@@ -177,6 +177,68 @@ func adminIntStr(n int) string {
 	return string(b)
 }
 
+// ConnectorListItem : ligne de la liste admin des connecteurs.
+type ConnectorListItem struct {
+	ID          string
+	DisplayName string
+	Description string
+	Status      string
+	HealthOK    bool
+	HealthMsg   string
+}
+
+// ConnectorsListPage : liste des connecteurs tiers (admin).
+templ ConnectorsListPage(items []ConnectorListItem) {
+	<div class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Services externes</h1>
+		<p class="text-sm text-ink-muted">Connectez les outils tiers (paiement, visioconférence, etc.).</p>
+		for _, c := range items {
+			<div class="bg-surface-raised rounded-lg shadow-sm border border-border p-space-lg flex flex-col gap-space-xs">
+				<a class="text-accent font-semibold no-underline" href={ templ.SafeURL("/admin/connectors/" + c.ID + "/configure") }>{ c.DisplayName }</a>
+				if c.Description != "" {
+					<p class="text-sm text-ink-muted">{ c.Description }</p>
+				}
+				<p class="text-sm text-ink">
+					Statut : <strong>{ connectorStatusLabel(c.Status) }</strong>
+					if c.HealthMsg != "" {
+						if c.HealthOK {
+							<span class="text-success"> — { c.HealthMsg }</span>
+						} else {
+							<span class="text-danger"> — { c.HealthMsg }</span>
+						}
+					}
+				</p>
+			</div>
+		}
+		if len(items) == 0 {
+			<p class="text-sm text-ink-muted">Aucun connecteur disponible.</p>
+		}
+	</div>
+}
+
+// ConnectorsDisabledPage : message quand le vault est indisponible.
+templ ConnectorsDisabledPage() {
+	<div class="flex flex-col gap-space-md">
+		<h1 class="text-2xl font-semibold text-ink">Connecteurs désactivés</h1>
+		@templux.Alert("warning", "ASSOKIT_MASTER_KEY non configurée — coffre-fort indisponible. Contactez l'administrateur serveur.")
+	</div>
+}
+
+func connectorStatusLabel(status string) string {
+	switch status {
+	case "not_configured":
+		return "Non configuré"
+	case "disabled":
+		return "Désactivé"
+	case "running":
+		return "Actif"
+	case "error":
+		return "Erreur"
+	default:
+		return status
+	}
+}
+
 // ConnectorsConfigurePage : page de configuration d'un connecteur.
 templ ConnectorsConfigurePage(connectorID, connectorName string) {
 	<div class="flex flex-col gap-space-md">

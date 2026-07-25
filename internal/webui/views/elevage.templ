@@ -8,6 +8,7 @@ package views
 import (
 	"fmt"
 
+	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/webui/templux"
 	"github.com/hazyhaar/assokit/pkg/convention"
 	"github.com/hazyhaar/assokit/pkg/fieldlog"
@@ -22,6 +23,10 @@ type ElevageSummary struct {
 	Conventions    []convention.Convention
 	Parcelles      []parcelle.Parcelle
 	SurfaceTotalM2 int64
+
+	// ExtraCards : cartes injectées par la bordure (ex. GAFP), reliant le hub
+	// socle aux sous-pages métier de l'instance. Vide par défaut.
+	ExtraCards []app.AccountCard
 }
 
 // ElevagePage : accueil rôle-scopé de l'éleveur/preneur. Consultation en lecture
@@ -39,6 +44,9 @@ templ ElevagePage(s ElevageSummary) {
 			@accountCard("Déclarer un entretien", "Clôture, point d'eau, débroussaillage réalisé.", "/account/elevage/entretien")
 			@accountCard("Signaler un problème", "Gibier, divagation, accès, danger sur le terrain.", "/account/elevage/probleme")
 			@accountCard("Export PAC (RPG)", "Télécharger mes parcelles et surfaces exploitées.", "/account/elevage/export-pac.csv")
+			for _, c := range s.ExtraCards {
+				@accountCard(c.Title, c.Desc, c.Href)
+			}
 		</div>
 		<section class="flex flex-col gap-space-sm">
 			<h2 class="text-xl font-semibold text-ink">Mes conventions de pâturage</h2>

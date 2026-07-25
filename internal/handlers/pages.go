@@ -3,31 +3,26 @@ package handlers
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hazyhaar/assokit/internal/app"
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
 	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
 	"github.com/hazyhaar/assokit/pkg/search"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 func handlePage(deps app.AppDeps, slug string, s *tree.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if slug == "home" {
-			// Un utilisateur connecté n'a pas besoin de la vitrine d'accueil : il
-			// est envoyé directement au forum.
-			if middleware.UserFromContext(r.Context()) != nil {
-				http.Redirect(w, r, "/forum", http.StatusSeeOther)
-				return
-			}
 			// Une instance peut surcharger la page d'accueil en gravant une
 			// page CMS de slug "home" : si elle existe, elle est servie en
 			// priorité. Sinon, repli sur la vitrine générique views.Home (templux v1).
 			if node, err := s.GetBySlug(r.Context(), "home"); err == nil && node != nil && node.BodyHTML != "" {
-				renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, "", node.BodyHTML))
+				renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, "", node.BodyHTML, ""))
 				return
 			}
 			renderPageV2(w, r, deps, "Accueil", views.Home())
@@ -36,10 +31,10 @@ func handlePage(deps app.AppDeps, slug string, s *tree.Store) http.HandlerFunc {
 		node, err := s.GetBySlug(r.Context(), slug)
 		title := pageTitleFromSlug(slug)
 		if err != nil || node == nil {
-			renderPageV2(w, r, deps, title, views.StaticPage(title, sectionLabelFromSlug(slug), ""))
+			renderPageV2(w, r, deps, title, views.StaticPage(title, sectionLabelFromSlug(slug), "", pageAdminEditPath(r, slug)))
 			return
 		}
-		renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, sectionLabelFromSlug(slug), node.BodyHTML))
+		renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, sectionLabelFromSlug(slug), node.BodyHTML, pageAdminEditPath(r, slug)))
 	}
 }
 
@@ -52,7 +47,7 @@ func handleThematique(deps app.AppDeps, s *tree.Store) http.HandlerFunc {
 			return
 		}
 		children, _ := s.Children(r.Context(), node.ID)
-		renderPageV2(w, r, deps, node.Title, views.Thematique(*node, children))
+		renderPageV2(w, r, deps, node.Title, views.Thematique(*node, children, pageAdminEditPath(r, slug)))
 	}
 }
 
@@ -64,7 +59,7 @@ func handleNodeViewer(deps app.AppDeps, s *tree.Store) http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-		renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, "", node.BodyHTML))
+		renderPageV2(w, r, deps, node.Title, views.StaticPage(node.Title, "", node.BodyHTML, ""))
 	}
 }
 
@@ -91,6 +86,7 @@ func handleSearch(deps app.AppDeps) http.HandlerFunc {
 	store := &tree.Store{DB: deps.DB}
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("q")
+		user := middleware.UserFromContext(r.Context())
 		var results []views.SearchResult
 		if q != "" {
 			hits, err := engine.Query(r.Context(), q, 30)
@@ -102,6 +98,13 @@ func handleSearch(deps app.AppDeps) http.HandlerFunc {
 					n, err := store.GetByID(r.Context(), h.NodeID)
 					if err != nil || n == nil {
 						continue
+					}
+					// Résultats forum : visibilité effective du lecteur (forumCanRead).
+					// Autres types (pages, événements…) : comportement inchangé.
+					if isForum, err := isForumTreeNode(r.Context(), store, n.ID); err == nil && isForum {
+						if !forumCanRead(r.Context(), deps, user, n.ID) {
+							continue
+						}
 					}
 					results = append(results, views.SearchResult{
 						Title:   h.Title,
@@ -216,6 +219,23 @@ func pageTitleFromSlug(slug string) string {
 		return "Lexique"
 	default:
 		return slug
+	}
+}
+
+// pageAdminEditPath renvoie le chemin d'édition admin pour une page CMS vide,
+// uniquement si l'utilisateur courant est administrateur. Chaîne vide sinon.
+func pageAdminEditPath(r *http.Request, slug string) string {
+	u := middleware.UserFromContext(r.Context())
+	if u == nil || !slices.Contains(u.Roles, "admin") {
+		return ""
+	}
+	switch slug {
+	case "charte":
+		return "/admin/panel"
+	case "faq", "lexique", "thematiques":
+		return "/admin/actions/pages.update"
+	default:
+		return ""
 	}
 }
 

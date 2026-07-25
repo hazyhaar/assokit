@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hazyhaar/assokit/pkg/uid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -41,56 +40,27 @@ type Store struct {
 	Mailer ConfirmMailer
 }
 
-// Register crée un nouvel utilisateur avec le rôle 'member' par défaut.
+// Register crée un nouvel utilisateur avec mot de passe et le rôle member.
 func (s *Store) Register(ctx context.Context, email, password, displayName string) (*User, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	u, err := s.CreateAccount(ctx, CreateAccountOpts{
+		Email:       email,
+		DisplayName: displayName,
+		Password:    password,
+		Active:      true,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("auth.Register bcrypt: %w", err)
-	}
-
-	id := uid.New()
-	now := time.Now().UTC().Format("2006-01-02 15:04:05")
-
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("auth.Register begin: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO users(id, email, password_hash, display_name, is_active, created_at) VALUES(?,?,?,?,1,?)`,
-		id, email, string(hash), displayName, now,
-	)
-	if err != nil {
-		if isUniqueViolation(err) {
-			return nil, ErrEmailTaken
-		}
-		return nil, fmt.Errorf("auth.Register insert: %w", err)
-	}
-
-	// Assigne le grade 'member' par défaut (RBAC migré : user_grades/sys-member,
-	// migration 00003+00004 ; l'ancienne table user_roles est morte).
-	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO user_grades(user_id, grade_id) VALUES(?,?) ON CONFLICT DO NOTHING`, id, "sys-member",
-	); err != nil {
-		return nil, fmt.Errorf("auth.Register grade: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("auth.Register commit: %w", err)
+		return nil, err
 	}
 
 	if s.Mailer != nil {
-		_ = s.Mailer.Enqueue(ctx, email,
+		_ = s.Mailer.Enqueue(ctx, u.Email,
 			"Bienvenue sur Assokit",
 			"Votre compte a bien été créé.",
 			"<p>Votre compte a bien été créé.</p>",
 		)
 	}
 
-	return &User{ID: id, Email: email, DisplayName: displayName, IsActive: true, Roles: []string{"member"}}, nil
+	return u, nil
 }
 
 // Authenticate vérifie email+password et retourne l'utilisateur.

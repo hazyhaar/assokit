@@ -194,7 +194,7 @@ func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service, 
 	seeds.InitAll(reg)
 	seeds.InitSalonVisio(reg, vault)
 
-	// Hook bordure : un consommateur (ex. un produit tiers) injecte ses actions
+	// Hook bordure : un consommateur (ex. produit GAFP) injecte ses actions
 	// métier dans le MÊME registre que les seeds core → route HTTP + outil MCP
 	// + seed de permission RBAC automatiques (LLM-parity). Fail-loud : un ID en
 	// doublon (collision avec une action core) remonte une erreur au boot.
@@ -223,6 +223,25 @@ func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service, 
 			}
 			if err := store.GrantPerm(ctx, "sys-admin", permID); err != nil {
 				log.Error("rbac_seed_grant_perm", "perm", a.RequiredPerm, "err", err.Error())
+			}
+		}
+		// Perms de ROUTE non portées par une action (gardes perms.Required : lecture
+		// RBAC). Sans ce seed, les pages /admin/rbac/* sont 403 pour tous et le
+		// tableau de bord les masque à juste titre — mais l'administrateur ne peut
+		// alors jamais gérer les droits. Les accorder à sys-admin ferme cet écart.
+		for _, p := range []struct{ name, desc string }{
+			{"rbac.grades.read", "Consulter les grades et leurs permissions"},
+			{"rbac.users.read", "Consulter les comptes et leurs grades"},
+			{"rbac.users.write", "Attribuer et retirer des grades aux comptes"},
+			{"rbac.audit.read", "Consulter le journal des accès RBAC"},
+		} {
+			permID, err := store.EnsurePermission(ctx, p.name, p.desc)
+			if err != nil {
+				log.Error("rbac_seed_ensure_permission", "perm", p.name, "err", err.Error())
+				continue
+			}
+			if err := store.GrantPerm(ctx, "sys-admin", permID); err != nil {
+				log.Error("rbac_seed_grant_perm", "perm", p.name, "err", err.Error())
 			}
 		}
 		if rbacSvc != nil {

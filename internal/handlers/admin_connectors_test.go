@@ -17,8 +17,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/connectors"
 	"github.com/hazyhaar/assokit/pkg/connectors/assets"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 

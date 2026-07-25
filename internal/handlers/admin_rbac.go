@@ -63,8 +63,7 @@ func handleAdminRBACGradesList(deps app.AppDeps, svc *rbac.Service) http.Handler
 			g.IsSystem = sys == 1
 			gradeRows = append(gradeRows, g)
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		views.RbacGradeListPage(gradeRows).Render(r.Context(), w) //nolint:errcheck
+		renderPageWide(w, r, deps, "Grades et permissions", views.RbacGradeListPage(gradeRows))
 	}
 }
 
@@ -136,8 +135,7 @@ func handleAdminRBACGradeEdit(deps app.AppDeps, svc *rbac.Service) http.HandlerF
 			AllGrades: gradeRows,
 			Parents:   parents,
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		views.RbacGradeEditPage(detail).Render(r.Context(), w) //nolint:errcheck
+		renderPageV2(w, r, deps, "Éditer grade — "+detail.Name, views.RbacGradeEditPage(detail))
 	}
 }
 
@@ -279,8 +277,7 @@ func handleAdminRBACUsersList(deps app.AppDeps, svc *rbac.Service) http.HandlerF
 			gradeRows = append(gradeRows, adminrbac.GradeRow{ID: g.ID, Name: g.Name, IsSystem: g.System})
 		}
 		filter := adminrbac.UserFilter{Search: search, GradeID: gradeFilter}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		views.RbacUserListPage(users, filter, gradeRows).Render(r.Context(), w) //nolint:errcheck
+		renderPageWide(w, r, deps, "Comptes et rôles", views.RbacUserListPage(users, filter, gradeRows))
 	}
 }
 
@@ -385,7 +382,6 @@ func handleAdminRBACAuditList(deps app.AppDeps) http.HandlerFunc {
 			NextPage: page + 1,
 		}
 		filter := adminrbac.AuditFilter{Action: filterAction, ActorID: filterActor}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		views.RbacAuditListPage(auditRows, pag, filter).Render(r.Context(), w) //nolint:errcheck
+		renderPageWide(w, r, deps, "Journal des accès", views.RbacAuditListPage(auditRows, pag, filter))
 	}
 }

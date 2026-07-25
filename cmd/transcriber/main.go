@@ -25,17 +25,17 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/transcriber"
 	lktoken "github.com/hazyhaar/assokit/pkg/connectors/livekit"
+	"github.com/pion/webrtc/v4"
 	lksdk "github.com/livekit/server-sdk-go/v2"
 	"github.com/livekit/server-sdk-go/v2/pkg/samplebuilder"
 	pioncodecs "github.com/pion/rtp/codecs"
-	"github.com/pion/webrtc/v4"
 	opus "gopkg.in/hraban/opus.v2"
 )
 
 const (
-	botIdentity    = "transcriber-bot"
-	tokenTTL       = 4 * time.Hour
-	maxAudioLate   = 200   // tampons RTP pour le samplebuilder audio
+	botIdentity   = "transcriber-bot"
+	tokenTTL      = 4 * time.Hour
+	maxAudioLate  = 200 // tampons RTP pour le samplebuilder audio
 	opusSampleRate = 48000 // Opus travaille à 48 kHz
 	opusChannels   = 1
 	// Nombre de samples Opus par trame (20 ms à 48 kHz).

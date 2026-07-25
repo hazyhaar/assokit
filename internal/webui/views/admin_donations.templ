@@ -1,0 +1,132 @@
+// views/admin_donations.templ — liste admin des donations (page HTML).
+package views
+
+import (
+	"net/url"
+
+	"github.com/hazyhaar/assokit/internal/webui/templux"
+)
+
+// DonationAdminRow porte une ligne de la liste admin des donations.
+type DonationAdminRow struct {
+	Date             string
+	DonorName        string
+	DonorEmailMasked string
+	AmountEUR        string
+	FormType         string
+	Status           string
+}
+
+// DonationsAdminFilters reprend les filtres URL actifs pour l'export CSV.
+type DonationsAdminFilters struct {
+	From   string
+	To     string
+	Status string
+	Type   string
+	MinEur int
+	MaxEur int
+	Search string
+}
+
+// DonationsAdminPage rend la liste paginée des donations pour l'administration.
+templ DonationsAdminPage(items []DonationAdminRow, nextCursor string, filters DonationsAdminFilters) {
+	<section id="admin-donations" class="flex flex-col gap-space-lg">
+		<div class="flex flex-col sm:flex sm:items-center sm:justify-between gap-space-sm">
+			<h1 class="text-2xl font-semibold text-ink">Donations</h1>
+			@templux.LinkButton("Exporter CSV", donationsExportHref(filters), "secondary", templ.Attributes{})
+		</div>
+		if len(items) == 0 {
+			<p class="text-ink-muted">Aucun don pour l'instant.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Date</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Donateur</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Email</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Montant</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Type</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, it := range items {
+							<tr>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ it.Date }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ it.DonorName }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ it.DonorEmailMasked }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ it.AmountEUR }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">{ it.FormType }</td>
+								<td class="px-space-md py-space-sm border-b border-border text-left">
+									@templux.Badge(it.Status, donateStatusTone(it.Status))
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+			if nextCursor != "" {
+				<nav class="flex items-center gap-space-md">
+					<a class="text-accent" href={ templ.SafeURL("/admin/donations?cursor=" + url.QueryEscape(nextCursor)) }>Page suivante &raquo;</a>
+				</nav>
+			}
+		}
+	</section>
+}
+
+// donationsExportHref construit l'URL d'export CSV en reprenant les filtres actifs.
+func donationsExportHref(f DonationsAdminFilters) string {
+	q := "/admin/donations/export.csv"
+	sep := "?"
+	if f.From != "" {
+		q += sep + "from=" + f.From
+		sep = "&"
+	}
+	if f.To != "" {
+		q += sep + "to=" + f.To
+		sep = "&"
+	}
+	if f.Status != "" {
+		q += sep + "status=" + f.Status
+		sep = "&"
+	}
+	if f.Type != "" {
+		q += sep + "type=" + f.Type
+		sep = "&"
+	}
+	if f.MinEur > 0 {
+		q += sep + "min_eur=" + donationsItoa(f.MinEur)
+		sep = "&"
+	}
+	if f.MaxEur > 0 {
+		q += sep + "max_eur=" + donationsItoa(f.MaxEur)
+		sep = "&"
+	}
+	if f.Search != "" {
+		q += sep + "q=" + f.Search
+	}
+	return q
+}
+
+func donationsItoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var b [20]byte
+	i := len(b)
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	for n > 0 {
+		i--
+		b[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		b[i] = '-'
+	}
+	return string(b[i:])
+}

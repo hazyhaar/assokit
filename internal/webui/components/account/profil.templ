@@ -1,0 +1,56 @@
+// Composants de la page Mes profils (O2) : profil détenu, demande requestable,
+// état d'une demande en cours.
+package account
+
+import "github.com/hazyhaar/assokit/internal/webui/templux"
+
+// MetierProfilHeldItem affiche un profil métier déjà détenu par le membre.
+templ MetierProfilHeldItem(label string) {
+	<li class="bg-surface-raised rounded-lg shadow-sm p-space-md text-ink">{ label }</li>
+}
+
+// ProfileRequestableItem propose la demande d'un grade requestable non détenu.
+templ ProfileRequestableItem(gradeID, label, csrfToken string) {
+	<li class="bg-surface-raised rounded-lg shadow-sm p-space-md flex flex-col gap-space-sm sm:flex-row sm:items-center sm:justify-between">
+		<span class="text-ink">{ label }</span>
+		<form method="POST" action="/account/profils/demande" class="flex">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<input type="hidden" name="grade_id" value={ gradeID }/>
+			@templux.Button("Demander ce profil", "primary", templ.Attributes{"type": "submit"})
+		</form>
+	</li>
+}
+
+// ProfileRequestStatusItem affiche l'état d'une demande en cours du membre.
+templ ProfileRequestStatusItem(gradeLabel, statut string) {
+	<li class="bg-surface-raised rounded-lg shadow-sm p-space-md flex flex-col gap-space-xs">
+		<span class="text-ink">{ gradeLabel }</span>
+		<span class="text-ink-muted text-sm">Statut : { statut }</span>
+	</li>
+}
+
+// ProfileOctroiPendingItem affiche une demande soumise pour octroi (gouvernance).
+templ ProfileOctroiPendingItem(id, userLabel, gradeLabel, csrfToken string) {
+	<li class="bg-surface-raised rounded-lg shadow-sm p-space-md flex flex-col gap-space-sm sm:flex-row sm:items-center sm:justify-between">
+		<div class="flex flex-col gap-space-xs">
+			<span class="text-ink">{ userLabel }</span>
+			<span class="text-ink-muted text-sm">Profil demandé : { gradeLabel }</span>
+		</div>
+		<form method="POST" action="/account/profils/octroi" class="flex">
+			<input type="hidden" name="_csrf" value={ csrfToken }/>
+			<input type="hidden" name="request_id" value={ id }/>
+			@templux.Button("Octroyer", "primary", templ.Attributes{"type": "submit"})
+		</form>
+	</li>
+}
+
+// ProfileRetraitForm permet à la gouvernance de retirer un grade requestable.
+templ ProfileRetraitForm(csrfToken string) {
+	<form method="POST" action="/account/profils/retrait" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+		<input type="hidden" name="_csrf" value={ csrfToken }/>
+		<p class="text-ink-muted text-sm">Retirer un grade métier requestable d'un membre. Aucun artefact métier n'est supprimé.</p>
+		@templux.FormField("Identifiant membre", "", "", templux.Input("user_id", "", templ.Attributes{"type": "text", "required": "required"}))
+		@templux.FormField("Identifiant grade", "", "", templux.Input("grade_id", "", templ.Attributes{"type": "text", "required": "required"}))
+		@templux.Button("Retirer le grade", "danger", templ.Attributes{"type": "submit"})
+	</form>
+}

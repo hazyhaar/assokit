@@ -83,6 +83,13 @@ func TestDataExport_MemberOnlyOwnData(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("data-download: code %d", w.Code)
 	}
+	cd := w.Header().Get("Content-Disposition")
+	if !strings.Contains(cd, "attachment") || !strings.Contains(cd, "mes-donnees-") || !strings.Contains(cd, ".json") {
+		t.Fatalf("Content-Disposition attachment daté attendu, obtenu %q", cd)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("Content-Type application/json attendu, obtenu %q", ct)
+	}
 	var out seeds.MemberDataExport
 	if err := json.NewDecoder(w.Body).Decode(&out); err != nil {
 		t.Fatalf("decode export: %v", err)

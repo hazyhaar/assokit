@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
@@ -81,9 +82,7 @@ type statsCache struct {
 
 var globalStatsCache = &statsCache{}
 
-// AdminDonationsList GET /admin/donations → page HTML rendue avec liste + filtres + stats.
-// Note : la page complète templ est livrée séparément (donations.templ minimal). Ici on retourne
-// JSON pour test gardien + future intégration UI.
+// AdminDonationsList GET /admin/donations → page HTML (liste paginée + export CSV).
 func AdminDonationsList(deps app.AppDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !requireAdminACL(w, r) {
@@ -96,13 +95,26 @@ func AdminDonationsList(deps app.AppDeps) http.HandlerFunc {
 			http.Error(w, "db error", http.StatusInternalServerError)
 			return
 		}
-		resp := map[string]any{
-			"items":       items,
-			"next_cursor": nextCursor,
-			"filters":     filters,
+		rows := make([]views.DonationAdminRow, 0, len(items))
+		for _, it := range items {
+			rows = append(rows, views.DonationAdminRow{
+				Date:             it.Date,
+				DonorName:        it.DonorName,
+				DonorEmailMasked: it.DonorEmailMasked,
+				AmountEUR:        it.AmountEUR,
+				FormType:         it.FormType,
+				Status:           it.Status,
+			})
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+		renderPageWide(w, r, deps, "Donations", views.DonationsAdminPage(rows, nextCursor, views.DonationsAdminFilters{
+			From:   filters.From,
+			To:     filters.To,
+			Status: filters.Status,
+			Type:   filters.Type,
+			MinEur: filters.MinEur,
+			MaxEur: filters.MaxEur,
+			Search: filters.Search,
+		}))
 	}
 }
 

@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -116,6 +118,26 @@ func Auth(db *sql.DB, secret []byte) func(http.Handler) http.Handler {
 func UserFromContext(ctx context.Context) *identity.User {
 	u, _ := ctx.Value(ctxKeyUser).(*identity.User)
 	return u
+}
+
+// RequireMetierGrade exige que l'utilisateur authentifié détienne le grade nommé
+// (présent dans u.Roles). Non authentifié → redirect login ; authentifié sans
+// grade → 403. Exporté pour les routes membre montées par la bordure d'instance.
+func RequireMetierGrade(grade string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			u := UserFromContext(r.Context())
+			if u == nil {
+				http.Redirect(w, r, "/login?redirect_uri="+url.QueryEscape(r.URL.Path), http.StatusFound)
+				return
+			}
+			if !slices.Contains(u.Roles, grade) {
+				http.Error(w, "Accès refusé", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // ContextWithUser injecte un utilisateur dans le contexte. Réservé aux tests.

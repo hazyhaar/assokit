@@ -3,6 +3,7 @@
 package views
 
 import (
+	pagescomp "github.com/hazyhaar/assokit/internal/webui/components/pages"
 	"github.com/hazyhaar/assokit/internal/webui/templux"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/identity"
@@ -34,7 +35,8 @@ type SignupExtraField struct {
 }
 
 // StaticPage : wrapper pour pages tree-stockees.
-templ StaticPage(title, sectionLabel, bodyHTML string) {
+// adminEditPath : chemin d'édition admin affiché uniquement en état vide (vide = masqué).
+templ StaticPage(title, sectionLabel, bodyHTML, adminEditPath string) {
 	<section class="page-static py-space-xl max-w-3xl mx-auto">
 		<div class="flex flex-col gap-space-xs mb-space-lg">
 			if sectionLabel != "" {
@@ -42,14 +44,18 @@ templ StaticPage(title, sectionLabel, bodyHTML string) {
 			}
 			<h1 class="text-2xl font-semibold text-ink">{ title }</h1>
 		</div>
-		<div class="text-ink">
-			@templ.Raw(bodyHTML)
-		</div>
+		if bodyHTML != "" {
+			<div class="text-ink" data-cms-prose>
+				@templ.Raw(bodyHTML)
+			</div>
+		} else {
+			@pagescomp.PageEmptyState(adminEditPath)
+		}
 	</section>
 }
 
 // Thematique : page thématique avec sous-thèmes.
-templ Thematique(node tree.Node, children []tree.Node) {
+templ Thematique(node tree.Node, children []tree.Node, adminEditPath string) {
 	<section class="py-space-xl max-w-3xl mx-auto">
 		<nav class="text-sm text-ink-muted mb-space-md" aria-label="Fil d'Ariane">
 			<ol class="flex items-center gap-space-xs list-none">
@@ -61,7 +67,9 @@ templ Thematique(node tree.Node, children []tree.Node) {
 			<h1 class="text-2xl font-semibold text-ink">{ node.Title }</h1>
 		</div>
 		if node.BodyHTML != "" {
-			<div class="text-ink">@templ.Raw(node.BodyHTML)</div>
+			<div class="text-ink" data-cms-prose>@templ.Raw(node.BodyHTML)</div>
+		} else if len(children) == 0 {
+			@pagescomp.PageEmptyState(adminEditPath)
 		}
 		if len(children) > 0 {
 			<div class="mt-space-xl flex flex-col gap-space-md">
@@ -395,7 +403,7 @@ templ PagesRegister() {
 
 // PagesSearch : page de recherche.
 templ PagesSearch(query string, hits []SearchResult) {
-	<section class="py-space-xl max-w-3xl mx-auto flex flex-col gap-space-lg">
+	<section class="py-space-xl flex flex-col gap-space-lg">
 		<h1 class="text-2xl font-semibold text-ink">Recherche</h1>
 		<form method="GET" action="/search" class="search-bar flex gap-space-sm items-center" role="search">
 			<input

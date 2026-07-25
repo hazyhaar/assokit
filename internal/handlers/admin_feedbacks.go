@@ -140,10 +140,7 @@ func handleAdminFeedbackList(deps app.AppDeps) http.HandlerFunc {
 		}
 		filter := admin.FeedbackFilter{Status: filterStatus, Search: filterSearch}
 
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := views.FeedbackListPage(fbRows, pag, filter).Render(r.Context(), w); err != nil {
-			deps.Logger.Error("admin feedbacks render", "err", err)
-		}
+		renderPageV2(w, r, deps, "Retours des membres", views.FeedbackListPage(fbRows, pag, filter))
 	}
 }
 
@@ -177,10 +174,7 @@ func handleAdminFeedbackDetail(deps app.AppDeps) http.HandlerFunc {
 		fb.TriagedAt = triagedAt
 
 		csrfToken := middleware.CSRFToken(r.Context())
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := views.FeedbackDetailPage(fb, csrfToken).Render(r.Context(), w); err != nil {
-			deps.Logger.Error("admin feedback detail render", "err", err)
-		}
+		renderPageV2(w, r, deps, "Retour membre", views.FeedbackDetailPage(fb, csrfToken))
 	}
 }
 

@@ -6,8 +6,8 @@ import (
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/pkg/actions"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/membership"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // initMemberships enregistre les actions de cotisations/adhésions. Toutes passent

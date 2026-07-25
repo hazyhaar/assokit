@@ -6,7 +6,7 @@ import (
 	"context"
 	"strings"
 
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	tree "github.com/hazyhaar/nodetree"
 )
 
 // MaxRenderDepth : profondeur max de rendu des fils (anciennement dans forum.templ).

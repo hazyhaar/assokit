@@ -28,10 +28,10 @@ type RangeDef struct {
 
 // SiloDef est la définition complète d'un vertical chargée depuis config/silos/<id>.toml.
 type SiloDef struct {
-	ID          string     `toml:"id"`
-	Label       string     `toml:"label"`
-	Description string     `toml:"description"`
-	Attrs       []AttrDef  `toml:"attrs"`
+	ID          string    `toml:"id"`
+	Label       string    `toml:"label"`
+	Description string    `toml:"description"`
+	Attrs       []AttrDef `toml:"attrs"`
 	Ranges      []RangeDef `toml:"ranges"`
 }
 

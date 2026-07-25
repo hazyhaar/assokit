@@ -55,7 +55,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</form><table class=\"w-full text-sm\"><thead><tr><th class=\"px-space-md py-space-sm border-b border-border text-left\">Date</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Action</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Acteur</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Cible</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Détail</th></tr></thead> <tbody>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</form><div class=\"overflow-x-auto\"><table class=\"w-full text-sm\"><thead><tr><th class=\"px-space-md py-space-sm border-b border-border text-left\">Date</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Action</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Acteur</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Cible</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Détail</th></tr></thead> <tbody>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -67,7 +67,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(a.CreatedAt)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 33, Col: 88}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 34, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -80,7 +80,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(a.Action)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 34, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 35, Col: 86}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -93,7 +93,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(a.ActorID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 35, Col: 86}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 36, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -106,7 +106,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(a.TargetID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 36, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 37, Col: 88}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -119,7 +119,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(a.Detail)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 37, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 38, Col: 86}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -130,7 +130,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</tbody></table><nav class=\"flex items-center gap-space-md\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</tbody></table></div><nav class=\"flex items-center gap-space-md\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -142,7 +142,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 			var templ_7745c5c3_Var7 templ.SafeURL
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/admin/rbac/audit?page=%d", pag.PrevPage)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 44, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 46, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -160,7 +160,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", pag.Page))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 46, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 48, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -173,7 +173,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", (pag.Total+49)/50))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 46, Col: 117}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 48, Col: 117}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -191,7 +191,7 @@ func RbacAuditListPage(rows []adminrbac.AuditRow, pag adminrbac.AuditPagination,
 			var templ_7745c5c3_Var10 templ.SafeURL
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(fmt.Sprintf("/admin/rbac/audit?page=%d", pag.NextPage)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 48, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 50, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -232,7 +232,7 @@ func RbacGradeListPage(rows []adminrbac.GradeRow) templ.Component {
 			templ_7745c5c3_Var11 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div id=\"rbac-grades\" class=\"flex flex-col gap-space-lg\"><h2 class=\"text-xl font-semibold text-ink\">Grades RBAC</h2><table class=\"w-full text-sm\"><thead><tr><th class=\"px-space-md py-space-sm border-b border-border text-left\">Nom</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Desc</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Users</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Perms</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Actions</th></tr></thead> <tbody id=\"grade-list\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div id=\"rbac-grades\" class=\"flex flex-col gap-space-lg\"><h2 class=\"text-xl font-semibold text-ink\">Grades RBAC</h2><div class=\"overflow-x-auto\"><table class=\"w-full text-sm\"><thead><tr><th class=\"px-space-md py-space-sm border-b border-border text-left\">Nom</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Desc</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Users</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Perms</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Actions</th></tr></thead> <tbody id=\"grade-list\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -242,7 +242,7 @@ func RbacGradeListPage(rows []adminrbac.GradeRow) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</tbody></table><form hx-post=\"/admin/rbac/grades\" hx-target=\"#grade-list\" hx-swap=\"afterbegin\" class=\"flex flex-col gap-space-sm sm:flex sm:flex-row sm:items-end\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</tbody></table></div><form hx-post=\"/admin/rbac/grades\" hx-target=\"#grade-list\" hx-swap=\"afterbegin\" class=\"flex flex-col gap-space-sm sm:flex sm:flex-row sm:items-end\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -295,7 +295,7 @@ func RbacGradeListRow(g adminrbac.GradeRow) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue("grade-row-" + g.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 84, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 88, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -308,7 +308,7 @@ func RbacGradeListRow(g adminrbac.GradeRow) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 86, Col: 11}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 90, Col: 11}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -331,7 +331,7 @@ func RbacGradeListRow(g adminrbac.GradeRow) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(g.Desc)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 91, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 95, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -344,7 +344,7 @@ func RbacGradeListRow(g adminrbac.GradeRow) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", g.UsersCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 92, Col: 104}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 96, Col: 104}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -357,7 +357,7 @@ func RbacGradeListRow(g adminrbac.GradeRow) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", g.PermsCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 93, Col: 104}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 97, Col: 104}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -370,7 +370,7 @@ func RbacGradeListRow(g adminrbac.GradeRow) templ.Component {
 		var templ_7745c5c3_Var18 templ.SafeURL
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/admin/rbac/grades/" + g.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 96, Col: 77}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 100, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -428,7 +428,7 @@ func RbacGradeEditPage(d adminrbac.GradeDetail) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(d.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 113, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 117, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -451,7 +451,7 @@ func RbacGradeEditPage(d adminrbac.GradeDetail) templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue("/admin/rbac/grades/" + d.ID + "/perms")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 118, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 122, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 		if templ_7745c5c3_Err != nil {
@@ -469,7 +469,7 @@ func RbacGradeEditPage(d adminrbac.GradeDetail) templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 125, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 129, Col: 19}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 			if templ_7745c5c3_Err != nil {
@@ -492,7 +492,7 @@ func RbacGradeEditPage(d adminrbac.GradeDetail) templ.Component {
 			var templ_7745c5c3_Var23 string
 			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 128, Col: 14}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 132, Col: 14}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 			if templ_7745c5c3_Err != nil {
@@ -518,7 +518,7 @@ func RbacGradeEditPage(d adminrbac.GradeDetail) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue("/admin/rbac/grades/" + d.ID + "/inherit")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 135, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 139, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 		if templ_7745c5c3_Err != nil {
@@ -537,7 +537,7 @@ func RbacGradeEditPage(d adminrbac.GradeDetail) templ.Component {
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(g.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 143, Col: 20}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 147, Col: 20}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 				if templ_7745c5c3_Err != nil {
@@ -560,7 +560,7 @@ func RbacGradeEditPage(d adminrbac.GradeDetail) templ.Component {
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 146, Col: 15}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 150, Col: 15}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -630,7 +630,7 @@ func RbacUserListPage(rows []adminrbac.UserRow, filter adminrbac.UserFilter, all
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(g.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 166, Col: 25}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 170, Col: 25}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 			if templ_7745c5c3_Err != nil {
@@ -653,7 +653,7 @@ func RbacUserListPage(rows []adminrbac.UserRow, filter adminrbac.UserFilter, all
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 166, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 170, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
@@ -672,7 +672,7 @@ func RbacUserListPage(rows []adminrbac.UserRow, filter adminrbac.UserFilter, all
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</form><table class=\"w-full text-sm\"><thead><tr><th class=\"px-space-md py-space-sm border-b border-border text-left\">Email</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Grades</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Actions</th></tr></thead> <tbody>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</form><div class=\"overflow-x-auto\"><table class=\"w-full text-sm\"><thead><tr><th class=\"px-space-md py-space-sm border-b border-border text-left\">Email</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Grades</th><th class=\"px-space-md py-space-sm border-b border-border text-left\">Actions</th></tr></thead> <tbody>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -682,7 +682,7 @@ func RbacUserListPage(rows []adminrbac.UserRow, filter adminrbac.UserFilter, all
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</tbody></table></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</tbody></table></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -719,7 +719,7 @@ func RbacUserListRow(u adminrbac.UserRow, allGrades []adminrbac.GradeRow) templ.
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue("user-row-" + u.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 190, Col: 28}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 196, Col: 28}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
 		if templ_7745c5c3_Err != nil {
@@ -732,7 +732,7 @@ func RbacUserListRow(u adminrbac.UserRow, allGrades []adminrbac.GradeRow) templ.
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(u.Email)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 191, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 197, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -755,7 +755,7 @@ func RbacUserListRow(u adminrbac.UserRow, allGrades []adminrbac.GradeRow) templ.
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue("/admin/rbac/users/" + u.ID + "/grades")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 200, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 206, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 		if templ_7745c5c3_Err != nil {
@@ -768,7 +768,7 @@ func RbacUserListRow(u adminrbac.UserRow, allGrades []adminrbac.GradeRow) templ.
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue("#user-row-" + u.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 201, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 207, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 		if templ_7745c5c3_Err != nil {
@@ -786,7 +786,7 @@ func RbacUserListRow(u adminrbac.UserRow, allGrades []adminrbac.GradeRow) templ.
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.ResolveAttributeValue(g.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 206, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 212, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35)
 			if templ_7745c5c3_Err != nil {
@@ -799,7 +799,7 @@ func RbacUserListRow(u adminrbac.UserRow, allGrades []adminrbac.GradeRow) templ.
 			var templ_7745c5c3_Var36 string
 			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(g.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 206, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/admin_rbac.templ`, Line: 212, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 			if templ_7745c5c3_Err != nil {

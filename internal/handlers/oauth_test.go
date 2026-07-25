@@ -14,8 +14,8 @@ import (
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/config"
 	"github.com/hazyhaar/assokit/internal/oauth"
-	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/identity"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/rbac"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 

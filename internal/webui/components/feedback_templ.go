@@ -53,7 +53,7 @@ func FeedbackWidget(pageURL, pageTitle string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" hx-target=\"#feedback-modal\" hx-swap=\"innerHTML\" hx-on:click=\"document.getElementById('feedback-modal').removeAttribute('hidden')\" aria-label=\"Feedback\" type=\"button\">Feedback</button><div id=\"feedback-modal\" hidden role=\"dialog\" aria-modal=\"true\" aria-label=\"Formulaire de feedback\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" hx-target=\"#feedback-modal\" hx-swap=\"innerHTML\" onclick=\"document.getElementById('feedback-modal').removeAttribute('hidden')\" aria-label=\"Feedback\" type=\"button\">Feedback</button><div id=\"feedback-modal\" class=\"fixed bottom-space-lg right-space-lg z-50 w-80 bg-surface border border-border rounded-md shadow-lg p-space-md\" hidden role=\"dialog\" aria-modal=\"true\" aria-label=\"Formulaire de feedback\"></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

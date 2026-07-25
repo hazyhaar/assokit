@@ -1,0 +1,17 @@
+// components/pages — blocs d'interface des pages CMS statiques.
+package pages
+
+import "github.com/hazyhaar/assokit/internal/webui/templux"
+
+// PageEmptyState : état vide honnête pour une page sans contenu publié.
+// adminEditPath : chemin d'édition réservé à l'admin (vide = pas de lien).
+templ PageEmptyState(adminEditPath string) {
+	<div class="flex flex-col gap-space-sm">
+		<p class="text-ink-muted">Aucun contenu publié pour l'instant.</p>
+		if adminEditPath != "" {
+			<p class="text-sm text-ink-muted">
+				@templux.LinkButton("Éditer cette page", adminEditPath, "secondary", templ.Attributes{})
+			</p>
+		}
+	</div>
+}

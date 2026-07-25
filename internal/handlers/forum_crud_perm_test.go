@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	tree "github.com/hazyhaar/nodetree"
 
 	"github.com/hazyhaar/assokit/internal/app"
 	"github.com/hazyhaar/assokit/internal/bootstrap"
@@ -60,6 +60,71 @@ var (
 	userMember = &identity.User{ID: "u-member", Email: "m@test.com", Roles: []string{"member"}}
 	userReader = &identity.User{ID: "u-reader", Email: "r@test.com", Roles: []string{"reader"}}
 )
+
+// getForumForm forge une requête GET /forum/{slug}/<form> avec slug en route et
+// éventuellement un utilisateur en contexte, puis l'exécute contre h.
+func getForumForm(h http.Handler, slug string, user *identity.User) *httptest.ResponseRecorder {
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("slug", slug)
+	r := httptest.NewRequest(http.MethodGet, "/forum/"+slug+"/form", nil)
+	if user != nil {
+		r = r.WithContext(middleware.ContextWithUser(r.Context(), user))
+	}
+	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
+}
+
+// TestForumNewForms_Guarded : les GET des formulaires de création (new topic,
+// new-question, new-branch) sont gardés par la MÊME garde d'écriture que leurs
+// POST — cohérence vue<->handler. Un visiteur non-connecté est redirigé (302),
+// un connecté sans permission d'écriture est refusé (403), un admin franchit la
+// garde (jamais 302/403).
+func TestForumNewForms_Guarded(t *testing.T) {
+	deps, store := forumCrudDeps(t)
+	ctx := context.Background()
+	root, _ := ensureForumRoot(ctx, store)
+	catID, _ := store.Create(ctx, tree.Node{
+		Slug: "cat-g", Type: "post", Title: "Cat",
+		ParentID: sql.NullString{String: root.ID, Valid: true},
+	})
+	store.Create(ctx, tree.Node{ //nolint:errcheck
+		Slug: "question-g", Type: "post", Title: "Question",
+		ParentID: sql.NullString{String: catID, Valid: true},
+	})
+
+	forms := []struct {
+		name    string
+		handler http.HandlerFunc
+		slug    string
+	}{
+		{"new-topic", handleForumNewTopicForm(deps), "new"},
+		{"new-question", handleForumNewQuestionForm(deps), "cat-g"},
+		{"new-branch", handleForumNewBranchForm(deps), "question-g"},
+	}
+
+	for _, f := range forms {
+		t.Run(f.name+"/guest-redirect", func(t *testing.T) {
+			w := getForumForm(guardedForum(deps, f.handler), f.slug, nil)
+			if w.Code != http.StatusFound {
+				t.Errorf("guest sur GET %s : code %d, want 302 (login)", f.name, w.Code)
+			}
+		})
+		t.Run(f.name+"/reader-403", func(t *testing.T) {
+			w := getForumForm(guardedForum(deps, f.handler), f.slug, userReader)
+			if w.Code != http.StatusForbidden {
+				t.Errorf("reader sur GET %s : code %d, want 403", f.name, w.Code)
+			}
+		})
+		t.Run(f.name+"/admin-passes", func(t *testing.T) {
+			w := getForumForm(guardedForum(deps, f.handler), f.slug, userAdmin)
+			if w.Code == http.StatusForbidden || w.Code == http.StatusFound {
+				t.Errorf("admin sur GET %s : code %d, ne devrait pas être bloqué par la garde", f.name, w.Code)
+			}
+		})
+	}
+}
 
 // TestForumRename_ChangesTitle : un admin renomme un nœud ; le titre change en
 // base, le slug reste stable.

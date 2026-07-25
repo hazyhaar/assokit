@@ -21,12 +21,11 @@ templ OnboardProprietairePage(natures []string, csrfToken string) {
 		<h1 class="text-2xl font-semibold text-ink">Intégrer un propriétaire</h1>
 		<form method="POST" action="/admin/onboard-proprietaire" class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-lg">
 			<input type="hidden" name="_csrf" value={ csrfToken }/>
-			<p class="text-ink-muted text-sm">Ce parcours crée en une fois le compte du propriétaire, son adhésion et la ou les parcelles dont il détient un droit. Toutes les entrées sont validées avant la moindre création.</p>
+			<p class="text-ink-muted text-sm">Ce parcours crée en une fois le compte du propriétaire (activation par lien, sans mot de passe initial), son adhésion et la ou les parcelles dont il détient un droit. Toutes les entrées sont validées avant la moindre création.</p>
 			<fieldset class="flex flex-col gap-space-md">
 				<legend class="text-lg font-medium text-ink">Identité du propriétaire</legend>
 				@templux.FormField("Nom affiché", "", "", templux.Input("display_name", "", templ.Attributes{"type": "text", "required": "required"}))
 				@templux.FormField("Adresse électronique", "", "", templux.Input("email", "", templ.Attributes{"type": "email", "required": "required"}))
-				@templux.FormField("Mot de passe initial", "Au moins 8 caractères, communiqué au propriétaire.", "", templux.Input("password", "", templ.Attributes{"type": "password", "required": "required", "minlength": "8"}))
 			</fieldset>
 			<fieldset class="flex flex-col gap-space-md">
 				<legend class="text-lg font-medium text-ink">Adhésion</legend>

@@ -24,6 +24,16 @@ var ErrParcelleRefManquante = errors.New("mutation: référence de parcelle requ
 // ErrTypeInvalide est retourné quand le type de mutation n'est pas autorisé.
 var ErrTypeInvalide = errors.New("mutation: type de mutation invalide")
 
+// ErrNotFound est retourné quand aucune déclaration ne porte l'identifiant fourni.
+var ErrNotFound = errors.New("mutation: déclaration introuvable")
+
+// Statuts de la déclaration. Reflète la contrainte CHECK de account_mutations :
+// une déclaration naît « declaree » et se traite en « traitee ».
+const (
+	StatutDeclaree = "declaree"
+	StatutTraitee  = "traitee"
+)
+
 // Types énumère les valeurs autorisées de Declaration.Type. Reflète la contrainte
 // CHECK de la table account_mutations.
 var Types = []string{"vente", "succession", "autre"}
@@ -91,6 +101,32 @@ func (s *Store) Create(ctx context.Context, d Declaration) (string, error) {
 		return "", fmt.Errorf("mutation.Create: %w", err)
 	}
 	return id, nil
+}
+
+// Traiter fait passer une déclaration de mutation de « declaree » à « traitee ».
+// Générique : aucune sémantique métier de l'instance consommatrice n'y figure.
+// Valide l'existence de la déclaration (ErrNotFound) et est idempotent :
+// re-traiter une déclaration déjà « traitee » est sans effet et ne remonte jamais
+// d'erreur brute.
+func (s *Store) Traiter(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	var status string
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT status FROM account_mutations WHERE id=?`, id).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("mutation.Traiter check: %w", err)
+	}
+	if status == StatutTraitee {
+		return nil // idempotent
+	}
+	if _, err := s.DB.ExecContext(ctx,
+		`UPDATE account_mutations SET status=? WHERE id=?`, StatutTraitee, id); err != nil {
+		return fmt.Errorf("mutation.Traiter: %w", err)
+	}
+	return nil
 }
 
 // ListForUser retourne les déclarations d'un membre, les plus récentes d'abord.

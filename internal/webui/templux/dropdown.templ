@@ -1,0 +1,52 @@
+// templux dropdown — menu déroulant (vendored, sans Alpine : data-* + nav.js).
+//
+// Usage :
+//   items := []DropdownItem{{Label: "Mon compte", Href: "/account"}}
+//   @Dropdown("Alice", items, templ.Attributes{"id": "user-dropdown"})
+
+package templux
+
+type DropdownItem struct {
+	Label string
+	Href  string
+}
+
+templ Dropdown(label string, items []DropdownItem, attrs templ.Attributes) {
+	<div class="relative inline-block" data-dropdown { attrs... }>
+		<button
+			type="button"
+			data-dropdown-trigger
+			aria-haspopup="menu"
+			aria-expanded="false"
+			aria-controls={ dropdownPanelID(attrs) }
+			class="inline-flex items-center gap-space-xs px-space-md py-space-sm rounded-md text-sm bg-surface border border-border text-ink hover:bg-surface-muted"
+		>
+			{ label }
+			<span class="text-xs text-ink-muted" aria-hidden="true">&#x25BE;</span>
+		</button>
+		<ul
+			id={ dropdownPanelID(attrs) }
+			data-dropdown-panel
+			role="menu"
+			class="absolute right-0 mt-1 w-48 rounded-md border border-border bg-surface shadow-md z-50 py-1 hidden"
+		>
+			for _, item := range items {
+				<li role="none">
+					<a
+						role="menuitem"
+						href={ templ.SafeURL(item.Href) }
+						class="block px-space-md py-space-sm text-sm text-ink hover:bg-surface-muted"
+					>{ item.Label }</a>
+				</li>
+			}
+		</ul>
+	</div>
+}
+
+// dropdownPanelID dérive un id de panneau stable à partir de l'id racine du dropdown.
+func dropdownPanelID(attrs templ.Attributes) string {
+	if id, ok := attrs["id"].(string); ok && id != "" {
+		return id + "-panel"
+	}
+	return "dropdown-panel"
+}

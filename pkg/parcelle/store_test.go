@@ -167,6 +167,82 @@ func TestAddDroitParcelleInconnue(t *testing.T) {
 	}
 }
 
+func TestAddDroitIdempotent(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	s := &parcelle.Store{DB: db}
+	ctx := context.Background()
+	mkUser(t, db, "alice")
+	id := mkParcelle(t, s, "05015", "AB", "0300")
+
+	first, err := s.AddDroit(ctx, id, "alice", "pleine_propriete")
+	if err != nil {
+		t.Fatalf("AddDroit initial: %v", err)
+	}
+	replay, err := s.AddDroit(ctx, id, "alice", "usufruit")
+	if err != nil {
+		t.Fatalf("AddDroit rejeu: %v (le rejeu ne doit jamais remonter d'erreur UNIQUE)", err)
+	}
+	if replay != first {
+		t.Errorf("AddDroit rejeu: id=%s, want id existant %s", replay, first)
+	}
+	var n int
+	var nature string
+	if err := db.QueryRow(`SELECT COUNT(*) FROM parcelle_droits WHERE parcelle_id=?`, id).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("droits = %d, want 1 (pas de doublon)", n)
+	}
+	if err := db.QueryRow(`SELECT nature_du_droit FROM parcelle_droits WHERE id=?`, first).Scan(&nature); err != nil {
+		t.Fatalf("nature: %v", err)
+	}
+	if nature != "pleine_propriete" {
+		t.Errorf("nature = %s, want pleine_propriete (nature d'origine conservée)", nature)
+	}
+}
+
+// TestRemoveDroitsForUser : la purge retire tous les droits d'un membre, ne
+// touche pas ceux d'autrui, et est idempotente (un membre sans droit → 0).
+func TestRemoveDroitsForUser(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	s := &parcelle.Store{DB: db}
+	ctx := context.Background()
+	mkUser(t, db, "alice")
+	mkUser(t, db, "bob")
+	p1 := mkParcelle(t, s, "05015", "AB", "0400")
+	p2 := mkParcelle(t, s, "05015", "AB", "0401")
+	if _, err := s.AddDroit(ctx, p1, "alice", "pleine_propriete"); err != nil {
+		t.Fatalf("AddDroit p1 alice: %v", err)
+	}
+	if _, err := s.AddDroit(ctx, p2, "alice", "usufruit"); err != nil {
+		t.Fatalf("AddDroit p2 alice: %v", err)
+	}
+	if _, err := s.AddDroit(ctx, p1, "bob", "occupant"); err != nil {
+		t.Fatalf("AddDroit p1 bob: %v", err)
+	}
+
+	n, err := s.RemoveDroitsForUser(ctx, "alice")
+	if err != nil {
+		t.Fatalf("RemoveDroitsForUser: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("droits supprimés = %d, want 2", n)
+	}
+	var nAlice, nBob int
+	db.QueryRow(`SELECT COUNT(*) FROM parcelle_droits WHERE user_id=?`, "alice").Scan(&nAlice)
+	db.QueryRow(`SELECT COUNT(*) FROM parcelle_droits WHERE user_id=?`, "bob").Scan(&nBob)
+	if nAlice != 0 || nBob != 1 {
+		t.Fatalf("après purge alice: alice=%d bob=%d, want 0/1", nAlice, nBob)
+	}
+
+	// Idempotence : re-purger alice → 0, sans erreur.
+	if again, err := s.RemoveDroitsForUser(ctx, "alice"); err != nil || again != 0 {
+		t.Fatalf("purge idempotente: n=%d err=%v", again, err)
+	}
+}
+
 // TestListForUserOwnership vérifie le filtrage d'appartenance : un membre B ne
 // voit jamais les parcelles d'un membre A.
 func TestListForUserOwnership(t *testing.T) {

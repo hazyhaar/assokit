@@ -97,6 +97,23 @@ func Brand() *Branding {
 	return &Branding{Texts: map[string]string{}, Locale: "fr"}
 }
 
+// NavLabel renvoie le libellé de navigation pour un slug (ex. "/forum"), ou
+// fallback si l'entrée est absente ou vide.
+func NavLabel(slug, fallback string) string {
+	for _, item := range Brand().Nav {
+		if item.Slug == slug && item.Label != "" {
+			return item.Label
+		}
+	}
+	return fallback
+}
+
+// ForumLabel renvoie le libellé affiché du forum : label nav pour /forum, sinon
+// texte theme.T("nav.forum") avec repli « Forum ».
+func ForumLabel() string {
+	return NavLabel("/forum", T("nav.forum", "Forum"))
+}
+
 // T renvoie le texte UI pour la clé donnée, ou fallback si absent ou vide.
 // Thread-safe, lock-free.
 func T(key, fallback string) string {

@@ -173,3 +173,4 @@ func TestTranscript_Download_AttachmentHeader(t *testing.T) {
 		t.Errorf("download : segments attendus dans le corps, got %q", body)
 	}
 }
+

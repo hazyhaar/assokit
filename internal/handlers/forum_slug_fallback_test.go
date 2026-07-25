@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tree "github.com/hazyhaar/assokit/internal/nodetree"
+	tree "github.com/hazyhaar/nodetree"
 
 	"github.com/hazyhaar/assokit/pkg/uid"
 )

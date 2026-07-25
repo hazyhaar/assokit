@@ -1,0 +1,93 @@
+// views/governance_account.templ — onglet gouvernance membre (O3c) : vue d'ensemble
+// des assemblées en lecture seule, accès aux procès-verbaux, lien vers la gestion
+// des profils (O2). Vendoring templux ; aucune mutation de gouvernance.
+package views
+
+import (
+	"fmt"
+
+	govcomp "github.com/hazyhaar/assokit/internal/webui/components/governance"
+	"github.com/hazyhaar/assokit/pkg/governance"
+)
+
+// AccountAssemblyRowView porte les données d'une assemblée pour la liste membre.
+type AccountAssemblyRowView struct {
+	ID          string
+	Name        string
+	ScheduledAt string
+	StatusLabel string
+	HasMinutes  bool
+}
+
+// AccountGouvernancePage : vue d'ensemble des assemblées (lecture seule) et accès
+// à la gestion des profils. État vide assumé.
+templ AccountGouvernancePage(rows []AccountAssemblyRowView) {
+	<section id="account-gouvernance" class="flex flex-col gap-space-lg">
+		<h1 class="text-2xl font-semibold text-ink">Gouvernance</h1>
+		<section class="flex flex-col gap-space-sm">
+			<h2 class="text-lg font-medium text-ink">Assemblées générales</h2>
+			if len(rows) == 0 {
+				<p class="text-ink-muted">Aucune assemblée enregistrée.</p>
+			} else {
+				<table class="w-full text-sm">
+					<thead>
+						<tr>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Assemblée</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Date programmée</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Statut</th>
+							<th class="px-space-md py-space-sm border-b border-border text-left">Procès-verbal</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, row := range rows {
+							@govcomp.AssemblyRowItem(row.Name, row.ScheduledAt, row.StatusLabel, row.ID, row.HasMinutes)
+						}
+					</tbody>
+				</table>
+			}
+		</section>
+		@govcomp.ProfilsManageBlock()
+	</section>
+}
+
+// AccountGouvernancePVPage : consultation du registre des délibérations et du
+// procès-verbal d'une assemblée (lecture seule).
+templ AccountGouvernancePVPage(asm governance.Assembly, register []governance.Deliberation, minutesBody string) {
+	<section id="account-gouvernance-pv" class="flex flex-col gap-space-lg">
+		<header class="flex flex-col gap-space-sm">
+			@govcomp.BackToGouvernanceLink()
+			<h1 class="text-2xl font-semibold text-ink">{ asm.Name }</h1>
+			<p class="text-ink-muted text-sm">Date programmée : { governanceScheduled(asm) } · Statut : { governanceStatutLabel(asm.Status) }</p>
+		</header>
+		<div class="bg-surface-raised rounded-lg shadow-sm p-space-lg flex flex-col gap-space-md">
+			<h2 class="text-xl font-semibold text-ink">Registre des délibérations</h2>
+			if len(register) == 0 {
+				<p class="text-ink-muted text-sm">Aucune délibération consignée.</p>
+			} else {
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-left text-ink-muted">
+							<th class="py-space-xs">Résolution</th>
+							<th class="py-space-xs">Dépouillement figé</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, d := range register {
+							@govcomp.RegisterDeliberationRow(d.Label, memberDeliberationSummary(d))
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+		if minutesBody == "" {
+			@govcomp.MinutesEmptyState()
+		} else {
+			@govcomp.MinutesReadOnly(minutesBody)
+		}
+	</section>
+}
+
+func memberDeliberationSummary(d governance.Deliberation) string {
+	return fmt.Sprintf("Pour : %d · Contre : %d · Abstention : %d · Total des votes : %d",
+		d.Pour, d.Contre, d.Abstention, d.Total)
+}

@@ -13,11 +13,13 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
 	"strconv"
 
 	forumcomp "github.com/hazyhaar/assokit/internal/webui/components/forum"
 	"github.com/hazyhaar/assokit/internal/webui/templux"
 	"github.com/hazyhaar/assokit/pkg/horui/forum"
+	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
@@ -25,7 +27,10 @@ import (
 const ForumMaxRenderDepth = 5
 
 // ForumIndex : station forum — quatre panneaux persistants.
-func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[string]int) templ.Component {
+// canWrite : utilisateur connecté ET porteur de la permission d'écriture sur le
+// forum (même prédicat que les routes de mutation) — gouverne l'affichage de
+// TOUS les boutons Créer/Modifier/Supprimer, catégorie comprise.
+func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[string]int, canWrite bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -99,13 +104,14 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 					}
 					ctx = templ.InitializeContext(ctx)
 					templ_7745c5c3_Err = forumcomp.ForumColumnHeader(
-						"Catégories",
-						"+ Créer catégorie",
+						theme.T("forum.categories", "Catégories"),
+						theme.T("forum.create_category", "+ Créer catégorie"),
 						"",
 						"/forum/new",
 						"",
 						"",
 						"",
+						canWrite,
 					).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -127,7 +133,7 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 						}
 						ctx = templ.InitializeContext(ctx)
 						if len(categories) == 0 {
-							templ_7745c5c3_Err = forumcomp.ForumColumnHint("Aucun sujet pour l'instant.").Render(ctx, templ_7745c5c3_Buffer)
+							templ_7745c5c3_Err = forumcomp.ForumColumnHint(theme.T("forum.empty_topics", "Aucun sujet pour l'instant.")).Render(ctx, templ_7745c5c3_Buffer)
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
@@ -139,10 +145,15 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 									forumItemMeta(c.AuthorName, c.CreatedAt),
 									"",
 									c.ChildCount,
-									"question",
+									theme.T("forum.counter_question", "question"),
 									unread[c.ID] > 0,
 									"/forum/"+c.Slug+"/questions",
-									"#forum-col-questions",
+									"#forum-col-items",
+									canWrite,
+									"#forum-col-categories",
+									"",
+									"",
+									"",
 								).Render(ctx, templ_7745c5c3_Buffer)
 								if templ_7745c5c3_Err != nil {
 									return templ_7745c5c3_Err
@@ -151,7 +162,7 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = forumcomp.ForumPanelBodyGrid("").Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = forumcomp.ForumPanelBodyGrid("forum-col-categories").Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -185,7 +196,7 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = forumcomp.ForumColumnHeader("Questions", "", "", "", "", "", "").Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = forumcomp.ForumColumnHeader(theme.T("forum.questions", "Questions"), "", "", "", "", "", "", false).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -205,13 +216,13 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = forumcomp.ForumColumnEmpty("Sélectionnez une catégorie pour afficher ses questions.").Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = forumcomp.ForumColumnEmpty(theme.T("forum.hint_select_category", "Sélectionnez une catégorie pour afficher ses questions.")).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = forumcomp.ForumPanelBody("forum-col-questions").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = forumcomp.ForumPanelBody("forum-col-items").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -245,7 +256,7 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = forumcomp.ForumColumnHeader("Branches", "", "", "", "", "", "").Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = forumcomp.ForumColumnHeader(theme.T("forum.branches", "Branches"), "", "", "", "", "", "", false).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -265,13 +276,13 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = forumcomp.ForumColumnEmpty("Sélectionnez une question pour afficher ses branches.").Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = forumcomp.ForumColumnEmpty(theme.T("forum.hint_select_question_branches", "Sélectionnez une question pour afficher ses branches.")).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = forumcomp.ForumPanelBody("forum-col-branches").Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = forumcomp.ForumPanelBody("forum-col-channels").Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -305,7 +316,7 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = forumcomp.ForumColumnHeader("Détail", "", "", "", "", "", "").Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = forumcomp.ForumColumnHeader(theme.T("forum.detail", "Détail"), "", "", "", "", "", "", false).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -325,7 +336,7 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = forumcomp.ForumColumnEmpty("Sélectionnez une question pour afficher l'échange et y répondre.").Render(ctx, templ_7745c5c3_Buffer)
+						templ_7745c5c3_Err = forumcomp.ForumColumnEmpty(theme.T("forum.hint_select_question_detail", "Sélectionnez une question pour afficher l'échange et y répondre.")).Render(ctx, templ_7745c5c3_Buffer)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -366,7 +377,9 @@ func ForumIndex(categories []forum.ThreadNode, user *identity.User, unread map[s
 }
 
 // ForumQuestionsColumn : panneau questions d'une catégorie (fragment HTMX).
-func ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNode, unread map[string]bool, canCreate bool) templ.Component {
+// canWrite : même prédicat que ForumIndex — gouverne le bouton d'en-tête ET les
+// actions Modifier/Supprimer de chaque carte question.
+func ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNode, unread map[string]bool, canWrite bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -393,28 +406,19 @@ func ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNod
 		}
 		templ_7745c5c3_Err = forumcomp.ForumColumnHeader(
 			category.Title,
-			func() string {
-				if canCreate {
-					return "+ Créer question"
-				}
-				return ""
-			}(),
-			func() string {
-				if canCreate {
-					return "/forum/" + category.Slug + "/new-question"
-				}
-				return ""
-			}(),
+			theme.T("forum.create_question", "+ Créer question"),
+			"/forum/"+category.Slug+"/new-question",
 			"",
 			"#forum-col-detail",
 			category.Slug,
-			"#forum-col-questions",
+			"#forum-col-items",
+			canWrite,
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(questions) == 0 {
-			templ_7745c5c3_Err = forumcomp.ForumColumnHint("Aucune question dans cette catégorie.").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = forumcomp.ForumColumnHint(theme.T("forum.empty_questions_in_category", "Aucune question dans cette catégorie.")).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -429,7 +433,12 @@ func ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNod
 					"",
 					unread[q.ID],
 					"/forum/"+q.Slug+"/branches",
-					"#forum-col-branches",
+					"#forum-col-channels",
+					canWrite,
+					"#forum-col-items",
+					theme.T("forum.create_branch", "+ Créer branche"),
+					"/forum/"+q.Slug+"/new-branch",
+					"#forum-col-detail",
 				).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -445,7 +454,11 @@ func ForumQuestionsColumn(category forum.ThreadNode, questions []forum.ThreadNod
 }
 
 // ForumBranchesColumn : panneau branches d'une question (fragment HTMX).
-func ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode, unread map[string]bool, canCreate bool) templ.Component {
+// canWrite : même prédicat — gouverne le bouton d'en-tête ET les actions
+// Modifier/Supprimer de chaque carte branche (pas de bouton Créer par carte : une
+// branche n'a pas d'enfant créable directement, les messages passent par le
+// formulaire de réponse du panneau Détail).
+func ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode, unread map[string]bool, canWrite bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -472,28 +485,19 @@ func ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode,
 		}
 		templ_7745c5c3_Err = forumcomp.ForumColumnHeader(
 			question.Title,
-			func() string {
-				if canCreate {
-					return "+ Créer branche"
-				}
-				return ""
-			}(),
-			func() string {
-				if canCreate {
-					return "/forum/" + question.Slug + "/new-branch"
-				}
-				return ""
-			}(),
+			theme.T("forum.create_branch", "+ Créer branche"),
+			"/forum/"+question.Slug+"/new-branch",
 			"",
 			"#forum-col-detail",
 			question.Slug,
-			"#forum-col-questions",
+			"#forum-col-items",
+			canWrite,
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(branches) == 0 {
-			templ_7745c5c3_Err = forumcomp.ForumColumnHint("Aucune branche.").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = forumcomp.ForumColumnHint(theme.T("forum.empty_branches", "Aucune branche.")).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -505,10 +509,15 @@ func ForumBranchesColumn(question forum.ThreadNode, branches []forum.ThreadNode,
 					forumItemMeta(b.AuthorName, b.CreatedAt),
 					"",
 					b.ChildCount,
-					"réponse",
+					theme.T("forum.counter_reply", "réponse"),
 					unread[b.ID],
 					"/forum/"+b.Slug+"/detail",
 					"#forum-col-detail",
+					canWrite,
+					"#forum-col-channels",
+					"",
+					"",
+					"",
 				).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -549,7 +558,7 @@ func ForumNewBranchForm(questionSlug, questionTitle, csrfToken string) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = forumcomp.ForumFormHeader("Nouvelle branche", "Sous la question « "+questionTitle+" ».").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = forumcomp.ForumFormHeader(theme.T("forum.new_branch", "Nouvelle branche"), forumNewBranchSubtitle(questionTitle)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -560,20 +569,20 @@ func ForumNewBranchForm(questionSlug, questionTitle, csrfToken string) templ.Com
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue("/forum/" + questionSlug + "/branch")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 173, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 182, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" hx-target=\"#forum-col-branches\" hx-swap=\"innerHTML\"><input type=\"hidden\" name=\"_csrf\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" hx-target=\"#forum-col-channels\" hx-swap=\"innerHTML\"><input type=\"hidden\" name=\"_csrf\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 177, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 186, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 		if templ_7745c5c3_Err != nil {
@@ -583,7 +592,7 @@ func ForumNewBranchForm(questionSlug, questionTitle, csrfToken string) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templux.FormField("Titre de la branche", "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": "Nommer la branche…"})).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templux.FormField(theme.T("forum.branch_title_label", "Titre de la branche"), "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": theme.T("forum.branch_title_placeholder", "Nommer la branche…")})).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -595,7 +604,7 @@ func ForumNewBranchForm(questionSlug, questionTitle, csrfToken string) templ.Com
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templux.Button("Créer la branche", "primary", templ.Attributes{"type": "submit"}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templux.Button(theme.T("forum.submit_create_branch", "Créer la branche"), "primary", templ.Attributes{"type": "submit"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -633,7 +642,7 @@ func ForumNewQuestionForm(categorySlug, categoryTitle, csrfToken string) templ.C
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = forumcomp.ForumFormHeader("Nouvelle question", "Dans la catégorie « "+categoryTitle+" ».").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = forumcomp.ForumFormHeader(theme.T("forum.new_question", "Nouvelle question"), forumNewQuestionSubtitle(categoryTitle)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -644,20 +653,20 @@ func ForumNewQuestionForm(categorySlug, categoryTitle, csrfToken string) templ.C
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue("/forum/" + categorySlug + "/question")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 193, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 202, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" hx-target=\"#forum-col-questions\" hx-swap=\"innerHTML\"><input type=\"hidden\" name=\"_csrf\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" hx-target=\"#forum-col-items\" hx-swap=\"innerHTML\"><input type=\"hidden\" name=\"_csrf\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 197, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 206, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 		if templ_7745c5c3_Err != nil {
@@ -667,7 +676,7 @@ func ForumNewQuestionForm(categorySlug, categoryTitle, csrfToken string) templ.C
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templux.FormField("Titre de la question", "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": "Formuler la question…"})).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templux.FormField(theme.T("forum.question_title_label", "Titre de la question"), "", "", templux.Input("title", "", templ.Attributes{"type": "text", "required": "required", "maxlength": "180", "placeholder": theme.T("forum.question_title_placeholder", "Formuler la question…")})).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -679,7 +688,7 @@ func ForumNewQuestionForm(categorySlug, categoryTitle, csrfToken string) templ.C
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templux.Button("Créer la question", "primary", templ.Attributes{"type": "submit"}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templux.Button(theme.T("forum.submit_create_question", "Créer la question"), "primary", templ.Attributes{"type": "submit"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -692,7 +701,11 @@ func ForumNewQuestionForm(categorySlug, categoryTitle, csrfToken string) templ.C
 }
 
 // ForumQuestionDetail : panneau de droite — question + échanges + formulaire HTMX.
-func ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, user *identity.User, canReply bool, csrfToken string) templ.Component {
+// canWrite : utilisateur connecté ET porteur de la permission d'écriture sur le
+// forum — gouverne les actions Modifier/Supprimer de l'article affiché et de
+// chaque message, ET l'affichage du formulaire de réponse (cohérent avec la
+// garde RequirePerm de la route /forum/{slug}/reply).
+func ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, user *identity.User, canWrite bool, csrfToken string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -733,6 +746,12 @@ func ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		if canWrite {
+			templ_7745c5c3_Err = forumcomp.CardActions(question.Slug, "#forum-col-channels", "", "", "").Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		templ_7745c5c3_Err = forumcomp.ForumSeparator().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -747,22 +766,36 @@ func ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, 
 				return templ_7745c5c3_Err
 			}
 			for _, r := range replies {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"flex flex-col gap-space-xs\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 				templ_7745c5c3_Err = templux.MessageCard(r.AuthorName, r.CreatedAt, r.BodyHTML, "").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				if canWrite {
+					templ_7745c5c3_Err = forumcomp.CardActions(r.Slug, "#forum-col-detail", "", "", "").Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templux.Alert("info", "Pas encore de réponse.").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templux.Alert("info", theme.T("forum.no_replies_yet", "Pas encore de réponse.")).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		if canReply {
+		if canWrite {
 			templ_7745c5c3_Err = forumcomp.ForumHTMXReplyForm(question.Slug, csrfToken).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -773,7 +806,7 @@ func ForumQuestionDetail(question forum.ThreadNode, replies []forum.ThreadNode, 
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -803,28 +836,41 @@ func ForumNewTopic(csrfToken string) templ.Component {
 			templ_7745c5c3_Var21 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<section class=\"flex flex-col gap-space-lg\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<section class=\"flex flex-col gap-space-lg\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = forumcomp.ForumBreadcrumb("Nouveau sujet").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = forumcomp.ForumBreadcrumb(theme.T("forum.new_topic_breadcrumb", "Nouveau sujet")).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<div class=\"flex flex-col gap-space-sm\"><h1 class=\"text-2xl font-semibold text-ink\">Ouvrir une discussion</h1><p class=\"text-ink-muted\">Donnez un titre clair et un message d'introduction.</p></div><form method=\"POST\" action=\"/forum/new\" class=\"flex flex-col gap-space-md\"><input type=\"hidden\" name=\"_csrf\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"flex flex-col gap-space-sm\"><h1 class=\"text-2xl font-semibold text-ink\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var22 string
-		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("forum.new_topic_title", "Ouvrir une discussion"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 251, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 268, Col: 106}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</h1><p class=\"text-ink-muted\">Donnez un titre clair et un message d'introduction.</p></div><form method=\"POST\" action=\"/forum/new\" class=\"flex flex-col gap-space-md\"><input type=\"hidden\" name=\"_csrf\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var23 string
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 272, Col: 54}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -836,7 +882,7 @@ func ForumNewTopic(csrfToken string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"flex items-center gap-space-sm\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<div class=\"flex items-center gap-space-sm\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -848,7 +894,7 @@ func ForumNewTopic(csrfToken string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div></form></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div></form></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -873,12 +919,12 @@ func ForumThread(node forum.ThreadNode, replies []forum.ThreadNode, user *identi
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var23 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var23 == nil {
-			templ_7745c5c3_Var23 = templ.NopComponent
+		templ_7745c5c3_Var24 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var24 == nil {
+			templ_7745c5c3_Var24 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<section class=\"forum-thread flex flex-col gap-space-lg\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<section class=\"forum-thread flex flex-col gap-space-lg\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -891,33 +937,33 @@ func ForumThread(node forum.ThreadNode, replies []forum.ThreadNode, user *identi
 			return templ_7745c5c3_Err
 		}
 		if len(replies) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<h2 class=\"text-xl font-semibold text-ink\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var24 string
-			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(replies)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 268, Col: 74}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<h2 class=\"text-xl font-semibold text-ink\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(forumRepliesLabel(len(replies)))
+			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(replies)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 268, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 289, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</h2><div class=\"flex flex-col gap-space-sm\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var26 string
+			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(forumRepliesLabel(len(replies)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/views/forum.templ`, Line: 289, Col: 110}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</h2><div class=\"flex flex-col gap-space-sm\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -927,12 +973,12 @@ func ForumThread(node forum.ThreadNode, replies []forum.ThreadNode, user *identi
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templux.Alert("info", "Pas encore de réponse.").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templux.Alert("info", theme.T("forum.no_replies_yet", "Pas encore de réponse.")).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -948,7 +994,7 @@ func ForumThread(node forum.ThreadNode, replies []forum.ThreadNode, user *identi
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -973,12 +1019,12 @@ func forumThreadView(n forum.ThreadNode, depth int) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var26 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var26 == nil {
-			templ_7745c5c3_Var26 = templ.NopComponent
+		templ_7745c5c3_Var27 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var27 == nil {
+			templ_7745c5c3_Var27 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var27 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var28 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -992,7 +1038,7 @@ func forumThreadView(n forum.ThreadNode, depth int) templ.Component {
 			ctx = templ.InitializeContext(ctx)
 			if depth+1 < ForumMaxRenderDepth {
 				if len(n.Children) > 0 {
-					templ_7745c5c3_Var28 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_Var29 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 						templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 						templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 						if !templ_7745c5c3_IsBuffer {
@@ -1012,7 +1058,7 @@ func forumThreadView(n forum.ThreadNode, depth int) templ.Component {
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = forumcomp.ForumNestingIndent().Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = forumcomp.ForumNestingIndent().Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1020,7 +1066,7 @@ func forumThreadView(n forum.ThreadNode, depth int) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = forumcomp.ForumThreadArticle(n.Title, n.AuthorName, n.CreatedAt, n.BodyHTML, depth).Render(templ.WithChildren(ctx, templ_7745c5c3_Var27), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = forumcomp.ForumThreadArticle(n.Title, n.AuthorName, n.CreatedAt, n.BodyHTML, depth).Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1042,9 +1088,17 @@ func forumItemMeta(authorName, createdAt string) string {
 
 func forumRepliesLabel(n int) string {
 	if n == 1 {
-		return "réponse"
+		return theme.T("forum.counter_reply", "réponse")
 	}
-	return "réponses"
+	return theme.T("forum.counter_replies", "réponses")
+}
+
+func forumNewBranchSubtitle(questionTitle string) string {
+	return fmt.Sprintf(theme.T("forum.new_branch_subtitle", "Sous la question « %s »."), questionTitle)
+}
+
+func forumNewQuestionSubtitle(categoryTitle string) string {
+	return fmt.Sprintf(theme.T("forum.new_question_subtitle", "Dans la catégorie « %s »."), categoryTitle)
 }
 
 var _ = templruntime.GeneratedTemplate

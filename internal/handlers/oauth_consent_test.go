@@ -15,9 +15,9 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/hazyhaar/assokit/internal/app"
+	"github.com/hazyhaar/assokit/pkg/identity"
 	"github.com/hazyhaar/assokit/internal/webui/views"
 	"github.com/hazyhaar/assokit/pkg/horui/middleware"
-	"github.com/hazyhaar/assokit/pkg/identity"
 )
 
 func setupConsentTestDB(t *testing.T) *sql.DB {

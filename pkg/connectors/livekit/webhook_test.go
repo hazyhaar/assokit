@@ -44,8 +44,8 @@ func TestHandleWebhook_ParticipantJoined_CallsHook(t *testing.T) {
 	})
 
 	payload, _ := json.Marshal(map[string]any{
-		"event":       "participant_joined",
-		"room":        map[string]any{"name": "salle-42"},
+		"event": "participant_joined",
+		"room":  map[string]any{"name": "salle-42"},
 		"participant": map[string]any{"identity": "user1"},
 	})
 
