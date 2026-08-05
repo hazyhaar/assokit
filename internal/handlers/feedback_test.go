@@ -103,7 +103,7 @@ func TestFeedbackHandler_HoneypotSilentDrop(t *testing.T) {
 		"message":    {"Message valide mais honeypot rempli"},
 		"page_url":   {"/"},
 		"page_title": {""},
-		"website":    {"spam@bot.com"},
+		"website":    {"spam@example.com"},
 	}
 	w := postFeedback(t, handler, form, "10.0.0.2:1234")
 

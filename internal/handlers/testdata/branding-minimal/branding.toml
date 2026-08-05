@@ -1,6 +1,6 @@
 name = "Test"
 base_url = "http://localhost:8091"
-contact_email = "test@example.test"
+contact_email = "test@example.com"
 locale = "fr-FR"
 
 [colors]

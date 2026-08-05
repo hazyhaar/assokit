@@ -25,9 +25,9 @@ type Mailer struct {
 	APIKey   string // Resend API key (fallback si SMTPHost vide)
 	SMTPHost string // ex "ssl0.ovh.net" — si défini, backend SMTPS port 465
 	SMTPPort int    // 0 → default 465
-	SMTPUser string // ex "contact@assokit.org"
+	SMTPUser string // ex "contact@example.org"
 	SMTPPass string
-	From     string // ex "contact@assokit.org"
+	From     string // ex "contact@example.org"
 	AdminTo  string
 	Logger   *slog.Logger
 }

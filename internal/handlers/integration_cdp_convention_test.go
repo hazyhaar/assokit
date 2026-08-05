@@ -56,7 +56,7 @@ func TestCDPConventionJourney(t *testing.T) {
 	}
 	seedRoles(t, db)
 
-	const adminEmail = "admin@conv.local"
+	const adminEmail = "admin@example.local"
 	const adminPwd = "admin-conv-pwd-1234"
 	authStore := &identity.Store{DB: db}
 	admin, err := authStore.Register(context.Background(), adminEmail, adminPwd, "Admin Conv")
@@ -66,7 +66,7 @@ func TestCDPConventionJourney(t *testing.T) {
 	if _, err := db.Exec(`INSERT OR IGNORE INTO user_grades(user_id, grade_id) VALUES (?, 'sys-admin'), (?, 'sys-member')`, admin.ID, admin.ID); err != nil {
 		t.Fatalf("admin roles: %v", err)
 	}
-	preneur, err := authStore.Register(context.Background(), "preneur@conv.local", "preneur-pwd-1234", "Preneur Conv")
+	preneur, err := authStore.Register(context.Background(), "preneur@example.local", "preneur-pwd-1234", "Preneur Conv")
 	if err != nil {
 		t.Fatalf("register preneur: %v", err)
 	}

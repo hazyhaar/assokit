@@ -37,7 +37,7 @@ func newOAuthTestDeps(t *testing.T) (app.AppDeps, *oauth.Storage) {
 func seedOAuthUser(t *testing.T, deps app.AppDeps) string {
 	t.Helper()
 	authStore := &identity.Store{DB: deps.DB}
-	u, err := authStore.Register(context.Background(), "oauth@test.fr", "pass123", "OAuth User")
+	u, err := authStore.Register(context.Background(), "oauth@example.fr", "pass123", "OAuth User")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestOAuth_GoogleLoginCallbackCreatesUserOrLinksExisting(t *testing.T) {
 	ctx := context.Background()
 
 	// Cas 1 : nouvel utilisateur (email inconnu)
-	userID1, err := findOrCreateSocialUser(ctx, deps, "google", "google-sub-1", "newuser@google.com")
+	userID1, err := findOrCreateSocialUser(ctx, deps, "google", "google-sub-1", "newuser@example.com")
 	if err != nil {
 		t.Fatalf("findOrCreateSocialUser (nouveau): %v", err)
 	}
@@ -223,7 +223,7 @@ func TestOAuth_GoogleLoginCallbackCreatesUserOrLinksExisting(t *testing.T) {
 	}
 
 	// Cas 2 : utilisateur existant (même email)
-	userID2, err := findOrCreateSocialUser(ctx, deps, "google", "google-sub-1-bis", "newuser@google.com")
+	userID2, err := findOrCreateSocialUser(ctx, deps, "google", "google-sub-1-bis", "newuser@example.com")
 	if err != nil {
 		t.Fatalf("findOrCreateSocialUser (existant): %v", err)
 	}

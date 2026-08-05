@@ -60,7 +60,7 @@ func TestSitemapCDPCrawl(t *testing.T) {
 		"BASE_URL=http://localhost:8091",
 		"DB_PATH="+dbPath,
 		"BRANDING_DIR="+brandingDir,
-		"ADMIN_EMAIL=test@example.test",
+		"ADMIN_EMAIL=test@example.com",
 		"COOKIE_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 	)
 	if err := cmd.Start(); err != nil {

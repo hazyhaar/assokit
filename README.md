@@ -47,7 +47,7 @@ func main() {
 		Port:          "8080",
 		BaseURL:       "https://my-community.org",
 		BrandingFS:    os.DirFS("./config"),
-		AdminEmail:    "admin@my-community.org",
+		AdminEmail:    "admin@example.org",
 		AdminPassword: "change-me",
 		CookieSecret:  cookieSecret, // 32+ bytes; required in prod
 	})

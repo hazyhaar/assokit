@@ -53,7 +53,7 @@ func TestCDPGDPRJournal(t *testing.T) {
 	}
 	seedRoles(t, db)
 
-	const adminEmail = "admin@gdpr.local"
+	const adminEmail = "admin@example.local"
 	const adminPwd = "admin-gdpr-pwd-1234"
 	authStore := &identity.Store{DB: db}
 	admin, err := authStore.Register(context.Background(), adminEmail, adminPwd, "Admin GDPR")

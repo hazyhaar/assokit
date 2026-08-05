@@ -85,7 +85,7 @@ Si rien n'apparaît au bout de 5 minutes :
 Vous avez plusieurs recours :
 
 - **Demander à un proche** qui s'y connaît un peu en informatique de regarder cette page avec vous — la procédure est principalement du copier-coller, et avoir quelqu'un à côté aide souvent.
-- **Écrire à votre administrateur de plateforme** (par exemple `contact@nonpossumus.eu`) en précisant à quelle étape vous bloquez et quel message d'erreur vous voyez. Plus vous donnez de détails, plus la réponse est rapide.
+- **Écrire à votre administrateur de plateforme** (par exemple `contact@example.com`) en précisant à quelle étape vous bloquez et quel message d'erreur vous voyez. Plus vous donnez de détails, plus la réponse est rapide.
 - **Désactiver temporairement** le connecteur dans `https://votre-site.org/admin/connectors`. Décochez la case **Activé** et cliquez **Enregistrer**. Vos boutons de don continueront à fonctionner en « mode lien sortant » : les dons se font sur HelloAsso et vous les voyez en allant sur HelloAsso. C'est moins pratique mais ça marche tout de suite.
 
 > **Bon à savoir** : même sans le connecteur configuré, votre page `https://votre-site.org/soutenir` reste fonctionnelle. Les visiteurs cliquent sur « Faire un don », sont envoyés sur HelloAsso, et vous voyez les dons sur votre tableau de bord HelloAsso comme avant. Le connecteur sert uniquement à rapatrier l'info en plus dans VOTRE tableau de bord.

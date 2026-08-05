@@ -7,7 +7,7 @@
 
 // Usage :
 
-//   @FormField("Adresse e-mail", "Format user@domaine.fr", errMsg, emailInput)
+//   @FormField("Adresse e-mail", "Format user@example.fr", errMsg, emailInput)
 
 package templux
 

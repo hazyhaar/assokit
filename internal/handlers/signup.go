@@ -322,7 +322,7 @@ func handleActivate(deps app.AppDeps) http.HandlerFunc {
 				"user_id", userID,
 				"token_prefix", safeTokenPrefix(token),
 			)
-			http.Error(w, "Lien expiré. Contactez contact@assokit.org.", http.StatusGone)
+			http.Error(w, "Lien expiré. Contactez contact@example.org.", http.StatusGone)
 			return
 		}
 
