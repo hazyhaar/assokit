@@ -51,7 +51,7 @@ func seedUserAndClient(t *testing.T, db *sql.DB) (userID, clientID, clientSecret
 	t.Helper()
 	userID = "test-user-1"
 	clientID = "test-client-1"
-	clientSecret = "test-secret-abc"
+	clientSecret = "fixture-xyz"
 
 	db.Exec(`INSERT INTO users(id, email, password_hash, display_name, is_active, created_at) VALUES(?,?,?,?,1,?)`,
 		userID, "test@example.org", "hashed", "Test User", time.Now().UTC().Format(time.RFC3339))
