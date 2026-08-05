@@ -14,11 +14,8 @@ internal/handlers/admin_panel/uploads/
 # Matrices de couverture générées
 plans/MCP_COVERAGE_MATRIX_*.md
 
-# Artefacts internes du pole de dev — jamais publies (tri 2026-07-25)
-*.db
-assokit
+# pole-only (never publish)
 CLAUDE.md
 DETTE.md
 HANDOVER.md
 audits/
-2026-*-this-session-is-being-continued-*.txt

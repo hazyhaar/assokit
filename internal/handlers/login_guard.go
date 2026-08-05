@@ -11,6 +11,11 @@ import (
 // connexion consécutifs, pour contrer le credential-stuffing / brute-force.
 // Clé = email normalisé (verrou par compte). In-memory et BORNÉE : au seuil,
 // les entrées expirées sont purgées (anti-DoS mémoire, cf. dcrRateLimiter S2).
+//
+// Limite assumée (H3) : les compteurs sont in-process. En déploiement multi-
+// instance derrière un load-balancer, un attaquant peut contourner les limites
+// en ciblant des instances différentes. Migration prévue vers Redis ou une
+// table SQLite partagée pour un rate-limiting distribué.
 type loginGuard struct {
 	mu       sync.Mutex
 	fails    map[string]*loginFail

@@ -15,6 +15,7 @@ import (
 )
 
 // dcrRateLimiter : 5 register/IP/heure. In-memory simple, bucket fixe glissant.
+// Limite assumée (H3) : non partagé entre instances. Voir login_guard.go.
 type dcrRateLimiter struct {
 	mu      sync.Mutex
 	buckets map[string][]time.Time

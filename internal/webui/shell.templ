@@ -78,12 +78,13 @@ templ shellBase(title string, bodyClass string, extraHead templ.Component, mainC
 			<link rel="stylesheet" href="/static/css/templux/base.css"/>
 			<link rel="stylesheet" href="/static/css/templux/preset-assokit.css"/>
 			<link rel="stylesheet" href="/static/css/templux/templux.css"/>
-			<script src="/static/js/htmx.min.js" defer></script>
-			<script src="/static/js/csrf.js" defer></script>
-			<script src="/static/js/helloasso_popup.js" defer></script>
-			<script src="/static/js/forum.js" defer></script>
-			<script src="/static/js/dropdown.js" defer></script>
-			<script src="/static/js/navdrawer.js" defer></script>
+		<script src="/static/js/htmx.min.js" defer></script>
+		<script src="/static/js/csrf.js" defer></script>
+		<script src="/static/js/helloasso_popup.js" defer></script>
+		<script src="/static/js/forum.js" defer></script>
+		<script src="/static/js/app.js" defer></script>
+		<script src="/static/js/dropdown.js" defer></script>
+		<script src="/static/js/navdrawer.js" defer></script>
 			if extraHead != nil {
 				@extraHead
 			}
@@ -201,7 +202,11 @@ templ shellDrawerUserBlock() {
 			if slices.Contains(u.Roles, "admin") {
 				<li><a href="/admin" class="text-sm text-ink-muted hover:text-accent no-underline">Gestion</a></li>
 			}
-			<li><a href="/logout" class="text-sm text-ink-muted hover:text-accent no-underline">{ theme.T("button.logout", "Déconnexion") }</a></li>
+			<li>
+			<form method="POST" action="/logout" class="inline">
+				<button type="submit" class="text-sm text-ink-muted hover:text-accent no-underline">{ theme.T("button.logout", "Déconnexion") }</button>
+			</form>
+		</li>
 		</ul>
 	} else {
 		@templux.LinkButton("Se connecter", "/login", "primary", templ.Attributes{})

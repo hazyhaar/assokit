@@ -164,11 +164,13 @@ func SetSessionCookie(w http.ResponseWriter, userID string, secret []byte, secur
 
 // ClearSessionCookie supprime le cookie de session côté navigateur.
 //
-// Limite assumée : la session est sans état (cookie signé HMAC, aucune liste de
-// révocation serveur). Le logout efface le cookie du navigateur mais ne révoque
-// pas un cookie déjà capturé, qui reste valide jusqu'à son expiration (7 jours).
-// Acceptable pour le modèle « une instance = une communauté » ; introduire un
-// identifiant de session opaque persisté serait le prix d'une révocation immédiate.
+// Limite assumée (H1) : la session est sans état (cookie signé HMAC, aucune
+// liste de révocation serveur). Le logout efface le cookie du navigateur mais
+// ne révoque pas un cookie déjà capturé, qui reste valide jusqu'à son
+// expiration (7 jours). Acceptable pour le modèle « une instance = une
+// communauté » ; introduire un session_id opaque persisté en DB avec
+// revoked_at, ou un session_version par utilisateur invalidé au logout, est
+// le plan de migration pour une révocation immédiate.
 // La suppression matche sur name/path/domain (RFC 6265), indépendamment des
 // attributs Secure/SameSite.
 func ClearSessionCookie(w http.ResponseWriter) {

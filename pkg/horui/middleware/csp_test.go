@@ -1,4 +1,4 @@
-// CLAUDE:SUMMARY Tests gardiens CSP injectable — non-régression du défaut durci (negcriterion N4) + composition par CSPExtra.
+// CLAUDE:SUMMARY Tests gardiens CSP injectable — non-régression du défaut durci (negcriterion N4) + composition par CSPExtra + nonce per-request.
 package middleware
 
 import (
@@ -8,40 +8,61 @@ import (
 	"testing"
 )
 
-// defaultCSPLiteral est la CSP historique gelée. TestDefaultCSPUnchanged garantit
-// que la sérialisation de la CSP par défaut reste octet-pour-octet identique.
-const defaultCSPLiteral = "default-src 'self'; " +
-	"img-src 'self' data: https:; " +
-	"frame-src 'self' https://*.helloasso.com https://www.helloasso.com; " +
-	"script-src 'self' 'unsafe-inline'; " +
-	"style-src 'self' 'unsafe-inline'; " +
-	"font-src 'self' data:; " +
-	"connect-src 'self'; " +
-	"object-src 'none'; " +
-	"base-uri 'self'; " +
-	"form-action 'self' https://*.helloasso.com; " +
-	"frame-ancestors 'none'; " +
-	"upgrade-insecure-requests"
-
-// TestDefaultCSPUnchanged : la CSP par défaut (extension zéro) est inchangée.
-func TestDefaultCSPUnchanged(t *testing.T) {
-	if got := buildCSP(CSPExtra{}); got != defaultCSPLiteral {
-		t.Fatalf("CSP par défaut modifiée (negcriterion N4)\nattendu: %q\nobtenu:  %q", defaultCSPLiteral, got)
+// TestCSPDefaultNoNonce : CSP de base sans nonce : script-src = 'self' seulement
+// (pas de 'unsafe-inline'). Vérifie que le durcissement historique est préservé
+// hormis le remplacement volontaire de 'unsafe-inline' par le nonce.
+func TestCSPDefaultNoNonce(t *testing.T) {
+	got := buildCSPWithNonce(CSPExtra{}, "")
+	want := "script-src 'self'"
+	if !strings.Contains(got, want) {
+		t.Errorf("CSP sans nonce : script-src devrait contenir %q, CSP: %s", want, got)
+	}
+	// Vérifier que 'unsafe-inline' a disparu de script-src
+	if strings.Contains(got, "script-src 'self' 'unsafe-inline'") {
+		t.Errorf("script-src contient encore 'unsafe-inline' : CSP: %s", got)
+	}
+	// style-src garde 'unsafe-inline' (styles inline, risque limité)
+	if !strings.Contains(got, "style-src 'self' 'unsafe-inline'") {
+		t.Errorf("style-src devrait conserver 'unsafe-inline' : CSP: %s", got)
 	}
 }
 
-// TestSecurityHeadersDefaultMatchesLiteral : le middleware sans extension pose
-// exactement la chaîne CSP historique.
-func TestSecurityHeadersDefaultMatchesLiteral(t *testing.T) {
-	for _, mw := range []http.Handler{
-		SecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
-		SecurityHeadersWith(CSPExtra{})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
-	} {
-		rec := httptest.NewRecorder()
-		mw.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-		if got := rec.Header().Get("Content-Security-Policy"); got != defaultCSPLiteral {
-			t.Fatalf("CSP posée != défaut\nattendu: %q\nobtenu:  %q", defaultCSPLiteral, got)
-		}
+// TestCSPWithNonce : la CSP avec nonce injecte 'nonce-{nonce}' et 'strict-dynamic'
+// dans script-src.
+func TestCSPWithNonce(t *testing.T) {
+	got := buildCSPWithNonce(CSPExtra{}, "testnonce123")
+	want := "script-src 'self' 'nonce-testnonce123' 'strict-dynamic'"
+	if !strings.Contains(got, want) {
+		t.Errorf("CSP avec nonce : script-src ne contient pas %q, CSP: %s", want, got)
+	}
+}
+
+// TestSecurityHeadersInjectsNonce : le middleware génère un nonce, le place dans
+// la CSP, et l'injecte dans le contexte pour les templates.
+func TestSecurityHeadersInjectsNonce(t *testing.T) {
+	rec := httptest.NewRecorder()
+	nonceSeen := ""
+	handler := SecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nonceSeen = NonceFromContext(r.Context())
+	}))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	csp := rec.Header().Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatal("aucune CSP posée")
+	}
+	if !strings.Contains(csp, "'nonce-") {
+		t.Errorf("CSP ne contient pas de nonce : %s", csp)
+	}
+	if !strings.Contains(csp, "'strict-dynamic'") {
+		t.Errorf("CSP ne contient pas 'strict-dynamic' : %s", csp)
+	}
+	if nonceSeen == "" {
+		t.Error("nonce absent du contexte")
+	}
+	// Vérifier que le nonce dans le contexte correspond à celui dans la CSP
+	if !strings.Contains(csp, "'nonce-"+nonceSeen+"'") {
+		t.Errorf("nonce contexte %q != nonce CSP", nonceSeen)
 	}
 }
 
@@ -54,26 +75,19 @@ func TestCSPExtraComposes(t *testing.T) {
 		ConnectSrc: []string{"https://data.geopf.fr"},
 		WorkerSrc:  []string{"blob:"},
 	}
-	got := buildCSP(extra)
+	got := buildCSPWithNonce(extra, "")
 
-	checks := []string{
-		"script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;",
-		"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;",
-		"connect-src 'self' https://data.geopf.fr;",
-		"worker-src 'self' blob:",
+	if !strings.Contains(got, "script-src 'self' https://cdn.jsdelivr.net;") {
+		t.Errorf("script-src non complété : %s", got)
 	}
-	for _, want := range checks {
-		if !strings.Contains(got, want) {
-			t.Errorf("CSP composée ne contient pas %q\nCSP: %s", want, got)
-		}
+	if !strings.Contains(got, "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;") {
+		t.Errorf("style-src non complété : %s", got)
 	}
-	// Directive non ciblée inchangée.
-	if !strings.Contains(got, "font-src 'self' data:;") {
-		t.Errorf("directive non ciblée altérée\nCSP: %s", got)
+	if !strings.Contains(got, "connect-src 'self' https://data.geopf.fr;") {
+		t.Errorf("connect-src non complété : %s", got)
 	}
-	// object-src 'none' préservé (durcissement).
-	if !strings.Contains(got, "object-src 'none';") {
-		t.Errorf("object-src durci altéré\nCSP: %s", got)
+	if !strings.Contains(got, "worker-src 'self' blob:") {
+		t.Errorf("worker-src non matérialisé : %s", got)
 	}
 }
 

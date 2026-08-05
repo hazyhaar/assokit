@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -27,6 +28,23 @@ type IssuedMagicToken struct {
 	ExpiresAt time.Time
 }
 
+// isSafeReturnURL rejette les open-redirect: protocol-relative (//evil),
+// scheme absolu (https://evil), ou tout chemin ne commençant pas par /.
+// Garantit que le token puisse seulement rediriger vers un chemin interne.
+func isSafeReturnURL(rawURL string) bool {
+	if rawURL == "" || rawURL == "/" {
+		return true
+	}
+	if !strings.HasPrefix(rawURL, "/") || strings.HasPrefix(rawURL, "//") {
+		return false
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return parsed.Scheme == "" && parsed.Host == ""
+}
+
 // IssueMagicToken insère un jeton à usage unique dans login_magic_tokens.
 func (s *Store) IssueMagicToken(ctx context.Context, email, userID, returnURL, ipHash string, ttl time.Duration) (*IssuedMagicToken, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
@@ -34,6 +52,9 @@ func (s *Store) IssueMagicToken(ctx context.Context, email, userID, returnURL, i
 		return nil, fmt.Errorf("identity.IssueMagicToken: email invalide")
 	}
 	if returnURL == "" {
+		returnURL = "/"
+	}
+	if !isSafeReturnURL(returnURL) {
 		returnURL = "/"
 	}
 

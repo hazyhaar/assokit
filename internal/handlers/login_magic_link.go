@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,8 @@ const (
 )
 
 // magicRateLimiter : 3 demandes/15min/IP. Pattern identique à dcrRateLimiter.
+//
+// Limite assumée (H3) : in-memory, non partagé entre instances. Voir login_guard.go.
 type magicRateLimiter struct {
 	mu      sync.Mutex
 	buckets map[string][]time.Time
@@ -86,6 +89,9 @@ func LoginMagicSubmit(deps app.AppDeps) http.HandlerFunc {
 		}
 		returnURL := r.FormValue("return_url")
 		if returnURL == "" {
+			returnURL = "/"
+		}
+		if !isSafeRedirectURL(returnURL, deps.Config.BaseURL) {
 			returnURL = "/"
 		}
 
@@ -220,8 +226,38 @@ func LoginMagicCallback(deps app.AppDeps) http.HandlerFunc {
 		if returnURL == "" {
 			returnURL = "/"
 		}
+		if !isSafeRedirectURL(returnURL, deps.Config.BaseURL) {
+			returnURL = "/"
+		}
 		http.Redirect(w, r, returnURL, http.StatusFound)
 	}
+}
+
+// isSafeRedirectURL valide qu'une return_url est sûre contre open-redirect.
+// Accepte un chemin relatif (/...) ou un host approuvé (BaseURL). Refuse les
+// protocol-relative URLs (//evil.fr), les schémas absolus (https://evil.fr) et
+// tout ce qui ne commence pas par /.
+func isSafeRedirectURL(rawURL string, baseURL string) bool {
+	if rawURL == "" || rawURL == "/" {
+		return true
+	}
+	// Refuser les chemins absents de '/' initial (protocol-relative, data:, etc.)
+	if !strings.HasPrefix(rawURL, "/") {
+		return false
+	}
+	// Refuser les double-slash (//evil.fr → protocol-relative)
+	if strings.HasPrefix(rawURL, "//") {
+		return false
+	}
+	// Parser pour vérifier qu'il s'agit bien d'un chemin relatif, pas d'un URL absolu
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "" || parsed.Host != "" {
+		return false
+	}
+	return true
 }
 
 // hashIPShort retourne un hash court pour audit logs sans leak IP brute.

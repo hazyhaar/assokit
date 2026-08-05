@@ -64,6 +64,10 @@ func validateBearerToken(ctx context.Context, db *sql.DB, token string) (*tokenI
 }
 
 // bearerBruteForceGuard comptabilise les échecs Bearer par IP.
+//
+// Limite assumée (H3) : in-memory, non partagé entre instances. En multi-
+// instance (load-balancer), un attaquant peut contourner en répartissant les
+// requêtes sur plusieurs instances. Migration prévue vers Redis/SQLite partagé.
 type bearerBruteForceGuard struct {
 	mu      sync.Mutex
 	buckets map[string]*failBucket

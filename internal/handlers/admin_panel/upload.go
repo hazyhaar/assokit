@@ -130,6 +130,13 @@ func HandleUploadFile(deps app.AppDeps, brandingDir string) http.HandlerFunc {
 			return
 		}
 
+		// Sanitiser le SVG au moment de l'upload : retire <script>, on* handlers,
+		// javascript: URLs. Content-Disposition:attachment côté serveur est la
+		// défense secondaire ; la sanitisation au vol lectif élimine la source.
+		if mime == "image/svg+xml" {
+			content = sanitizeSVG(content)
+		}
+
 		hash := sha256.Sum256(content)
 		prefix := fmt.Sprintf("%x", hash[:4])
 		origName := sanitizeFilename(header.Filename)

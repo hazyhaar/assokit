@@ -48,7 +48,7 @@ templ FeedbackListPage(rows []admin.FeedbackRow, pag admin.PaginationInfo, filte
 }
 
 templ fbSelectStatus(filter admin.FeedbackFilter) {
-	<select name="status" onchange="this.form.submit()" class="w-full px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm">
+	<select name="status" data-auto-submit class="w-full px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm">
 		<option value="" selected?={ filter.Status == "" }>Tous</option>
 		<option value="pending" selected?={ filter.Status == "pending" }>En attente</option>
 		<option value="triaged" selected?={ filter.Status == "triaged" }>Traité</option>

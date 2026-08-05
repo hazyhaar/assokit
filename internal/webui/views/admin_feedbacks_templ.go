@@ -170,7 +170,7 @@ func fbSelectStatus(filter admin.FeedbackFilter) templ.Component {
 			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<select name=\"status\" onchange=\"this.form.submit()\" class=\"w-full px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm\"><option value=\"\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<select name=\"status\" data-auto-submit class=\"w-full px-space-md py-space-sm rounded-md border border-border bg-surface text-ink text-sm\"><option value=\"\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

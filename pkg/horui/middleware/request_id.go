@@ -4,7 +4,9 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"net/http"
 	"strings"
@@ -13,6 +15,8 @@ import (
 )
 
 type requestIDKey struct{}
+
+type nonceKey struct{}
 
 // RequestID middleware : génère un UUID v4 par requête, l'injecte dans ctx + response header.
 // Le header X-Request-ID entrant n'est jamais utilisé (trust serveur uniquement, pas client).
@@ -38,6 +42,24 @@ func RequestIDFromContext(ctx context.Context) string {
 // et à l'instrumentation interne (ex: jobs background sans HTTP request).
 func WithRequestID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, requestIDKey{}, id)
+}
+
+// generateNonce produce un nonce aléatoire base64 (18 octets = 24 chars) pour CSP.
+func generateNonce() string {
+	b := make([]byte, 18)
+	_, _ = rand.Read(b)
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// NonceFromContext récupère le nonce CSP injecté par SecurityHeadersWith.
+func NonceFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(nonceKey{}).(string)
+	return v
+}
+
+// WithNonce injecte un nonce CSP explicite dans le contexte. Réservé aux tests.
+func WithNonce(ctx context.Context, nonce string) context.Context {
+	return context.WithValue(ctx, nonceKey{}, nonce)
 }
 
 // HashEmail retourne un hash SHA256 court (16 chars hex) d'un email pour les logs.
@@ -84,14 +106,16 @@ func (e CSPExtra) IsZero() bool {
 // ex. upgrade-insecure-requests).
 type cspDirective struct{ name, value string }
 
-// baseCSPDirectives est la CSP par défaut durcie, sous forme ordonnée. Sa
-// sérialisation (buildCSP(CSPExtra{})) est garantie octet-pour-octet identique à
-// la chaîne historique par le test de non-régression TestDefaultCSPUnchanged.
+// baseCSPDirectives est la CSP par défaut durcie, sous forme ordonnée. La
+// directive script-src est complétée per-request avec un nonce (cf. buildCSP) :
+// le nonce remplace 'unsafe-inline' pour contenir les scripts inline autorisés.
+// style-src garde 'unsafe-inline' : les styles inline ( attributs style= ) sont
+// défense-en-profondeur limités (pas d'exécution JS via style).
 var baseCSPDirectives = []cspDirective{
 	{"default-src", "'self'"},
 	{"img-src", "'self' data: https:"},
 	{"frame-src", "'self' https://*.helloasso.com https://www.helloasso.com"},
-	{"script-src", "'self' 'unsafe-inline'"},
+	{"script-src", "'self'"},
 	{"style-src", "'self' 'unsafe-inline'"},
 	{"font-src", "'self' data:"},
 	{"connect-src", "'self'"},
@@ -102,11 +126,22 @@ var baseCSPDirectives = []cspDirective{
 	{"upgrade-insecure-requests", ""},
 }
 
-// buildCSP sérialise la CSP par défaut augmentée des sources additionnelles. Sur
-// une extension zéro, retourne exactement la CSP par défaut (aucune divergence).
-func buildCSP(extra CSPExtra) string {
+// buildCSPWithNonce sérialise la CSP par défaut augmentée des sources additionnelles
+// et d'un nonce pour script-src. Le nonce remplace 'unsafe-inline' : seuls les
+// scripts portant le nonce (inline) ou provenant de 'self' (externe) sont autorisés.
+// 'strict-dynamic' permet aux scripts nonceés de charger dynamiquement d'autres scripts.
+func buildCSPWithNonce(extra CSPExtra, nonce string) string {
 	dirs := make([]cspDirective, len(baseCSPDirectives))
 	copy(dirs, baseCSPDirectives)
+
+	// Injecter le nonce dans script-src : 'self' 'nonce-{nonce}' 'strict-dynamic'
+	if nonce != "" {
+		for i := range dirs {
+			if dirs[i].name == "script-src" {
+				dirs[i].value = "'self' 'nonce-" + nonce + "' 'strict-dynamic'"
+			}
+		}
+	}
 
 	appendSrc := func(name string, srcs []string) {
 		if len(srcs) == 0 {
@@ -157,9 +192,11 @@ func SecurityHeaders(next http.Handler) http.Handler {
 // Content-Security-Policy : cf. baseCSPDirectives (durcissement standard) augmentée
 // des sources de extra (script/style/connect/img/worker) pour l'instance.
 func SecurityHeadersWith(extra CSPExtra) func(http.Handler) http.Handler {
-	csp := buildCSP(extra)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			nonce := generateNonce()
+			ctx := WithNonce(r.Context(), nonce)
+			csp := buildCSPWithNonce(extra, nonce)
 			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -169,7 +206,7 @@ func SecurityHeadersWith(extra CSPExtra) func(http.Handler) http.Handler {
 			if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 			}
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

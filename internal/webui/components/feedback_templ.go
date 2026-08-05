@@ -16,6 +16,7 @@ import (
 	"net/url"
 
 	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // FeedbackWidget rend le bouton FAB + modal vide. Injecté dans webui.Shell.
@@ -47,13 +48,13 @@ func FeedbackWidget(pageURL, pageTitle string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue("/feedback/form?url=" + url.QueryEscape(pageURL) + "&title=" + url.QueryEscape(pageTitle))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 16, Col: 101}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 17, Col: 101}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" hx-target=\"#feedback-modal\" hx-swap=\"innerHTML\" onclick=\"document.getElementById('feedback-modal').removeAttribute('hidden')\" aria-label=\"Feedback\" type=\"button\">Feedback</button><div id=\"feedback-modal\" class=\"fixed bottom-space-lg right-space-lg z-50 w-80 bg-surface border border-border rounded-md shadow-lg p-space-md\" hidden role=\"dialog\" aria-modal=\"true\" aria-label=\"Formulaire de feedback\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" hx-target=\"#feedback-modal\" hx-swap=\"innerHTML\" data-feedback-fab aria-label=\"Feedback\" type=\"button\">Feedback</button><div id=\"feedback-modal\" class=\"fixed bottom-space-lg right-space-lg z-50 w-80 bg-surface border border-border rounded-md shadow-lg p-space-md\" hidden role=\"dialog\" aria-modal=\"true\" aria-label=\"Formulaire de feedback\"></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -90,7 +91,7 @@ func FeedbackForm(pageURL, pageTitle, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrfToken)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 37, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 38, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
@@ -103,7 +104,7 @@ func FeedbackForm(pageURL, pageTitle, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(pageURL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 38, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 39, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 		if templ_7745c5c3_Err != nil {
@@ -116,13 +117,13 @@ func FeedbackForm(pageURL, pageTitle, csrfToken string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(pageTitle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 39, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 40, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"> <input type=\"text\" name=\"website\" tabindex=\"-1\" autocomplete=\"off\" style=\"display:none\" aria-hidden=\"true\"><div class=\"flex flex-col gap-space-xs\"><label for=\"feedback-message\" class=\"text-sm font-medium text-ink\">Dites-nous ce que vous pensez de cette page</label> <textarea id=\"feedback-message\" name=\"message\" required minlength=\"5\" maxlength=\"2000\" placeholder=\"Dites-nous ce que vous pensez de cette page\" rows=\"4\" class=\"w-full rounded-md border border-border bg-surface text-ink px-space-md py-space-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent\" oninput=\"document.getElementById('fb-count').textContent=this.value.length+' / 2000'\"></textarea> <span id=\"fb-count\" class=\"text-xs text-ink-faint\" aria-live=\"polite\">0 / 2000</span></div><div class=\"flex items-center gap-space-sm\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"> <input type=\"text\" name=\"website\" tabindex=\"-1\" autocomplete=\"off\" style=\"display:none\" aria-hidden=\"true\"><div class=\"flex flex-col gap-space-xs\"><label for=\"feedback-message\" class=\"text-sm font-medium text-ink\">Dites-nous ce que vous pensez de cette page</label> <textarea id=\"feedback-message\" name=\"message\" required minlength=\"5\" maxlength=\"2000\" placeholder=\"Dites-nous ce que vous pensez de cette page\" rows=\"4\" class=\"w-full rounded-md border border-border bg-surface text-ink px-space-md py-space-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent\"></textarea> <span id=\"fb-count\" class=\"text-xs text-ink-faint\" aria-live=\"polite\">0 / 2000</span></div><div class=\"flex items-center gap-space-sm\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -130,7 +131,7 @@ func FeedbackForm(pageURL, pageTitle, csrfToken string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templux.Button("Annuler", "secondary", templ.Attributes{"onclick": "document.getElementById('feedback-modal').setAttribute('hidden','')"}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templux.Button("Annuler", "secondary", templ.Attributes{"data-feedback-cancel": ""}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -164,7 +165,20 @@ func FeedbackSuccess() templ.Component {
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div role=\"status\" class=\"feedback-success rounded-md border border-success bg-surface text-success px-space-md py-space-sm text-sm\">Merci, votre avis a été enregistré.</div><style>.feedback-success{animation:fbFadeOut .5s 3s forwards}@keyframes fbFadeOut{to{opacity:0}}</style><script>setTimeout(function(){var m=document.getElementById(\"feedback-modal\");if(m){m.setAttribute(\"hidden\",\"\");m.innerHTML=\"\";}},3500);</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div role=\"status\" class=\"feedback-success rounded-md border border-success bg-surface text-success px-space-md py-space-sm text-sm\">Merci, votre avis a été enregistré.</div><style>.feedback-success{animation:fbFadeOut .5s 3s forwards}@keyframes fbFadeOut{to{opacity:0}}</style><script nonce=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var8 string
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(middleware.NonceFromContext(ctx))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/components/feedback.templ`, Line: 76, Col: 49}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">setTimeout(function(){var m=document.getElementById(\"feedback-modal\");if(m){m.setAttribute(\"hidden\",\"\");m.innerHTML=\"\";}},3500);</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

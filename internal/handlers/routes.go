@@ -219,12 +219,10 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	r.Post("/login", handleLoginSubmit(deps))
 	r.Get("/register", handleRegisterPage(deps))
 	r.Post("/register", handleRegisterSubmit(deps))
-	// Le lien d'en-tête (shell.templ) est une ancre GET ; accepter GET ET POST
-	// pour que la déconnexion fonctionne au clic. handleLogout ne fait qu'effacer
-	// le cookie de session (idempotent, sans effet de bord) : le GET est sûr ici.
-	// La déconnexion par GET expose au plus à une gêne (logout-CSRF, sévérité
-	// faible) ; un formulaire POST dans le shell reste la voie propre ultérieure.
-	r.Get("/logout", handleLogout)
+	// Logout : POST seulement (anti-CSRF). Le logout par GET expose à un
+	// logout-CSRF (ex. <img src="/logout"> sur un site tiers) ; la déconnexion
+	// est une action de changement d'état et doit passer par POST + token CSRF.
+	// Le formulaire est rendu par csrf.js qui injecte automatiquement le token.
 	r.Post("/logout", handleLogout)
 	// Password reset flow (M-ASSOKIT-IMPL-PASSWORD-RESET-FLOW)
 	r.Get("/forgot", handleForgotForm(deps))
@@ -431,6 +429,11 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	issuer := deps.Config.BaseURL
 	if issuer == "" {
 		issuer = "http://localhost:8080"
+	}
+	// Fail-fast : en prod, un issuer HTTP expose les tokens OAuth au réseau
+	// (sniffing, rejeu). Le mode HTTP est autorisé uniquement en dev/localhost.
+	if deps.Config.Prod && strings.HasPrefix(issuer, "http://") && !deps.Config.OAuthAllowInsecure {
+		return fmt.Errorf("MountRoutes: BaseURL http:// interdit en production (activer HTTPS ou définir OAUTH_ALLOW_INSECURE=true pour tests locaux)")
 	}
 	signingKey := deps.Config.CookieSecret
 	if len(deps.Config.OAuthSigningKey) > 0 {

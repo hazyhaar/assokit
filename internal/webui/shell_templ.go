@@ -233,7 +233,7 @@ func shellBase(title string, bodyClass string, extraHead templ.Component, mainCo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<style>\n\t\t\t\t[data-shell-container]{max-width:1200px;margin-inline:auto;width:100%}\n\t\t\t\t[data-shell-container-wide]{width:100%;max-width:none;margin-inline:auto}\n\t\t\t\t[data-nav-desktop-user]{display:none}\n\t\t\t\t@media (min-width:40rem){\n\t\t\t\t\t[data-nav-desktop-user]{display:flex}\n\t\t\t\t\t[data-nav-drawer-trigger],[data-nav-drawer-panel],[data-nav-drawer-overlay]{display:none}\n\t\t\t\t}\n\t\t\t\t[data-cms-prose]{line-height:1.5}\n\t\t\t\t[data-cms-prose] h2{font-size:1.5rem;font-weight:600;color:var(--text,#2b1d0e);margin:1.5em 0 .5em}\n\t\t\t\t[data-cms-prose] h3{font-size:1.25rem;font-weight:600;color:var(--text,#2b1d0e);margin:1.25em 0 .5em}\n\t\t\t\t[data-cms-prose] p{margin:0 0 1em}\n\t\t\t\t[data-cms-prose] ul{list-style:disc;padding-left:1.5em;margin:0 0 1em}\n\t\t\t\t[data-cms-prose] ol{list-style:decimal;padding-left:1.5em;margin:0 0 1em}\n\t\t\t\t[data-cms-prose] li{margin:.25em 0}\n\t\t\t\t[data-cms-prose] a{color:var(--accent,#8a5a1c);text-decoration:underline}\n\t\t\t\t[data-cms-prose] a:hover{color:var(--primary,#704818)}\n\t\t\t</style><link rel=\"stylesheet\" href=\"/static/css/templux/base.css\"><link rel=\"stylesheet\" href=\"/static/css/templux/preset-assokit.css\"><link rel=\"stylesheet\" href=\"/static/css/templux/templux.css\"><script src=\"/static/js/htmx.min.js\" defer></script><script src=\"/static/js/csrf.js\" defer></script><script src=\"/static/js/helloasso_popup.js\" defer></script><script src=\"/static/js/forum.js\" defer></script><script src=\"/static/js/dropdown.js\" defer></script><script src=\"/static/js/navdrawer.js\" defer></script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<style>\n\t\t\t\t[data-shell-container]{max-width:1200px;margin-inline:auto;width:100%}\n\t\t\t\t[data-shell-container-wide]{width:100%;max-width:none;margin-inline:auto}\n\t\t\t\t[data-nav-desktop-user]{display:none}\n\t\t\t\t@media (min-width:40rem){\n\t\t\t\t\t[data-nav-desktop-user]{display:flex}\n\t\t\t\t\t[data-nav-drawer-trigger],[data-nav-drawer-panel],[data-nav-drawer-overlay]{display:none}\n\t\t\t\t}\n\t\t\t\t[data-cms-prose]{line-height:1.5}\n\t\t\t\t[data-cms-prose] h2{font-size:1.5rem;font-weight:600;color:var(--text,#2b1d0e);margin:1.5em 0 .5em}\n\t\t\t\t[data-cms-prose] h3{font-size:1.25rem;font-weight:600;color:var(--text,#2b1d0e);margin:1.25em 0 .5em}\n\t\t\t\t[data-cms-prose] p{margin:0 0 1em}\n\t\t\t\t[data-cms-prose] ul{list-style:disc;padding-left:1.5em;margin:0 0 1em}\n\t\t\t\t[data-cms-prose] ol{list-style:decimal;padding-left:1.5em;margin:0 0 1em}\n\t\t\t\t[data-cms-prose] li{margin:.25em 0}\n\t\t\t\t[data-cms-prose] a{color:var(--accent,#8a5a1c);text-decoration:underline}\n\t\t\t\t[data-cms-prose] a:hover{color:var(--primary,#704818)}\n\t\t\t</style><link rel=\"stylesheet\" href=\"/static/css/templux/base.css\"><link rel=\"stylesheet\" href=\"/static/css/templux/preset-assokit.css\"><link rel=\"stylesheet\" href=\"/static/css/templux/templux.css\"><script src=\"/static/js/htmx.min.js\" defer></script><script src=\"/static/js/csrf.js\" defer></script><script src=\"/static/js/helloasso_popup.js\" defer></script><script src=\"/static/js/forum.js\" defer></script><script src=\"/static/js/app.js\" defer></script><script src=\"/static/js/dropdown.js\" defer></script><script src=\"/static/js/navdrawer.js\" defer></script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -430,7 +430,7 @@ func shellHeader() templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue("/static/" + theme.Brand().LogoPath)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 122, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 123, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 			if templ_7745c5c3_Err != nil {
@@ -443,7 +443,7 @@ func shellHeader() templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(theme.Brand().Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 122, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 123, Col: 78}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 			if templ_7745c5c3_Err != nil {
@@ -461,7 +461,7 @@ func shellHeader() templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(theme.Brand().Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 124, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 125, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -537,7 +537,7 @@ func shellNavList() templ.Component {
 			var templ_7745c5c3_Var24 templ.SafeURL
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Slug))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 146, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 147, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -550,7 +550,7 @@ func shellNavList() templ.Component {
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 146, Col: 123}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 147, Col: 123}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -679,7 +679,7 @@ func shellDrawerUserBlock() templ.Component {
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(u.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 197, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 198, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
@@ -695,20 +695,20 @@ func shellDrawerUserBlock() templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<li><a href=\"/logout\" class=\"text-sm text-ink-muted hover:text-accent no-underline\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<li><form method=\"POST\" action=\"/logout\" class=\"inline\"><button type=\"submit\" class=\"text-sm text-ink-muted hover:text-accent no-underline\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var30 string
 			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("button.logout", "Déconnexion"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 204, Col: 129}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 207, Col: 130}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</a></li></ul>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</button></form></li></ul>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -750,7 +750,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(theme.Brand().Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 214, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 219, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -768,7 +768,7 @@ func shellFooter() templ.Component {
 			var templ_7745c5c3_Var33 string
 			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(line)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 217, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 222, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 			if templ_7745c5c3_Err != nil {
@@ -786,7 +786,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.charte", "Charte"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 219, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 224, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -799,7 +799,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.faq", "FAQ"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 220, Col: 80}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 225, Col: 80}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -812,7 +812,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.lexique", "Lexique"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 221, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 226, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -825,7 +825,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.contact", "Contact"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 222, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 227, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
@@ -838,7 +838,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var38 string
 		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.legal", "Mentions légales"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 223, Col: 109}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 228, Col: 109}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 		if templ_7745c5c3_Err != nil {
@@ -851,7 +851,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var39 string
 		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.cgu", "Conditions générales d'utilisation"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 224, Col: 113}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 229, Col: 113}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 		if templ_7745c5c3_Err != nil {
@@ -864,7 +864,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var40 string
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.privacy", "Données personnelles"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 225, Col: 119}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 230, Col: 119}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
@@ -877,7 +877,7 @@ func shellFooter() templ.Component {
 		var templ_7745c5c3_Var41 string
 		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(theme.T("link.opensource", "Site propulsé par assokit (code source ouvert)"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 226, Col: 193}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webui/shell.templ`, Line: 231, Col: 193}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {

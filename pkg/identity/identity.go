@@ -63,6 +63,13 @@ func (s *Store) Register(ctx context.Context, email, password, displayName strin
 	return u, nil
 }
 
+// dummyBcryptHash : hash bcrypt factice (cost=12) utilisé pour égaler le temps
+// de réponse lorsqu'un email n'existe pas. Sans cela, un email absent retourne
+// immédiatement alors qu'un email présent déclenche ~100ms de bcrypt, permettant
+// l'énumeration par timing différentiel. Le hash est valide mais ne correspond
+// à aucun mot de passe connu.
+var dummyBcryptHash = "$2a$12$0123456789012345678901234567890123456789012345678901234"
+
 // Authenticate vérifie email+password et retourne l'utilisateur.
 func (s *Store) Authenticate(ctx context.Context, email, password string) (*User, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
@@ -74,6 +81,9 @@ func (s *Store) Authenticate(ctx context.Context, email, password string) (*User
 		`SELECT id, password_hash, display_name, is_active, created_at FROM users WHERE email=?`, email,
 	).Scan(&id, &hash, &displayName, &isActive, &createdAt)
 	if errors.Is(err, sql.ErrNoRows) {
+		// Email inexistant : exécuter un bcrypt factice pour égaler le timing
+		// avec le cas email-existant (anti-enumeration par timing).
+		_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(password))
 		return nil, ErrInvalidCredentials
 	}
 	if err != nil {

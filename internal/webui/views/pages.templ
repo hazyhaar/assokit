@@ -5,6 +5,7 @@ package views
 import (
 	pagescomp "github.com/hazyhaar/assokit/internal/webui/components/pages"
 	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 	"github.com/hazyhaar/assokit/pkg/horui/theme"
 	"github.com/hazyhaar/assokit/pkg/identity"
 	tree "github.com/hazyhaar/nodetree"
@@ -369,8 +370,9 @@ templ passwordEyeField(label, name, id string) {
 }
 
 // togglePasswordScript : fonction JS de bascule visibilité, incluse une fois par page.
+// Le nonce CSP est requis (cf. middleware.NonceFromContext) pour exécuter ce script inline.
 templ togglePasswordScript() {
-	<script>
+	<script nonce={ middleware.NonceFromContext(ctx) }>
 		document.addEventListener('click', function (e) {
 			var btn = e.target.closest('[data-toggle-pw]');
 			if (!btn) return;

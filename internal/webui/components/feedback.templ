@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/hazyhaar/assokit/internal/webui/templux"
+	"github.com/hazyhaar/assokit/pkg/horui/middleware"
 )
 
 // FeedbackWidget rend le bouton FAB + modal vide. Injecté dans webui.Shell.
@@ -16,7 +17,7 @@ templ FeedbackWidget(pageURL, pageTitle string) {
 			hx-get={ "/feedback/form?url=" + url.QueryEscape(pageURL) + "&title=" + url.QueryEscape(pageTitle) }
 			hx-target="#feedback-modal"
 			hx-swap="innerHTML"
-			onclick="document.getElementById('feedback-modal').removeAttribute('hidden')"
+			data-feedback-fab
 			aria-label="Feedback"
 			type="button"
 		>Feedback</button>
@@ -56,13 +57,12 @@ templ FeedbackForm(pageURL, pageTitle, csrfToken string) {
 				placeholder="Dites-nous ce que vous pensez de cette page"
 				rows="4"
 				class="w-full rounded-md border border-border bg-surface text-ink px-space-md py-space-sm text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-				oninput="document.getElementById('fb-count').textContent=this.value.length+' / 2000'"
 			></textarea>
 			<span id="fb-count" class="text-xs text-ink-faint" aria-live="polite">0 / 2000</span>
 		</div>
 		<div class="flex items-center gap-space-sm">
 			@templux.Button("Envoyer", "primary", templ.Attributes{"type": "submit"})
-			@templux.Button("Annuler", "secondary", templ.Attributes{"onclick": "document.getElementById('feedback-modal').setAttribute('hidden','')"})
+			@templux.Button("Annuler", "secondary", templ.Attributes{"data-feedback-cancel": ""})
 		</div>
 	</form>
 }
@@ -73,5 +73,5 @@ templ FeedbackSuccess() {
 		Merci, votre avis a été enregistré.
 	</div>
 	<style>.feedback-success{animation:fbFadeOut .5s 3s forwards}@keyframes fbFadeOut{to{opacity:0}}</style>
-	<script>setTimeout(function(){var m=document.getElementById("feedback-modal");if(m){m.setAttribute("hidden","");m.innerHTML="";}},3500);</script>
+	<script nonce={ middleware.NonceFromContext(ctx) }>setTimeout(function(){var m=document.getElementById("feedback-modal");if(m){m.setAttribute("hidden","");m.innerHTML="";}},3500);</script>
 }

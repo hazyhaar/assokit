@@ -7,8 +7,9 @@
 package templux
 
 type DropdownItem struct {
-	Label string
-	Href  string
+	Label  string
+	Href   string
+	Method string // "POST" → render un formulaire (anti-CSRF) ; vide → <a href>
 }
 
 templ Dropdown(label string, items []DropdownItem, attrs templ.Attributes) {
@@ -32,11 +33,19 @@ templ Dropdown(label string, items []DropdownItem, attrs templ.Attributes) {
 		>
 			for _, item := range items {
 				<li role="none">
-					<a
-						role="menuitem"
-						href={ templ.SafeURL(item.Href) }
-						class="block px-space-md py-space-sm text-sm text-ink hover:bg-surface-muted"
-					>{ item.Label }</a>
+					if item.Method == "POST" {
+						<form method="POST" action={ templ.SafeURL(item.Href) } class="inline">
+							<button type="submit" role="menuitem" class="block w-full text-left px-space-md py-space-sm text-sm text-ink hover:bg-surface-muted">
+								{ item.Label }
+							</button>
+						</form>
+					} else {
+						<a
+							role="menuitem"
+							href={ templ.SafeURL(item.Href) }
+							class="block px-space-md py-space-sm text-sm text-ink hover:bg-surface-muted"
+						>{ item.Label }</a>
+					}
 				</li>
 			}
 		</ul>

@@ -625,8 +625,12 @@ func New(opts Options) (*App, error) {
 // et deviendrait un XSS stocké s'il était rendu inline. Content-Disposition:attachment
 // fait télécharger le fichier au lieu de l'exécuter. Les images raster (png/jpg/…)
 // restent servies inline car référencées en <img>. Durcissement audité 2026-06-13.
+//
+// La couche safeFileSystem ajoute une protection explicite contre le path traversal :
+// toute requête dont le path nettoie vers un élément contenant ".." ou "/" absolu
+// est rejetée (404), indépendamment du nettoyage interne de http.FileServer.
 func uploadsSafeHandler(dir http.FileSystem) http.Handler {
-	fs := http.FileServer(dir)
+	fs := http.FileServer(safeFileSystem{root: dir})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		lower := strings.ToLower(r.URL.Path)
 		for _, ext := range []string{".svg", ".svgz", ".html", ".htm", ".xml", ".xhtml"} {
@@ -637,6 +641,20 @@ func uploadsSafeHandler(dir http.FileSystem) http.Handler {
 		}
 		fs.ServeHTTP(w, r)
 	})
+}
+
+// safeFileSystem wrapper http.FileSystem qui rejette tout accès contenant ".."
+// dans le path nettoyé, même si http.Dir le protège déjà en interne. Defense-in-depth.
+type safeFileSystem struct {
+	root http.FileSystem
+}
+
+func (s safeFileSystem) Open(name string) (http.File, error) {
+	cleaned := filepath.Clean(name)
+	if strings.Contains(cleaned, "..") {
+		return nil, os.ErrNotExist
+	}
+	return s.root.Open(name)
 }
 
 // ListenAndServe démarre le serveur HTTP. Bloquant. Honore ctx.Done() avec

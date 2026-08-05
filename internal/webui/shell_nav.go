@@ -17,8 +17,9 @@ func userDropdownItems(u *identity.User) []templux.DropdownItem {
 		items = append(items, templux.DropdownItem{Label: "Gestion", Href: "/admin"})
 	}
 	items = append(items, templux.DropdownItem{
-		Label: theme.T("button.logout", "Déconnexion"),
-		Href:  "/logout",
+		Label:  theme.T("button.logout", "Déconnexion"),
+		Href:   "/logout",
+		Method: "POST",
 	})
 	return items
 }
