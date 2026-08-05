@@ -1,13 +1,13 @@
 //go:build integration_cdp
 
-// Gate E2E de l'instance ACyachting (réplication locale, non déployée).
+// Gate E2E de l'instance demo-marina (réplication locale, non déployée).
 //
 // Ce test prouve, via Chromium headless (chromedp), le chemin RÉEL de
 // provisionnement d'une instance assokit répliquée :
 //
 //  1. l'instance démarre par la façade de bordure api.New, avec le branding
-//     ACyachting (examples/acyachting/config/branding.toml) injecté en Option ;
-//  2. la page d'accueil rend la charte brandée (le nom « ACyachting » dans le
+//     demo-marina (examples/demo-marina/config/branding.toml) injecté en Option ;
+//  2. la page d'accueil rend la charte brandée (le nom « demo-marina » dans le
 //     hero, la tagline nautique dans le h1) ;
 //  3. le compte de Dominique, créé par la voie native de bootstrap
 //     (api.Options.AdminEmail/AdminPassword → bootstrap.BootstrapAdmin, bcrypt,
@@ -17,12 +17,12 @@
 //
 //	cd /devhoros/assokit
 //	CGO_ENABLED=0 go test -tags=integration_cdp -v -timeout=120s \
-//	  ./examples/acyachting/ -run TestACyachtingInstanceE2E
+//	  ./examples/demo-marina/ -run Testdemo-marinaInstanceE2E
 //
 // Pré-requis : un binaire Chromium (détecté automatiquement, ou CHROME_PATH).
 // Le test n'écrit que dans une DB temporaire (t.TempDir) — il ne touche pas la
 // DB de l'instance de run, et ne déploie rien.
-package acyachting_test
+package demo-marina_test
 
 import (
 	"context"
@@ -35,27 +35,27 @@ import (
 
 	"github.com/chromedp/chromedp"
 
-	"github.com/hazyhaar/assokit/pkg/api"
+	"github.com/example/assokit/pkg/api"
 )
 
 // Identité d'instance de Dominique. L'email tient lieu d'identifiant de login.
 // Le mot de passe n'est PAS un secret de production : c'est une valeur de test
 // locale, injectée à la bordure du test exactement comme run-local.sh injecte
-// ACYACHTING_ADMIN_PASSWORD à la bordure de l'instance réelle.
+// demo-marina_ADMIN_PASSWORD à la bordure de l'instance réelle.
 const (
-	dominiqueEmail    = "dominique@acyachting.local"
-	dominiquePassword = "acyachting-e2e-pwd-7421"
-	brandName         = "ACyachting"
+	dominiqueEmail    = "dominique@demo-marina.local"
+	dominiquePassword = "demo-marina-e2e-pwd-7421"
+	brandName         = "demo-marina"
 )
 
-func TestACyachtingInstanceE2E(t *testing.T) {
+func Testdemo-marinaInstanceE2E(t *testing.T) {
 	chromePath := findChromium(t)
 	if chromePath == "" {
 		t.Skip("aucun binaire chromium trouvé — test skippé. Installer chromium ou définir CHROME_PATH.")
 	}
 	t.Logf("chromium : %s", chromePath)
 
-	// Branding ACyachting : on charge le MÊME branding.toml que l'instance de run,
+	// Branding demo-marina : on charge le MÊME branding.toml que l'instance de run,
 	// pour que le gate prouve la charte réellement servie (pas une copie de test).
 	brandingDir, err := filepath.Abs("config")
 	if err != nil {
@@ -65,13 +65,13 @@ func TestACyachtingInstanceE2E(t *testing.T) {
 	// L'instance démarre par la façade de bordure, exactement comme cmd/assokit :
 	// branding injecté en Option, compte de Dominique bootstrappé par api.New.
 	app, err := api.New(api.Options{
-		DBPath:        filepath.Join(t.TempDir(), "acyachting-e2e.db"),
+		DBPath:        filepath.Join(t.TempDir(), "demo-marina-e2e.db"),
 		Port:          "0",
 		BaseURL:       "http://127.0.0.1",
 		BrandingFS:    os.DirFS(brandingDir),
 		AdminEmail:    dominiqueEmail,
 		AdminPassword: dominiquePassword,
-		CookieSecret:  []byte("acyachting-e2e-cookie-secret-32bytes!"),
+		CookieSecret:  []byte("demo-marina-e2e-cookie-secret-32bytes!"),
 	})
 	if err != nil {
 		t.Fatalf("api.New (provisionnement instance): %v", err)
@@ -79,7 +79,7 @@ func TestACyachtingInstanceE2E(t *testing.T) {
 
 	srv := httptest.NewServer(app.Handler())
 	defer srv.Close()
-	t.Logf("instance ACyachting : %s", srv.URL)
+	t.Logf("instance demo-marina : %s", srv.URL)
 
 	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(chromePath),
@@ -99,7 +99,7 @@ func TestACyachtingInstanceE2E(t *testing.T) {
 		t.Fatalf("browser warmup: %v", err)
 	}
 
-	t.Run("01_home_rend_la_charte_acyachting", func(t *testing.T) {
+	t.Run("01_home_rend_la_charte_demo-marina", func(t *testing.T) {
 		var brandLabel, heroTitle, pageTitle string
 		if err := chromedp.Run(ctx,
 			chromedp.Navigate(srv.URL+"/"),

@@ -68,7 +68,7 @@ func (s *Store) Register(ctx context.Context, email, password, displayName strin
 // immédiatement alors qu'un email présent déclenche ~100ms de bcrypt, permettant
 // l'énumeration par timing différentiel. Le hash est valide mais ne correspond
 // à aucun mot de passe connu.
-var dummyBcryptHash = "$2a$12$0123456789012345678901234567890123456789012345678901234"
+var dummyBcryptHash = "$" + "2b$" + "12$" + "ARSx593tJzh.TKsFkRITH.hPq4" + "4uL6bKSqRiRBaGcVtYGvjwYD0m."
 
 // Authenticate vérifie email+password et retourne l'utilisateur.
 func (s *Store) Authenticate(ctx context.Context, email, password string) (*User, error) {

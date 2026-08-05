@@ -11,7 +11,7 @@ import (
 
 	"io/fs"
 
-	"github.com/hazyhaar/assokit/pkg/api"
+	"github.com/example/assokit/pkg/api"
 )
 
 //go:embed config/*

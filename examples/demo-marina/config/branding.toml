@@ -1,4 +1,4 @@
-# Instance ACyachting — communauté ACyachting (courtage et plaisance nautique).
+# Instance demo-marina — communauté demo-marina (courtage et plaisance nautique).
 # Charge à la bordure via BRANDING_DIR ; le cœur assokit reste tenant-agnostic
 # (aucune lecture d'environnement dans pkg/api — tout vient des Options).
 # Charte nautique sobre posée sur les tokens sémantiques templux (DESIGN.md) :
@@ -6,7 +6,7 @@
 # preset-assokit.css les consomme via var(<branding>, <défaut>). Aucune
 # divergence de stack : personnalisation dans le cadre templux vendored.
 
-name = "ACyachting"
+name = "demo-marina"
 tagline = "Communauté nautique — courtage, plaisance et entretien des bateaux"
 base_url = "http://127.0.0.1:8092"
 locale = "fr-FR"
@@ -30,7 +30,7 @@ text      = "#16242e"
 
 [footer]
 lines = [
-  "ACyachting",
+  "demo-marina",
   "Communauté nautique",
 ]
 

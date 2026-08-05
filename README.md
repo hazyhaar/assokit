@@ -116,4 +116,4 @@ for the contribution workflow.
 
 [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/).
 See [LICENSE](LICENSE). Any noncommercial use is free; **any commercial use
-requires a separate agreement** with the licensor — contact contact@hazyhaar.fr.
+requires a separate agreement** with the licensor — contact licensing@example.com.
