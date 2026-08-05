@@ -12,13 +12,14 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: '1.26.x'
           check-latest: true
 
+      # nodetree is vendored at ./nodetree (replace in go.mod) — self-contained release
       - name: Build (CGO disabled, single static binary)
         run: CGO_ENABLED=0 go build ./...
 
@@ -26,6 +27,10 @@ jobs:
         run: go vet ./...
 
       - name: Test
+        run: CGO_ENABLED=0 go test ./...
+
+      - name: Test nodetree module
+        working-directory: nodetree
         run: CGO_ENABLED=0 go test ./...
 
       - name: Test with race detector

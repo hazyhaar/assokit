@@ -134,4 +134,4 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace github.com/hazyhaar/nodetree => ../nodetree
+replace github.com/hazyhaar/nodetree => ./nodetree
