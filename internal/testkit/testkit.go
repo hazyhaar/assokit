@@ -1,7 +1,7 @@
 // Package testkit fournit une instance assokit ephemere DEJA authentifiee
 // (compte admin), sans navigateur, pour les tests d'integration.
 //
-// Motivation : la voie de verification E2E native (examples/acyachting) exige
+// Motivation : la voie de verification E2E native (examples/demoapp) exige
 // un binaire Chromium et un parcours de login par formulaire. Pour un test qui
 // n'a besoin QUE d'un client HTTP porteur d'une session admin valide, ce detour
 // est couteux et fragile (faux 403, WAL orphelin, port squatte). Ce helper

@@ -19,7 +19,7 @@ type MetierTab struct {
 // AccountCard décrit une carte injectable dans un hub d'espace membre (ex.
 // /account/elevage). Miroir du hook AdminDashboardGroups (pkg/api/api.go) mais
 // pour l'espace membre : le core reste tenant-agnostic, il ne connaît aucune
-// route propre à une instance verticale (ex. GAFP) ; la bordure injecte ici les
+// route propre à une instance verticale (ex. DEMOAPP) ; la bordure injecte ici les
 // cartes qui relient ses sous-pages métier au hub socle. Rendu par le composant
 // accountCard existant (internal/webui/views/account.templ) — jamais de markup
 // écrit à la main dans la vue.

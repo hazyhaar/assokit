@@ -42,14 +42,14 @@ type AppDeps struct {
 	// DisabledModules : ensemble des slugs de module d'espace membre désactivés pour
 	// l'instance, injecté à la bordure (api.Options.DisabledModules). Nil/vide par
 	// défaut → tous les modules socle actifs (comportement historique). Une instance
-	// verticale (ex. GAFP) désactive ici un module socle (« conventions ») pour le
+	// verticale (ex. DEMOAPP) désactive ici un module socle (« conventions ») pour le
 	// remplacer par sa propre vue : les routes du module ne sont pas montées (404
 	// naturel) et ses cartes/liens ne sont pas rendus. Le core reste tenant-agnostic :
 	// il ne connaît que des slugs génériques, aucune identité d'instance.
 	DisabledModules map[string]bool
 
 	// ElevageExtraCards : cartes supplémentaires injectées dans le hub d'espace
-	// élevage (/account/elevage), fournies par la bordure (ex. GAFP relie ici ses
+	// élevage (/account/elevage), fournies par la bordure (ex. DEMOAPP relie ici ses
 	// sous-pages questions parcellaires / télédéclaration PAC / divergence). Vide
 	// par défaut → seules les cartes socle (entretien/problème/export PAC)
 	// s'affichent. Le core reste tenant-agnostic : il ne connaît aucune route

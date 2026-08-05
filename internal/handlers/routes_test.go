@@ -180,14 +180,14 @@ func okAction(id string) actions.Action {
 
 // TestRegisterActionsHook_AddsCustomActionToMCP : une action injectée par le
 // hook WithExtraActions est montée comme outil MCP (tools_count +1). C'est la
-// LLM-parity attendue par les produits consommateurs (ex. GAFP et ses actions
-// gafp.parcelle.*), sans modifier le core.
+// LLM-parity attendue par les produits consommateurs (ex. DEMOAPP et ses actions
+// demoapp.parcelle.*), sans modifier le core.
 func TestRegisterActionsHook_AddsCustomActionToMCP(t *testing.T) {
 	baseRouter, _ := newRouterForRouteTests(t)
 	base := fetchToolsCount(t, baseRouter)
 
 	hookRouter, _ := newRouterForRouteTests(t, handlers.WithExtraActions(func(reg *actions.Registry) error {
-		return reg.Add(okAction("gafp.test.ping"))
+		return reg.Add(okAction("demoapp.test.ping"))
 	}))
 	if got := fetchToolsCount(t, hookRouter); got != base+1 {
 		t.Errorf("tools_count = %d, attendu base+1 = %d (action custom non montée)", got, base+1)
@@ -196,11 +196,11 @@ func TestRegisterActionsHook_AddsCustomActionToMCP(t *testing.T) {
 	// Parité HTTP : la route admin de l'action injectée est enregistrée. Sans
 	// session admin, requireRBACAdmin refuse (401/403/302) — mais PAS 404, ce
 	// qui prouverait l'absence de route.
-	req := httptest.NewRequest(http.MethodGet, "/admin/actions/gafp.test.ping", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/actions/demoapp.test.ping", nil)
 	w := httptest.NewRecorder()
 	hookRouter.ServeHTTP(w, req)
 	if w.Code == http.StatusNotFound {
-		t.Errorf("GET /admin/actions/gafp.test.ping → 404 : route HTTP de l'action injectée non montée")
+		t.Errorf("GET /admin/actions/demoapp.test.ping → 404 : route HTTP de l'action injectée non montée")
 	}
 }
 
@@ -211,10 +211,10 @@ func TestRegisterActionsHook_DuplicateIDFailsLoud(t *testing.T) {
 	deps := newHookTestDeps(t)
 	r := chi.NewRouter()
 	err := handlers.MountRoutes(r, deps, handlers.WithExtraActions(func(reg *actions.Registry) error {
-		if e := reg.Add(okAction("gafp.dup")); e != nil {
+		if e := reg.Add(okAction("demoapp.dup")); e != nil {
 			return e
 		}
-		return reg.Add(okAction("gafp.dup")) // doublon → ErrDuplicateActionID
+		return reg.Add(okAction("demoapp.dup")) // doublon → ErrDuplicateActionID
 	}))
 	if err == nil {
 		t.Fatal("MountRoutes doit échouer sur ID dupliqué (fail-loud)")

@@ -198,7 +198,7 @@ func mountMCPEndpoint(r chi.Router, deps app.AppDeps, rbacSvc *svcrbac.Service, 
 	seeds.InitAll(reg)
 	seeds.InitSalonVisio(reg, vault)
 
-	// Hook bordure : un consommateur (ex. produit GAFP) injecte ses actions
+	// Hook bordure : un consommateur (ex. produit DEMOAPP) injecte ses actions
 	// métier dans le MÊME registre que les seeds core → route HTTP + outil MCP
 	// + seed de permission RBAC automatiques (LLM-parity). Fail-loud : un ID en
 	// doublon (collision avec une action core) remonte une erreur au boot.

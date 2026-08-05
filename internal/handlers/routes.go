@@ -34,7 +34,7 @@ type routeConfig struct {
 type RouteOption func(*routeConfig)
 
 // WithExtraActions injecte un hook qui reçoit le registre d'actions après les
-// seeds core, pour qu'un consommateur (ex. GAFP) ajoute ses actions métier
+// seeds core, pour qu'un consommateur (ex. DEMOAPP) ajoute ses actions métier
 // (route HTTP admin + outil MCP + permission RBAC automatiques). Le hook peut
 // retourner une erreur (ex. ID dupliqué) → fatale au boot.
 func WithExtraActions(fn func(*actions.Registry) error) RouteOption {
@@ -267,7 +267,7 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	// ceinture-et-bretelles.
 	// Vue membre du module « parcelles » : montée seulement si le module n'est pas
 	// désactivé pour l'instance. Désactivé → route non enregistrée, 404 naturel, une
-	// instance verticale (ex. GAFP) sert alors son propre tableur cadastral à la même
+	// instance verticale (ex. DEMOAPP) sert alors son propre tableur cadastral à la même
 	// place (parcelles propriétaire + preneur, ajout manuel + import CSV).
 	if !moduleDisabled(deps.DisabledModules, "/account/parcelles") {
 		r.With(withAccountAuth(deps, "/account/parcelles")...).Get("/account/parcelles", handleMyParcelles(deps))
@@ -282,7 +282,7 @@ func MountRoutes(r chi.Router, deps app.AppDeps, opts ...RouteOption) error {
 	r.With(requireAdmin).Post("/admin/conventions/{id}/revoke", handleAdminConventionRevoke(deps))
 	// Vue membre du module « conventions » : montée seulement si le module n'est pas
 	// désactivé pour l'instance. Désactivé → route non enregistrée, 404 naturel, une
-	// instance verticale (ex. GAFP) sert alors sa propre vue à la même place.
+	// instance verticale (ex. DEMOAPP) sert alors sa propre vue à la même place.
 	if !moduleDisabled(deps.DisabledModules, "/account/conventions") {
 		r.With(requireAuth).Get("/account/conventions", handleMyConventions(deps))
 	}

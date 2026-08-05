@@ -23,7 +23,7 @@ func TestInitAndBrand(t *testing.T) {
 
 func TestForumLabel_UsesNav(t *testing.T) {
 	Init(&Branding{
-		Name:    "GAFP",
+		Name:    "DEMOAPP",
 		BaseURL: "https://example.org",
 		Nav: []NavItem{
 			{Slug: "/forum", Label: "Dossiers", Order: 1},
@@ -54,7 +54,7 @@ func TestForumTexts_DefaultsWithoutOverrides(t *testing.T) {
 	}
 }
 
-func TestForumTexts_GAFPOverrides(t *testing.T) {
+func TestForumTexts_DEMOAPPOverrides(t *testing.T) {
 	Init(&Branding{
 		Texts: map[string]string{
 			"forum.categories":      "Familles de dossiers",

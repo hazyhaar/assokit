@@ -163,7 +163,7 @@ func TestProprietaireHome_FiltersOwnerCards(t *testing.T) {
 
 // proprietaireSubrouteDeps : déclaration du grade par routes EXACTES (onglet
 // visible sur parcelles + garde Hidden sur mutation), sans onglet sur la racine
-// /account — le patron anti-contamination du hub (incident GAFP 2026-07-02).
+// /account — le patron anti-contamination du hub (incident DEMOAPP 2026-07-02).
 func proprietaireSubrouteDeps(t *testing.T) app.AppDeps {
 	t.Helper()
 	deps := newAccountDeps(t)

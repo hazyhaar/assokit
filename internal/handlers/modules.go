@@ -1,7 +1,7 @@
 // CLAUDE:SUMMARY Registre des modules d'espace membre désactivables par la bordure
 // (api.Options.DisabledModules). Un module = un slug + les surfaces d'espace membre
 // (routes + hrefs) qu'il possède. Le core reste tenant-agnostic : il ne connaît
-// aucune instance, seule la bordure décide quels modules socle désactiver (ex. GAFP
+// aucune instance, seule la bordure décide quels modules socle désactiver (ex. DEMOAPP
 // remplace le module « conventions » par sa propre vue). Défaut : tous actifs.
 package handlers
 

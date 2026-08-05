@@ -37,7 +37,7 @@ type ElevageSummary struct {
 	Parcelles      []parcelle.Parcelle
 	SurfaceTotalM2 int64
 
-	// ExtraCards : cartes injectées par la bordure (ex. GAFP), reliant le hub
+	// ExtraCards : cartes injectées par la bordure (ex. DEMOAPP), reliant le hub
 	// socle aux sous-pages métier de l'instance. Vide par défaut.
 	ExtraCards []app.AccountCard
 }

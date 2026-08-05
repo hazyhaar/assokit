@@ -55,7 +55,7 @@ type (
 )
 
 // DashGroup et DashLink sont réexportés pour la bordure : une instance
-// consommatrice (ex. GAFP) ne peut pas importer internal/webui/views, mais peut
+// consommatrice (ex. DEMOAPP) ne peut pas importer internal/webui/views, mais peut
 // construire ses groupes de tableau de bord via ces alias et les injecter par
 // Options.AdminDashboardGroups.
 type (
@@ -162,7 +162,7 @@ type Options struct {
 	LogLevel slog.Level
 
 	// RegisterActions : hook de bordure optionnel. Reçoit le registre d'actions
-	// après les seeds core, pour qu'un produit consommateur (ex. GAFP) injecte
+	// après les seeds core, pour qu'un produit consommateur (ex. DEMOAPP) injecte
 	// ses actions métier — chacune obtenant route HTTP admin + outil MCP +
 	// permission RBAC automatiques (LLM-parity), sans modifier le core. Une
 	// erreur (ex. ID en doublon avec une action core) est fatale au New.
@@ -216,7 +216,7 @@ type Options struct {
 	// cette instance (ex. "conventions"). Vide/nil par défaut → tous les modules
 	// actifs (rétro-compatible). Quand un module est désactivé, ses routes ne sont
 	// pas montées (404 naturel) et ses cartes/liens ne sont pas rendus ; une instance
-	// verticale (ex. GAFP) fournit alors sa propre vue à la même place. Le core reste
+	// verticale (ex. DEMOAPP) fournit alors sa propre vue à la même place. Le core reste
 	// tenant-agnostic : seul un slug de module générique est accepté, jamais une
 	// identité d'instance. Un slug inconnu du catalogue socle est fatal au New
 	// (fail-loud, aucune désactivation silencieuse). Modules reconnus : cf.
@@ -225,7 +225,7 @@ type Options struct {
 
 	// SeedGrades : hook de bordure optionnel, appelé APRÈS les migrations (la table
 	// grades existe alors) et AVANT la validation des profils d'inscription, pour
-	// qu'un consommateur (ex. GAFP) enregistre ses grades RBAC personnalisés. Sans
+	// qu'un consommateur (ex. DEMOAPP) enregistre ses grades RBAC personnalisés. Sans
 	// cette fenêtre, un SignupProfile référençant un grade custom ferait échouer le
 	// boot (validateProfileGrades fail-loud) faute de pouvoir seeder ce grade. Une
 	// erreur du hook est fatale au New (la db est refermée). Nil → aucun seed custom.
@@ -234,7 +234,7 @@ type Options struct {
 	// AdminDashboardGroups : groupes de liens supplémentaires ajoutés au tableau de
 	// bord /admin, injectés à la bordure. Vide par défaut → seuls les groupes socle
 	// (génériques du kit) s'affichent. Le core reste tenant-agnostic : il ne connaît
-	// aucune sous-page propre à une instance ; une instance verticale (ex. GAFP)
+	// aucune sous-page propre à une instance ; une instance verticale (ex. DEMOAPP)
 	// place ici son groupe « Registre foncier » (→ /admin/registre) sans modifier le
 	// core. Les liens injectés portent, s'il le faut, une permission RBAC fine (champ
 	// Perm) et sont soumis au même filtrage par utilisateur que les liens socle.
@@ -243,7 +243,7 @@ type Options struct {
 	// ElevageExtraCards : cartes supplémentaires injectées dans le hub d'espace
 	// élevage (/account/elevage), miroir d'AdminDashboardGroups pour l'espace
 	// membre. Vide par défaut → seules les cartes socle (entretien, problème,
-	// export PAC) s'affichent. Une instance verticale (ex. GAFP) y relie ses
+	// export PAC) s'affichent. Une instance verticale (ex. DEMOAPP) y relie ses
 	// sous-pages métier (questions parcellaires, télédéclaration PAC, écarts
 	// acte/PAC) sans que le core ne connaisse jamais ces routes.
 	ElevageExtraCards []AccountCard
@@ -251,7 +251,7 @@ type Options struct {
 	// CSPExtra : sources additionnelles autorisées par directive Content-Security-Policy,
 	// injectées à la bordure d'instance. Valeur zéro (défaut) → CSP durcie inchangée,
 	// octet-pour-octet. Le core reste durci par défaut ; une instance qui charge une
-	// ressource externe légitime (ex. GAFP : MapLibre CDN + tuiles IGN pour la carte
+	// ressource externe légitime (ex. DEMOAPP : MapLibre CDN + tuiles IGN pour la carte
 	// foncière) ouvre ici le cran nécessaire, sans que le core n'élargisse jamais sa
 	// propre CSP.
 	CSPExtra appMiddleware.CSPExtra

@@ -34,7 +34,7 @@ func onboardDeps(t *testing.T) app.AppDeps {
 	db := newTestDB(t)
 	return app.AppDeps{
 		DB: db, Logger: newAccountDeps(t).Logger, Mailer: nil,
-		Config: config.Config{BaseURL: "https://gafp.test", CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
+		Config: config.Config{BaseURL: "https://demoapp.test", CookieSecret: []byte("0123456789abcdef0123456789abcdef")},
 	}
 }
 

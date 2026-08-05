@@ -172,7 +172,7 @@ func TestSignupProfiles_UnknownGradeFailsBoot(t *testing.T) {
 // TestDisabledModules_ConventionsOffRouteNotMounted vérifie qu'avec le module
 // « conventions » désactivé, la route d'espace membre /account/conventions n'est
 // pas montée : le routeur répond 404 (route absente), indépendamment de l'auth —
-// une instance verticale (ex. GAFP) fournit alors sa propre vue à la même place.
+// une instance verticale (ex. DEMOAPP) fournit alors sa propre vue à la même place.
 func TestDisabledModules_ConventionsOffRouteNotMounted(t *testing.T) {
 	t.Parallel()
 	app, err := api.New(api.Options{

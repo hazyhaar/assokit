@@ -1,6 +1,6 @@
 // shell.go — surface publique de la coquille applicative socle.
 // Expose le shell templux complet (nav, user-menu, flashs, FeedbackWidget, assets)
-// aux instances de bordure (ex. GAFP) sans qu'elles importent internal/webui, qui
+// aux instances de bordure (ex. DEMOAPP) sans qu'elles importent internal/webui, qui
 // leur est interdit par la frontiere Go. La surface delegue au shell interne :
 // aucune seconde coquille n'est recreee.
 package api

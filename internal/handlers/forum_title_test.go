@@ -12,10 +12,10 @@ import (
 )
 
 // TestForumIndex_TitleUsesNavLabel : le titre de /forum reprend le libellé nav
-// (ex. « Dossiers » sous GAFP), pas le libellé générique « Forum ».
+// (ex. « Dossiers » sous DEMOAPP), pas le libellé générique « Forum ».
 func TestForumIndex_TitleUsesNavLabel(t *testing.T) {
 	theme.Init(&theme.Branding{
-		Name:    "GAFP Test",
+		Name:    "DEMOAPP Test",
 		BaseURL: "http://localhost",
 		Nav: []theme.NavItem{
 			{Slug: "/forum", Label: "Dossiers", Order: 1},
@@ -35,7 +35,7 @@ func TestForumIndex_TitleUsesNavLabel(t *testing.T) {
 		t.Fatalf("attendu 200, obtenu %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "<title>Dossiers — GAFP Test</title>") {
+	if !strings.Contains(body, "<title>Dossiers — DEMOAPP Test</title>") {
 		t.Fatalf("titre page attendu « Dossiers », got extrait sans match dans %q", body[:min(500, len(body))])
 	}
 	if strings.Contains(body, "Forum communautaire") {
